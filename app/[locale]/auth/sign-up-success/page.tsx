@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Link } from '@/i18n/routing'
 import { useTranslations } from 'next-intl'
 import { Navigation } from "@/components/navigation"
-import { getTranslations } from 'next-intl/server'
 
 export default function SignUpSuccessPage() {
   const t = useTranslations('auth')
@@ -32,9 +31,11 @@ export default function SignUpSuccessPage() {
           </CardContent>
         </Card>
       </div>
+      </div>
     </div>
   )
 }
+
 
 
 

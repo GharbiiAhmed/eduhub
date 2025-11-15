@@ -93,3 +93,4 @@ CREATE TRIGGER update_announcements_updated_at BEFORE UPDATE ON public.announcem
 
 
 
+

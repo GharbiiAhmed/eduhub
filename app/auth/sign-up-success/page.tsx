@@ -28,6 +28,7 @@ export default function SignUpSuccessPage() {
           </CardContent>
         </Card>
       </div>
+      </div>
     </div>
   )
 }
