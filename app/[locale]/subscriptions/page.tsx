@@ -25,7 +25,6 @@ import { Link } from '@/i18n/routing'
 import Image from "next/image"
 import { toast } from "@/hooks/use-toast"
 import { useTranslations } from 'next-intl'
-import { getTranslations } from 'next-intl/server'
 
 interface Subscription {
   id: string
