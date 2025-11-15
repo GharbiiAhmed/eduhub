@@ -24,7 +24,6 @@ import { createClient } from "@/lib/supabase/client"
 import { useRouter } from '@/i18n/routing'
 import { Navigation } from "@/components/navigation"
 import Image from "next/image"
-import { getTranslations } from 'next-intl/server'
 
 interface Course {
   id: string
