@@ -1,0 +1,25 @@
+{
+  "crons": [
+    {
+      "path": "/api/subscriptions/check-expiring",
+      "schedule": "0 9 * * *"
+    }
+  ]
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
