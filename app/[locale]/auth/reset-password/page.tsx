@@ -8,12 +8,11 @@ import { Label } from "@/components/ui/label"
 import { Link, useRouter } from '@/i18n/routing'
 import { useTranslations } from 'next-intl'
 import { useSearchParams } from "next/navigation"
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { Lock, ArrowRight, Sparkles, Eye, EyeOff, CheckCircle } from "lucide-react"
 import { Navigation } from "@/components/navigation"
-import { getTranslations } from 'next-intl/server'
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const t = useTranslations('auth')
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -280,6 +279,23 @@ export default function ResetPasswordPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex flex-col">
+        <Navigation />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        </div>
+      </div>
+    }>
+      <ResetPasswordForm />
+    </Suspense>
   )
 }
 
