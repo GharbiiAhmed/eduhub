@@ -111,7 +111,7 @@ export async function PATCH(
     if (role !== undefined && ['student', 'instructor', 'admin'].includes(role)) {
       updateData.role = role
     }
-    if (status !== undefined && ['active', 'inactive', 'banned'].includes(status)) {
+    if (status !== undefined && ['pending', 'approved', 'active', 'inactive', 'banned'].includes(status)) {
       updateData.status = status
     }
     if (full_name !== undefined) {
