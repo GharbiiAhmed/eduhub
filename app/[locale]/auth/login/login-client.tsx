@@ -33,13 +33,26 @@ export function LoginClient() {
       })
       if (error) throw error
       
-      // Fetch user profile to get role
+      // Fetch user profile to get role and status
       if (data.user) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('role')
+          .select('role, status')
           .eq('id', data.user.id)
           .single()
+
+        // Check if user is approved
+        if (profile?.status === 'pending') {
+          setError("Your account is pending approval. Please wait for admin approval before logging in.")
+          setIsLoading(false)
+          return
+        }
+
+        if (profile?.status === 'banned' || profile?.status === 'inactive') {
+          setError("Your account has been deactivated. Please contact support.")
+          setIsLoading(false)
+          return
+        }
 
         // Redirect based on role - router from @/i18n/routing handles locale automatically
         if (profile?.role === 'admin') {

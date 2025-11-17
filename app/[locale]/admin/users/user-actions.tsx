@@ -35,6 +35,8 @@ import {
   UserCheck, 
   Trash2,
   Mail,
+  CheckCircle,
+  XCircle,
 } from "lucide-react"
 import { Link } from '@/i18n/routing'
 import { toast } from "@/hooks/use-toast"
@@ -59,6 +61,8 @@ export default function UserActions({ userId, userRole, userStatus, userEmail, v
     role: userRole,
     status: userStatus || 'active'
   })
+  const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false)
+  const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false)
   const router = useRouter()
 
   const handleEdit = () => {
@@ -143,6 +147,76 @@ export default function UserActions({ userId, userRole, userStatus, userEmail, v
     }
   }
 
+  const handleApprove = async () => {
+    try {
+      setLoading(true)
+      
+      const response = await fetch(`/api/admin/users/${userId}/approve`, {
+        method: 'POST',
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to approve user")
+      }
+
+      toast({
+        title: t('userApproved') || 'User Approved',
+        description: t('userApprovedSuccess') || 'User has been approved and can now log in.',
+      })
+      
+      setIsApproveDialogOpen(false)
+      router.refresh()
+    } catch (error: any) {
+      toast({
+        title: tCommon('error'),
+        description: error.message || t('errorApprovingUser') || 'Failed to approve user',
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleReject = async () => {
+    try {
+      setLoading(true)
+      
+      const response = await fetch(`/api/admin/users/${userId}/reject`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reason: 'Account registration rejected by admin'
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to reject user")
+      }
+
+      toast({
+        title: t('userRejected') || 'User Rejected',
+        description: t('userRejectedSuccess') || 'User has been rejected.',
+      })
+      
+      setIsRejectDialogOpen(false)
+      router.refresh()
+    } catch (error: any) {
+      toast({
+        title: tCommon('error'),
+        description: error.message || t('errorRejectingUser') || 'Failed to reject user',
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleDelete = async () => {
     if (!confirm(t('confirmDelete'))) {
       return
@@ -181,6 +255,27 @@ export default function UserActions({ userId, userRole, userStatus, userEmail, v
   return (
     <>
       <div className="flex items-center justify-end space-x-2">
+        {userStatus === 'pending' && (
+          <>
+            <Button 
+              variant="default" 
+              size="sm" 
+              onClick={() => setIsApproveDialogOpen(true)}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <CheckCircle className="w-4 h-4 mr-1" />
+              {t('approve') || 'Approve'}
+            </Button>
+            <Button 
+              variant="destructive" 
+              size="sm" 
+              onClick={() => setIsRejectDialogOpen(true)}
+            >
+              <XCircle className="w-4 h-4 mr-1" />
+              {t('reject') || 'Reject'}
+            </Button>
+          </>
+        )}
         <Button variant="outline" size="sm" asChild>
           <Link href={viewLink || `/admin/users/${userId}`}>
             <Eye className="w-4 h-4" />
@@ -273,6 +368,8 @@ export default function UserActions({ userId, userRole, userStatus, userEmail, v
                   <SelectValue placeholder={t('selectStatus') || 'Select status'} />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="pending">{t('pending') || 'Pending'}</SelectItem>
+                  <SelectItem value="approved">{t('approved') || 'Approved'}</SelectItem>
                   <SelectItem value="active">{t('active')}</SelectItem>
                   <SelectItem value="inactive">{t('inactive')}</SelectItem>
                   <SelectItem value="banned">{t('banned')}</SelectItem>
@@ -311,6 +408,46 @@ export default function UserActions({ userId, userRole, userStatus, userEmail, v
             </Button>
             <Button onClick={handleBan} disabled={loading} variant={userStatus === 'banned' ? 'default' : 'destructive'}>
               {loading ? (tCommon('loading') || 'Processing...') : userStatus === 'banned' ? t('unbanUser') : t('banUser')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approve Dialog */}
+      <Dialog open={isApproveDialogOpen} onOpenChange={setIsApproveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('approveUser') || 'Approve User'}</DialogTitle>
+            <DialogDescription>
+              {t('confirmApprove') || 'Are you sure you want to approve this user? They will be able to log in and access the platform.'}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsApproveDialogOpen(false)}>
+              {tCommon('cancel')}
+            </Button>
+            <Button onClick={handleApprove} disabled={loading} className="bg-green-600 hover:bg-green-700">
+              {loading ? (tCommon('loading') || 'Processing...') : (t('approve') || 'Approve')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Dialog */}
+      <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('rejectUser') || 'Reject User'}</DialogTitle>
+            <DialogDescription>
+              {t('confirmReject') || 'Are you sure you want to reject this user? They will not be able to access the platform.'}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRejectDialogOpen(false)}>
+              {tCommon('cancel')}
+            </Button>
+            <Button onClick={handleReject} disabled={loading} variant="destructive">
+              {loading ? (tCommon('loading') || 'Processing...') : (t('reject') || 'Reject')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -25,12 +25,44 @@ export function LoginClient() {
     setError(null)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
       if (error) throw error
-      router.push("/dashboard")
+      
+      // Fetch user profile to get role and status
+      if (data.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role, status')
+          .eq('id', data.user.id)
+          .single()
+
+        // Check if user is approved
+        if (profile?.status === 'pending') {
+          setError("Your account is pending approval. Please wait for admin approval before logging in.")
+          setIsLoading(false)
+          return
+        }
+
+        if (profile?.status === 'banned' || profile?.status === 'inactive') {
+          setError("Your account has been deactivated. Please contact support.")
+          setIsLoading(false)
+          return
+        }
+
+        // Redirect based on role
+        if (profile?.role === 'admin') {
+          router.push('/admin/dashboard')
+        } else if (profile?.role === 'instructor') {
+          router.push('/instructor/dashboard')
+        } else {
+          router.push('/student/courses')
+        }
+      } else {
+        router.push("/dashboard")
+      }
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
     } finally {

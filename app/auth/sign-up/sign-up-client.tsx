@@ -54,10 +54,15 @@ export function SignUpClient() {
     }
 
     try {
+      // Get the current URL to construct the redirect URL for email verification
+      // This works for both localhost and deployed environments
+      const redirectUrl = `${window.location.origin}/auth/pending-approval`
+      
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
+          emailRedirectTo: redirectUrl,
           data: {
             full_name: formData.fullName,
             role: formData.role
@@ -68,21 +73,38 @@ export function SignUpClient() {
       if (error) throw error
 
       if (data.user) {
-        // Create profile
+        // Create profile with pending status
         const { error: profileError } = await supabase
           .from('profiles')
           .insert({
             id: data.user.id,
             full_name: formData.fullName,
             role: formData.role,
-            email: formData.email
+            email: formData.email,
+            status: 'pending'  // New users need admin approval
           })
 
         if (profileError) {
           console.error('Profile creation error:', profileError)
         }
 
-        router.push("/auth/sign-up-success")
+        // Notify admin about new user registration
+        try {
+          await fetch('/api/admin/notify-new-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: data.user.id,
+              email: formData.email,
+              fullName: formData.fullName,
+              role: formData.role
+            })
+          })
+        } catch (err) {
+          console.error('Failed to notify admin:', err)
+        }
+
+        router.push("/auth/pending-approval")
       }
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")

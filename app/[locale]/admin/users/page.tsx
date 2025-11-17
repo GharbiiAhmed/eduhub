@@ -80,7 +80,8 @@ export default async function AdminUsersPage() {
   const students = users?.filter(u => u.role === 'student').length || 0
   const instructors = users?.filter(u => u.role === 'instructor').length || 0
   const admins = users?.filter(u => u.role === 'admin').length || 0
-  const activeUsers = users?.filter(u => u.status === 'active').length || 0
+  const activeUsers = users?.filter(u => u.status === 'active' || u.status === 'approved').length || 0
+  const pendingUsers = users?.filter(u => u.status === 'pending').length || 0
 
   return (
     <div className="space-y-8">
@@ -166,6 +167,19 @@ export default async function AdminUsersPage() {
             </p>
           </CardContent>
         </Card>
+
+        <Card className="hover:shadow-lg transition-shadow border-2 border-yellow-200 dark:border-yellow-800">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">{t('pending') || 'Pending'}</CardTitle>
+            <AlertCircle className="h-4 w-4 text-yellow-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{pendingUsers}</div>
+            <p className="text-xs text-muted-foreground">
+              {t('pendingApproval') || 'Awaiting approval'}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Search and Filters */}
@@ -199,6 +213,8 @@ export default async function AdminUsersPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t('allStatus')}</SelectItem>
+                  <SelectItem value="pending">{t('pending') || 'Pending'}</SelectItem>
+                  <SelectItem value="approved">{t('approved') || 'Approved'}</SelectItem>
                   <SelectItem value="active">{t('active')}</SelectItem>
                   <SelectItem value="inactive">{t('inactive')}</SelectItem>
                   <SelectItem value="banned">{t('banned')}</SelectItem>
@@ -254,12 +270,19 @@ export default async function AdminUsersPage() {
                     <TableCell>
                       <Badge 
                         variant={
-                          user.status === 'active' ? 'default' : 
-                          user.status === 'inactive' ? 'secondary' : 
-                          'destructive'
+                          user.status === 'pending' ? 'outline' :
+                          user.status === 'approved' ? 'default' :
+                          user.status === 'active' ? 'default' :
+                          user.status === 'banned' ? 'destructive' :
+                          'secondary'
+                        }
+                        className={
+                          user.status === 'pending' ? 'border-yellow-500 text-yellow-700 dark:text-yellow-400' : ''
                         }
                       >
-                        {user.status || t('active')}
+                        {user.status === 'pending' ? (t('pending') || 'Pending') :
+                         user.status === 'approved' ? (t('approved') || 'Approved') :
+                         user.status || t('active')}
                       </Badge>
                     </TableCell>
                     <TableCell>

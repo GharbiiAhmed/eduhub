@@ -31,24 +31,55 @@ function ResetPasswordForm() {
       // Check for hash fragments in URL (Supabase redirects with #access_token=...&type=recovery)
       const hashParams = new URLSearchParams(window.location.hash.substring(1))
       const type = hashParams.get('type')
+      const accessToken = hashParams.get('access_token')
       
       // Also check query parameters
-      const token = searchParams.get('token') || hashParams.get('access_token')
+      const token = searchParams.get('token') || accessToken
       
       if (type === 'recovery' || token) {
         // Supabase has redirected here with a recovery token
-        // Wait for Supabase to process the token and establish session
-        setTimeout(async () => {
-          const { data: { session } } = await supabase.auth.getSession()
+        // Supabase automatically processes hash fragments, but we need to wait a bit
+        // Try multiple times to ensure session is established
+        let attempts = 0
+        const maxAttempts = 5
+        
+        const checkSessionWithRetry = async () => {
+          const { data: { session }, error } = await supabase.auth.getSession()
           
-          if (!session) {
-            setError("Invalid or expired reset link. Please request a new password reset.")
+          if (session) {
             setIsValidating(false)
             return
           }
           
-          setIsValidating(false)
-        }, 1000)
+          attempts++
+          if (attempts < maxAttempts) {
+            // Wait a bit longer each time
+            setTimeout(checkSessionWithRetry, 500 * attempts)
+          } else {
+            // If we still don't have a session, try to exchange the token manually
+            if (accessToken) {
+              try {
+                const { data, error } = await supabase.auth.setSession({
+                  access_token: accessToken,
+                  refresh_token: hashParams.get('refresh_token') || ''
+                })
+                
+                if (data.session) {
+                  setIsValidating(false)
+                  return
+                }
+              } catch (err) {
+                console.error('Error setting session:', err)
+              }
+            }
+            
+            setError("Invalid or expired reset link. Please request a new password reset.")
+            setIsValidating(false)
+          }
+        }
+        
+        // Start checking after a short delay to let Supabase process the hash
+        setTimeout(checkSessionWithRetry, 300)
       } else {
         // Check for existing session
         const { data: { session } } = await supabase.auth.getSession()
@@ -89,6 +120,15 @@ function ResetPasswordForm() {
     }
 
     try {
+      // Verify we have a session before attempting to update
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session) {
+        setError("Auth session missing! Please use the link from your email to reset your password.")
+        setIsLoading(false)
+        return
+      }
+
       const { error } = await supabase.auth.updateUser({
         password: password
       })
