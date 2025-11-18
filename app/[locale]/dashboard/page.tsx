@@ -12,7 +12,17 @@ export default async function DashboardPage() {
     redirect("/auth/login")
   }
 
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+  const { data: profile } = await supabase.from("profiles").select("role, status").eq("id", user.id).single()
+
+  // Check if user is pending - redirect to pending approval page
+  if (profile?.status === 'pending') {
+    redirect("/auth/pending-approval")
+  }
+
+  // Check if user is banned or inactive - redirect to login
+  if (profile?.status === 'banned' || profile?.status === 'inactive') {
+    redirect("/auth/login")
+  }
 
   // Redirect based on role
   if (profile?.role === "admin") {

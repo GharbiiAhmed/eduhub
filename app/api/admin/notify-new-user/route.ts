@@ -35,11 +35,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Create notifications for all admins
+    // This endpoint is only called for instructors (students are auto-approved)
     const notifications = admins.map(admin => ({
       user_id: admin.id,
       type: 'user_registration',
-      title: 'New User Registration',
-      message: `New user registered: ${fullName} (${email}) - Role: ${role}`,
+      title: 'New Instructor Registration - Approval Required',
+      message: `New instructor registered: ${fullName} (${email}). Please review and approve their account.`,
       link: `/admin/users/${userId}`,
       related_id: userId,
       related_type: 'user'

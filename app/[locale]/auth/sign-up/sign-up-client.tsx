@@ -74,7 +74,10 @@ export function SignUpClient() {
       if (error) throw error
 
       if (data.user) {
-        // Create profile with pending status
+        // Set status based on role: students are auto-approved, instructors need approval
+        const userStatus = formData.role === 'instructor' ? 'pending' : 'approved'
+        
+        // Create profile with appropriate status
         const { error: profileError } = await supabase
           .from('profiles')
           .insert({
@@ -82,30 +85,38 @@ export function SignUpClient() {
             full_name: formData.fullName,
             role: formData.role,
             email: formData.email,
-            status: 'pending'  // New users need admin approval
+            status: userStatus
           })
 
         if (profileError) {
           console.error('Profile creation error:', profileError)
         }
 
-        // Notify admin about new user registration
-        try {
-          await fetch('/api/admin/notify-new-user', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: data.user.id,
-              email: formData.email,
-              fullName: formData.fullName,
-              role: formData.role
+        // Only notify admin for instructor registrations
+        if (formData.role === 'instructor') {
+          try {
+            await fetch('/api/admin/notify-new-user', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: data.user.id,
+                email: formData.email,
+                fullName: formData.fullName,
+                role: formData.role
+              })
             })
-          })
-        } catch (err) {
-          console.error('Failed to notify admin:', err)
+          } catch (err) {
+            console.error('Failed to notify admin:', err)
+          }
         }
 
-        router.push("/auth/pending-approval")
+        // Redirect based on status
+        if (userStatus === 'pending') {
+          router.push("/auth/pending-approval")
+        } else {
+          // Students are auto-approved, redirect to success page
+          router.push("/auth/sign-up-success")
+        }
       }
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : t('anErrorOccurred'))

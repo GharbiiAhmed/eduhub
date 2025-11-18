@@ -15,16 +15,29 @@ UPDATE public.profiles
 SET status = 'approved'
 WHERE status = 'active';
 
--- Update the trigger to set new users to 'pending' status
+-- Update the trigger to set new users status based on role
+-- Students are auto-approved, Instructors need admin approval
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  user_role TEXT;
+  user_status TEXT;
 BEGIN
+  user_role := COALESCE(new.raw_user_meta_data ->> 'role', 'student');
+  
+  -- Students are auto-approved, Instructors need approval
+  IF user_role = 'instructor' THEN
+    user_status := 'pending';
+  ELSE
+    user_status := 'approved';
+  END IF;
+  
   INSERT INTO public.profiles (id, email, role, status)
   VALUES (
     new.id,
     new.email,
-    COALESCE(new.raw_user_meta_data ->> 'role', 'student'),
-    'pending'  -- New users start as pending approval
+    user_role,
+    user_status
   )
   ON CONFLICT (id) DO NOTHING;
   RETURN new;

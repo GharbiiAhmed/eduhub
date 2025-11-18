@@ -37,6 +37,44 @@ export async function updateSession(request: NextRequest) {
       url.pathname = "/auth/login"
       return NextResponse.redirect(url)
     }
+
+    // Check user status for authenticated users
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("status")
+        .eq("id", user.id)
+        .single()
+
+      // If user is pending, redirect to pending approval page (except for auth routes and pending approval page itself)
+      const pathname = request.nextUrl.pathname
+      const isAuthRoute = pathname.includes("/auth/")
+      const isPendingApprovalPage = pathname.includes("/pending-approval")
+      const isPublicRoute = pathname === "/" || pathname.match(/^\/(en|es|fr|ar|de|it|pt|ru|zh|ja|ko)?\/?$/)
+      
+      if (profile?.status === 'pending' && 
+          !isAuthRoute && 
+          !isPendingApprovalPage &&
+          !isPublicRoute) {
+        const url = request.nextUrl.clone()
+        // Preserve locale if present
+        const locale = pathname.split('/')[1]
+        if (locale && ['en', 'es', 'fr', 'ar', 'de', 'it', 'pt', 'ru', 'zh', 'ja', 'ko'].includes(locale)) {
+          url.pathname = `/${locale}/auth/pending-approval`
+        } else {
+          url.pathname = "/auth/pending-approval"
+        }
+        return NextResponse.redirect(url)
+      }
+
+      // If user is banned or inactive, redirect to login (except for auth routes)
+      if ((profile?.status === 'banned' || profile?.status === 'inactive') && 
+          !request.nextUrl.pathname.startsWith("/auth")) {
+        const url = request.nextUrl.clone()
+        url.pathname = "/auth/login"
+        return NextResponse.redirect(url)
+      }
+    }
   } catch (error) {
     console.warn("[v0] Error getting user in middleware:", error)
     // Continue without user info if there's an error

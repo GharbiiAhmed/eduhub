@@ -46,6 +46,7 @@ export function Navigation({ userType: propUserType, user: propUser }: Navigatio
   const [mounted, setMounted] = useState(false)
   const [user, setUser] = useState<any>(propUser)
   const [userType, setUserType] = useState<'student' | 'instructor' | 'admin' | undefined>(propUserType)
+  const [userStatus, setUserStatus] = useState<string | undefined>(undefined)
   const [loading, setLoading] = useState(true)
   const pathname = usePathname()
   const router = useRouter()
@@ -76,10 +77,10 @@ export function Navigation({ userType: propUserType, user: propUser }: Navigatio
 
         setUser(authUser)
 
-        // Fetch user profile to get role
+        // Fetch user profile to get role and status
         const { data: profile } = await supabase
           .from('profiles')
-          .select('role')
+          .select('role, status')
           .eq('id', authUser.id)
           .single()
 
@@ -87,6 +88,9 @@ export function Navigation({ userType: propUserType, user: propUser }: Navigatio
 
         if (profile?.role) {
           setUserType(profile.role as 'student' | 'instructor' | 'admin')
+        }
+        if (profile?.status) {
+          setUserStatus(profile.status)
         }
         setLoading(false)
       } catch (error) {
@@ -113,10 +117,10 @@ export function Navigation({ userType: propUserType, user: propUser }: Navigatio
 
       if (event === 'SIGNED_IN' && session?.user) {
         setUser(session.user)
-        // Fetch profile for role
+        // Fetch profile for role and status
         supabase
           .from('profiles')
-          .select('role')
+          .select('role, status')
           .eq('id', session.user.id)
           .single()
           .then(({ data: profile }) => {
@@ -124,10 +128,14 @@ export function Navigation({ userType: propUserType, user: propUser }: Navigatio
             if (profile?.role) {
               setUserType(profile.role as 'student' | 'instructor' | 'admin')
             }
+            if (profile?.status) {
+              setUserStatus(profile.status)
+            }
           })
       } else if (event === 'SIGNED_OUT') {
         setUser(null)
         setUserType(undefined)
+        setUserStatus(undefined)
       }
     })
 
@@ -171,13 +179,18 @@ export function Navigation({ userType: propUserType, user: propUser }: Navigatio
 
   // Navigation items based on user state
   const getNavigationItems = () => {
+    // If user is pending, don't show any navigation items (except logout)
+    if (userStatus === 'pending') {
+      return []
+    }
+
     const items = [
       { href: '/courses', label: t('common.courses'), icon: GraduationCap },
       { href: '/books', label: t('common.books'), icon: BookOpen },
     ]
 
-    // Add Dashboard link if user is logged in
-    if (user && userType) {
+    // Add Dashboard link if user is logged in and approved
+    if (user && userType && userStatus !== 'pending') {
       const dashboardPath = `/${userType}/dashboard`
       items.unshift({ href: dashboardPath, label: t('common.dashboard'), icon: LayoutDashboard })
     }
@@ -231,17 +244,19 @@ export function Navigation({ userType: propUserType, user: propUser }: Navigatio
 
           {/* Right side - Search, Notifications, User Menu */}
           <div className="flex items-center space-x-2 sm:space-x-4">
-            {/* Search - Compact design */}
-            <div className="hidden sm:block">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder={t('common.search')}
-                  className="pl-8 pr-3 py-1.5 w-48 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+            {/* Search - Compact design - Only show for approved users */}
+            {userStatus !== 'pending' && (
+              <div className="hidden sm:block">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder={t('common.search')}
+                    className="pl-8 pr-3 py-1.5 w-48 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Language Switcher */}
             <LanguageSwitcher />
@@ -265,8 +280,8 @@ export function Navigation({ userType: propUserType, user: propUser }: Navigatio
               )}
             </Button>
 
-            {/* Notifications */}
-            {user && <NotificationDropdown userId={user.id} />}
+            {/* Notifications - Only show for approved users */}
+            {user && userStatus !== 'pending' && <NotificationDropdown userId={user.id} />}
 
             {/* User Menu */}
             {user ? (
@@ -293,33 +308,47 @@ export function Navigation({ userType: propUserType, user: propUser }: Navigatio
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {userType && (
-                    <DropdownMenuItem asChild>
-                      <Link href={`/${userType}/dashboard`} className="flex items-center">
-                        <LayoutDashboard className="mr-2 h-4 w-4" />
-                        <span>{t('common.dashboard')}</span>
-                      </Link>
-                    </DropdownMenuItem>
+                  {/* Only show menu items if user is not pending */}
+                  {userStatus !== 'pending' && (
+                    <>
+                      {userType && (
+                        <DropdownMenuItem asChild>
+                          <Link href={`/${userType}/dashboard`} className="flex items-center">
+                            <LayoutDashboard className="mr-2 h-4 w-4" />
+                            <span>{t('common.dashboard')}</span>
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem asChild>
+                        <Link href="/profile" className="flex items-center">
+                          <User className="mr-2 h-4 w-4" />
+                          <span>{t('navigation.profile')}</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/settings" className="flex items-center">
+                          <Settings className="mr-2 h-4 w-4" />
+                          <span>{t('common.settings')}</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/help" className="flex items-center">
+                          <HelpCircle className="mr-2 h-4 w-4" />
+                          <span>{t('navigation.help')}</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
                   )}
-                  <DropdownMenuItem asChild>
-                    <Link href="/profile" className="flex items-center">
-                      <User className="mr-2 h-4 w-4" />
-                      <span>{t('navigation.profile')}</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/settings" className="flex items-center">
-                      <Settings className="mr-2 h-4 w-4" />
-                      <span>{t('common.settings')}</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/help" className="flex items-center">
-                      <HelpCircle className="mr-2 h-4 w-4" />
-                      <span>{t('navigation.help')}</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                  {/* Show pending message if user is pending */}
+                  {userStatus === 'pending' && (
+                    <>
+                      <DropdownMenuItem disabled className="text-yellow-600 dark:text-yellow-400">
+                        <span className="text-xs">Account pending approval</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
                   <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>{t('common.logout')}</span>
