@@ -41,23 +41,32 @@ export function LoginClient() {
           .eq('id', data.user.id)
           .single()
 
+        // Check if profile exists (user was deleted)
+        if (!profile) {
+          await supabase.auth.signOut()
+          setError("Your account has been deleted. Please contact support if you believe this is an error.")
+          setIsLoading(false)
+          return
+        }
+
         // Check if user is approved
-        if (profile?.status === 'pending') {
+        if (profile.status === 'pending') {
           setError("Your account is pending approval. Please wait for admin approval before logging in.")
           setIsLoading(false)
           return
         }
 
-        if (profile?.status === 'banned' || profile?.status === 'inactive') {
+        if (profile.status === 'banned' || profile.status === 'inactive') {
+          await supabase.auth.signOut()
           setError("Your account has been deactivated. Please contact support.")
           setIsLoading(false)
           return
         }
 
         // Redirect based on role - router from @/i18n/routing handles locale automatically
-        if (profile?.role === 'admin') {
+        if (profile.role === 'admin') {
           router.push('/admin/dashboard')
-        } else if (profile?.role === 'instructor') {
+        } else if (profile.role === 'instructor') {
           router.push('/instructor/dashboard')
         } else {
           router.push('/student/courses')

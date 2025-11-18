@@ -1,11 +1,18 @@
--- Ensure the trigger function properly bypasses RLS
--- The trigger should create profiles without RLS restrictions
+-- Add a safe insert policy for profiles table
+-- This allows users to insert their own profile as a fallback if the trigger fails
+-- The policy ensures users can only insert their own profile (auth.uid() = id)
+-- This prevents RLS errors from cached client code trying to insert
 
--- Verify the trigger function has SECURITY DEFINER
--- This ensures it runs with the privileges of the function owner (postgres)
--- and bypasses RLS policies
+-- Drop the policy if it exists, then recreate it
+-- This policy allows users to insert their own profile row
+DROP POLICY IF EXISTS "profiles_insert_own" ON public.profiles;
 
--- Recreate the trigger function to ensure it has proper security settings
+CREATE POLICY "profiles_insert_own" ON public.profiles 
+FOR INSERT 
+WITH CHECK (auth.uid() = id);
+
+-- Ensure the trigger function is properly configured with SECURITY DEFINER
+-- This is the primary mechanism for profile creation
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER 
 SECURITY DEFINER
@@ -27,7 +34,7 @@ BEGIN
     user_status := 'approved';
   END IF;
   
-  -- Insert profile - SECURITY DEFINER bypasses RLS
+  -- Insert profile - SECURITY DEFINER bypasses RLS completely
   INSERT INTO public.profiles (id, email, role, status, full_name)
   VALUES (
     new.id,
@@ -53,8 +60,6 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_new_user();
 
--- Grant necessary permissions to the function
--- The function owner (usually postgres) should have full access
+-- Grant execute permission to the trigger function
 GRANT EXECUTE ON FUNCTION public.handle_new_user() TO postgres, anon, authenticated, service_role;
-
 

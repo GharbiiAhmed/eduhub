@@ -93,7 +93,9 @@ export function SignUpClient() {
       // Update profile status via API endpoint (uses service role to bypass RLS)
       // The trigger already set full_name from metadata, we just need to ensure status is correct
       try {
-        const updateResponse = await fetch('/api/auth/update-profile', {
+        // Use absolute URL to ensure it works correctly with all locales
+        const apiUrl = `${window.location.origin}/api/auth/update-profile`
+        const updateResponse = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

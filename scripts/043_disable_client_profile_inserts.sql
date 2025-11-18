@@ -1,11 +1,30 @@
--- Ensure the trigger function properly bypasses RLS
--- The trigger should create profiles without RLS restrictions
+-- Disable direct client inserts into profiles table
+-- Only allow inserts through the trigger (SECURITY DEFINER) or service role
+-- This prevents any cached client code from trying to insert directly
 
--- Verify the trigger function has SECURITY DEFINER
--- This ensures it runs with the privileges of the function owner (postgres)
--- and bypasses RLS policies
+-- Drop the client insert policy - clients should NOT be able to insert directly
+DROP POLICY IF EXISTS "profiles_insert_own" ON public.profiles;
 
--- Recreate the trigger function to ensure it has proper security settings
+-- The trigger handles all profile creation with SECURITY DEFINER
+-- Clients should only be able to UPDATE their own profile after it's created by the trigger
+-- This prevents RLS errors from cached client code trying to insert
+
+-- Keep the update policy so users can update their own profile
+DROP POLICY IF EXISTS "profiles_update_own" ON public.profiles;
+
+CREATE POLICY "profiles_update_own" ON public.profiles 
+FOR UPDATE 
+USING (auth.uid() = id) 
+WITH CHECK (auth.uid() = id);
+
+-- Keep the select policy so users can read their own profile
+DROP POLICY IF EXISTS "profiles_select_own" ON public.profiles;
+
+CREATE POLICY "profiles_select_own" ON public.profiles 
+FOR SELECT 
+USING (auth.uid() = id);
+
+-- Verify the trigger function has SECURITY DEFINER and is working
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER 
 SECURITY DEFINER
@@ -27,7 +46,7 @@ BEGIN
     user_status := 'approved';
   END IF;
   
-  -- Insert profile - SECURITY DEFINER bypasses RLS
+  -- Insert profile - SECURITY DEFINER bypasses RLS completely
   INSERT INTO public.profiles (id, email, role, status, full_name)
   VALUES (
     new.id,
@@ -53,8 +72,7 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_new_user();
 
--- Grant necessary permissions to the function
--- The function owner (usually postgres) should have full access
+-- Grant execute permission to the trigger function
 GRANT EXECUTE ON FUNCTION public.handle_new_user() TO postgres, anon, authenticated, service_role;
 
 

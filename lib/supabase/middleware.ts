@@ -46,6 +46,16 @@ export async function updateSession(request: NextRequest) {
         .eq("id", user.id)
         .single()
 
+      // If profile doesn't exist (user was deleted), block access and redirect to login
+      // This prevents deleted users from accessing the system
+      if (!profile && !request.nextUrl.pathname.startsWith("/auth")) {
+        const url = request.nextUrl.clone()
+        url.pathname = "/auth/login"
+        // Clear auth session by signing out
+        await supabase.auth.signOut()
+        return NextResponse.redirect(url)
+      }
+
       // If user is pending, redirect to pending approval page (except for auth routes and pending approval page itself)
       const pathname = request.nextUrl.pathname
       const isAuthRoute = pathname.includes("/auth/")

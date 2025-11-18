@@ -14,6 +14,18 @@ export default async function StudentLayout({ children }: { children: React.Reac
     redirect("/auth/login")
   }
 
+  // Check if profile exists (user was deleted)
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single()
+
+  if (!profile) {
+    await supabase.auth.signOut()
+    redirect("/auth/login")
+  }
+
   return (
     <DashboardLayout userType="student" showSidebar={true}>
       {children}

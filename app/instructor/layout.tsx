@@ -16,7 +16,13 @@ export default async function InstructorLayout({ children }: { children: React.R
 
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
 
-  if (profile?.role !== "instructor" && profile?.role !== "admin") {
+  // Check if profile exists (user was deleted)
+  if (!profile) {
+    await supabase.auth.signOut()
+    redirect("/auth/login")
+  }
+
+  if (profile.role !== "instructor" && profile.role !== "admin") {
     redirect("/dashboard")
   }
 

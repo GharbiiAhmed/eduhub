@@ -217,10 +217,24 @@ export async function DELETE(
       )
     }
 
-    // Also delete the auth user
-    // Note: This requires admin API access, which might not be available
-    // For now, we'll just delete the profile and let the user handle auth deletion separately
-    // or use Supabase Admin API if available
+    // Also delete the auth user using Admin API
+    // This prevents deleted users from being able to authenticate
+    try {
+      if (serviceRoleKey) {
+        const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
+        
+        if (authDeleteError) {
+          console.error("Error deleting auth user:", authDeleteError)
+          // Don't fail the request if auth deletion fails - profile is already deleted
+          // But log it for investigation
+        }
+      } else {
+        console.warn("Service role key not available - auth user not deleted. User profile deleted but auth user remains.")
+      }
+    } catch (error: any) {
+      console.error("Error deleting auth user:", error)
+      // Continue even if auth deletion fails - profile is already deleted
+    }
 
     return NextResponse.json({ 
       success: true,

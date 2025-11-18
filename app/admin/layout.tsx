@@ -16,7 +16,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
 
-  if (profile?.role !== "admin") {
+  // Check if profile exists (user was deleted)
+  if (!profile) {
+    await supabase.auth.signOut()
+    redirect("/auth/login")
+  }
+
+  if (profile.role !== "admin") {
     redirect("/dashboard")
   }
 
