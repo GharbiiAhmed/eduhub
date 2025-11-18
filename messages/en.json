@@ -230,7 +230,13 @@
     "passwordsDoNotMatch": "Passwords do not match",
     "passwordTooShort": "Password must be at least 6 characters long",
     "pleaseAgreeToTerms": "Please agree to the Terms of Service and Privacy Policy",
-    "anErrorOccurred": "An error occurred"
+    "anErrorOccurred": "An error occurred",
+    "accountPendingApproval": "Account Pending Approval",
+    "accountBeingVerified": "Your account is being verified by our admin team",
+    "registrationReceived": "We've received your registration request",
+    "adminWillReview": "Our admin team will review your account shortly",
+    "emailNotificationOnApproval": "You'll receive an email notification once your account is approved",
+    "thankYouForPatience": "Thank you for your patience. We'll notify you as soon as your account is ready!"
   },
   "dashboard": {
     "title": "Dashboard",

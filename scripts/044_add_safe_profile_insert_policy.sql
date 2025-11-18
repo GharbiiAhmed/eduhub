@@ -5,11 +5,15 @@
 
 -- Drop the policy if it exists, then recreate it
 -- This policy allows users to insert their own profile row
+-- Only allows insert if the user is authenticated and the id matches their auth.uid()
 DROP POLICY IF EXISTS "profiles_insert_own" ON public.profiles;
 
 CREATE POLICY "profiles_insert_own" ON public.profiles 
 FOR INSERT 
-WITH CHECK (auth.uid() = id);
+WITH CHECK (
+  auth.uid() IS NOT NULL 
+  AND auth.uid() = id
+);
 
 -- Ensure the trigger function is properly configured with SECURITY DEFINER
 -- This is the primary mechanism for profile creation
@@ -62,4 +66,7 @@ CREATE TRIGGER on_auth_user_created
 
 -- Grant execute permission to the trigger function
 GRANT EXECUTE ON FUNCTION public.handle_new_user() TO postgres, anon, authenticated, service_role;
+
+-- Verify the policy was created successfully
+-- Run this query to check: SELECT * FROM pg_policies WHERE tablename = 'profiles' AND policyname = 'profiles_insert_own';
 
