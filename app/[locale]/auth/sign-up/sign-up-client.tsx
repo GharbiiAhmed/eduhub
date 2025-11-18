@@ -7,14 +7,16 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Link, useRouter } from '@/i18n/routing'
-import { useTranslations } from 'next-intl'
+import { Link, useRouter, usePathname } from '@/i18n/routing'
+import { useTranslations, useLocale } from 'next-intl'
 import { useState } from "react"
 import { Mail, Lock, User, ArrowRight, Sparkles, Eye, EyeOff, CheckCircle } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 
 export function SignUpClient() {
   const t = useTranslations('auth')
+  const locale = useLocale()
+  const pathname = usePathname()
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -56,8 +58,9 @@ export function SignUpClient() {
 
     try {
       // Get the current URL to construct the redirect URL for email verification
-      // This works for both localhost and deployed environments
-      const redirectUrl = `${window.location.origin}/auth/pending-approval`
+      // Preserve locale in redirect URL
+      const localePrefix = locale !== 'en' ? `/${locale}` : ''
+      const redirectUrl = `${window.location.origin}${localePrefix}/auth/pending-approval`
       
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
@@ -71,26 +74,37 @@ export function SignUpClient() {
         }
       })
 
-      if (error) throw error
+      if (error) {
+        console.error('Sign-up error:', error)
+        throw error
+      }
 
-      if (data.user) {
-        // Set status based on role: students are auto-approved, instructors need approval
-        const userStatus = formData.role === 'instructor' ? 'pending' : 'approved'
-        
-        // Create profile with appropriate status
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: data.user.id,
-            full_name: formData.fullName,
-            role: formData.role,
-            email: formData.email,
-            status: userStatus
-          })
+      if (!data.user) {
+        throw new Error('User creation failed - no user data returned')
+      }
 
-        if (profileError) {
-          console.error('Profile creation error:', profileError)
-        }
+      // Set status based on role: students are auto-approved, instructors need approval
+      const userStatus = formData.role === 'instructor' ? 'pending' : 'approved'
+      
+      // The database trigger creates the profile automatically, but we need to update it with full_name
+      // Use upsert to handle both creation and update cases
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: data.user.id,
+          full_name: formData.fullName,
+          role: formData.role,
+          email: formData.email,
+          status: userStatus
+        }, {
+          onConflict: 'id'
+        })
+
+      if (profileError) {
+        console.error('Profile creation/update error:', profileError)
+        // If profile update fails, we should still show an error
+        throw new Error(`Failed to create/update profile: ${profileError.message}`)
+      }
 
         // Only notify admin for instructor registrations
         if (formData.role === 'instructor') {
@@ -119,7 +133,10 @@ export function SignUpClient() {
         }
       }
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : t('anErrorOccurred'))
+      console.error('Sign-up error details:', error)
+      const errorMessage = error instanceof Error ? error.message : t('anErrorOccurred')
+      setError(errorMessage)
+      console.error('Error message set:', errorMessage)
     } finally {
       setIsLoading(false)
     }

@@ -22,8 +22,10 @@ RETURNS TRIGGER AS $$
 DECLARE
   user_role TEXT;
   user_status TEXT;
+  user_full_name TEXT;
 BEGIN
   user_role := COALESCE(new.raw_user_meta_data ->> 'role', 'student');
+  user_full_name := new.raw_user_meta_data ->> 'full_name';
   
   -- Students are auto-approved, Instructors need approval
   IF user_role = 'instructor' THEN
@@ -32,14 +34,19 @@ BEGIN
     user_status := 'approved';
   END IF;
   
-  INSERT INTO public.profiles (id, email, role, status)
+  INSERT INTO public.profiles (id, email, role, status, full_name)
   VALUES (
     new.id,
     new.email,
     user_role,
-    user_status
+    user_status,
+    user_full_name
   )
-  ON CONFLICT (id) DO NOTHING;
+  ON CONFLICT (id) DO UPDATE SET
+    full_name = COALESCE(EXCLUDED.full_name, profiles.full_name),
+    role = COALESCE(EXCLUDED.role, profiles.role),
+    status = COALESCE(EXCLUDED.status, profiles.status),
+    email = COALESCE(EXCLUDED.email, profiles.email);
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;

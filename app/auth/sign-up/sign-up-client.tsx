@@ -73,23 +73,28 @@ export function SignUpClient() {
       if (error) throw error
 
       if (data.user) {
-        // Set status based on role: students are auto-approved, instructors need approval
-        const userStatus = formData.role === 'instructor' ? 'pending' : 'approved'
-        
-        // Create profile with appropriate status
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: data.user.id,
-            full_name: formData.fullName,
-            role: formData.role,
-            email: formData.email,
-            status: userStatus
-          })
+      // Set status based on role: students are auto-approved, instructors need approval
+      const userStatus = formData.role === 'instructor' ? 'pending' : 'approved'
+      
+      // The database trigger creates the profile automatically, but we need to update it with full_name
+      // Use upsert to handle both creation and update cases
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: data.user.id,
+          full_name: formData.fullName,
+          role: formData.role,
+          email: formData.email,
+          status: userStatus
+        }, {
+          onConflict: 'id'
+        })
 
-        if (profileError) {
-          console.error('Profile creation error:', profileError)
-        }
+      if (profileError) {
+        console.error('Profile creation/update error:', profileError)
+        // If profile update fails, we should still show an error
+        throw new Error(`Failed to create/update profile: ${profileError.message}`)
+      }
 
         // Only notify admin for instructor registrations
         if (formData.role === 'instructor') {
