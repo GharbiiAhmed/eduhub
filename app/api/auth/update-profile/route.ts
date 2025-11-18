@@ -31,22 +31,60 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Update profile using service role (bypasses RLS)
-    const updateData: any = {}
-    if (fullName) updateData.full_name = fullName
-    if (status) updateData.status = status
-
-    const { error: updateError } = await supabaseAdmin
+    // First, check if profile exists (trigger should have created it)
+    const { data: existingProfile, error: fetchError } = await supabaseAdmin
       .from('profiles')
-      .update(updateData)
+      .select('id')
       .eq('id', userId)
+      .single()
 
-    if (updateError) {
-      console.error('Profile update error:', updateError)
-      return NextResponse.json(
-        { error: updateError.message },
-        { status: 500 }
-      )
+    // If profile doesn't exist, create it (trigger might have failed)
+    if (!existingProfile || fetchError) {
+      // Fetch user email from auth.users
+      const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId)
+      const userEmail = authUser?.user?.email || ''
+      
+      // Determine role and status from request or defaults
+      const userRole = body.role || 'student'
+      const userStatus = status || (userRole === 'instructor' ? 'pending' : 'approved')
+      
+      const insertData: any = {
+        id: userId,
+        email: userEmail,
+        role: userRole,
+        status: userStatus,
+        full_name: fullName || ''
+      }
+      
+      const { error: insertError } = await supabaseAdmin
+        .from('profiles')
+        .upsert(insertData, { onConflict: 'id' })
+      
+      if (insertError) {
+        console.error('Profile insert error:', insertError)
+        return NextResponse.json(
+          { error: insertError.message },
+          { status: 500 }
+        )
+      }
+    } else {
+      // Update existing profile using service role (bypasses RLS)
+      const updateData: any = {}
+      if (fullName) updateData.full_name = fullName
+      if (status) updateData.status = status
+
+      const { error: updateError } = await supabaseAdmin
+        .from('profiles')
+        .update(updateData)
+        .eq('id', userId)
+
+      if (updateError) {
+        console.error('Profile update error:', updateError)
+        return NextResponse.json(
+          { error: updateError.message },
+          { status: 500 }
+        )
+      }
     }
 
     return NextResponse.json({ 

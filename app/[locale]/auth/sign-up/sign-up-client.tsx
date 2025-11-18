@@ -86,15 +86,20 @@ export function SignUpClient() {
       // Set status based on role: students are auto-approved, instructors need approval
       const userStatus = formData.role === 'instructor' ? 'pending' : 'approved'
       
-      // The database trigger creates the profile automatically, but we need to update it with full_name
-      // Use API endpoint with service role to bypass RLS
+      // The database trigger creates the profile automatically with full_name from metadata
+      // Wait a moment for trigger to complete, then update status via API (bypasses RLS)
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // Update profile status via API endpoint (uses service role to bypass RLS)
+      // The trigger already set full_name from metadata, we just need to ensure status is correct
       try {
         const updateResponse = await fetch('/api/auth/update-profile', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             userId: data.user.id,
-            fullName: formData.fullName,
+            fullName: formData.fullName, // Update in case metadata didn't include it
+            role: formData.role, // Pass role in case profile needs to be created
             status: userStatus
           })
         })
@@ -102,11 +107,11 @@ export function SignUpClient() {
         if (!updateResponse.ok) {
           const updateError = await updateResponse.json()
           console.error('Profile update error:', updateError)
-          // Don't block signup - trigger already created profile with basic info
+          // Don't block signup - trigger already created profile
         }
       } catch (err) {
         console.error('Failed to update profile:', err)
-        // Don't block signup - trigger already created profile with basic info
+        // Don't block signup - trigger already created profile
       }
 
         // Only notify admin for instructor registrations
