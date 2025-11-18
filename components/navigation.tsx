@@ -78,7 +78,8 @@ export function Navigation({ userType: propUserType, user: propUser }: Navigatio
         setUser(authUser)
 
         // Fetch user profile to get role and status
-        const { data: profile } = await supabase
+        // Handle case where profile might not exist yet (during signup)
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('role, status')
           .eq('id', authUser.id)
@@ -86,11 +87,14 @@ export function Navigation({ userType: propUserType, user: propUser }: Navigatio
 
         if (!isMounted) return
 
-        if (profile?.role) {
-          setUserType(profile.role as 'student' | 'instructor' | 'admin')
-        }
-        if (profile?.status) {
-          setUserStatus(profile.status)
+        // Only set profile data if it exists and there's no error
+        if (!profileError && profile) {
+          if (profile.role) {
+            setUserType(profile.role as 'student' | 'instructor' | 'admin')
+          }
+          if (profile.status) {
+            setUserStatus(profile.status)
+          }
         }
         setLoading(false)
       } catch (error) {
@@ -118,18 +122,22 @@ export function Navigation({ userType: propUserType, user: propUser }: Navigatio
       if (event === 'SIGNED_IN' && session?.user) {
         setUser(session.user)
         // Fetch profile for role and status
+        // Handle case where profile might not exist yet (during signup)
         supabase
           .from('profiles')
           .select('role, status')
           .eq('id', session.user.id)
           .single()
-          .then(({ data: profile }) => {
+          .then(({ data: profile, error: profileError }) => {
             if (!isMounted) return
-            if (profile?.role) {
-              setUserType(profile.role as 'student' | 'instructor' | 'admin')
-            }
-            if (profile?.status) {
-              setUserStatus(profile.status)
+            // Only set profile data if it exists and there's no error
+            if (!profileError && profile) {
+              if (profile.role) {
+                setUserType(profile.role as 'student' | 'instructor' | 'admin')
+              }
+              if (profile.status) {
+                setUserStatus(profile.status)
+              }
             }
           })
       } else if (event === 'SIGNED_OUT') {
