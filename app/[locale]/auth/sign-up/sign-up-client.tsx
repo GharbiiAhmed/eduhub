@@ -87,23 +87,26 @@ export function SignUpClient() {
       const userStatus = formData.role === 'instructor' ? 'pending' : 'approved'
       
       // The database trigger creates the profile automatically, but we need to update it with full_name
-      // Use upsert to handle both creation and update cases
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: data.user.id,
-          full_name: formData.fullName,
-          role: formData.role,
-          email: formData.email,
-          status: userStatus
-        }, {
-          onConflict: 'id'
+      // Use API endpoint with service role to bypass RLS
+      try {
+        const updateResponse = await fetch('/api/auth/update-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: data.user.id,
+            fullName: formData.fullName,
+            status: userStatus
+          })
         })
 
-      if (profileError) {
-        console.error('Profile creation/update error:', profileError)
-        // If profile update fails, we should still show an error
-        throw new Error(`Failed to create/update profile: ${profileError.message}`)
+        if (!updateResponse.ok) {
+          const updateError = await updateResponse.json()
+          console.error('Profile update error:', updateError)
+          // Don't block signup - trigger already created profile with basic info
+        }
+      } catch (err) {
+        console.error('Failed to update profile:', err)
+        // Don't block signup - trigger already created profile with basic info
       }
 
         // Only notify admin for instructor registrations
