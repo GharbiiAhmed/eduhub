@@ -255,229 +255,116 @@ export async function DELETE(
       )
     }
 
-    // IMPORTANT: Delete auth user FIRST, then profile
-    // This ensures both are deleted together, or neither is deleted
-    // If auth deletion fails, we don't delete the profile (user can still access system)
-    console.log(`[DELETE USER] Attempting to delete auth user: ${userId}`)
+    // Delete both auth user and profile
+    // We'll attempt both deletions and report the results
+    console.log(`[DELETE USER] Starting deletion process for user: ${userId}`)
     
+    let authUserDeleted = false
+    let profileDeleted = false
+    let authDeleteError: any = null
+    let profileDeleteError: any = null
+    
+    // Step 1: Delete the profile first
+    console.log(`[DELETE USER] Step 1: Deleting profile record for user: ${userId}`)
+    try {
+      const { error: deleteError, data: deleteData } = await supabaseAdmin
+        .from("profiles")
+        .delete()
+        .eq("id", userId)
+        .select()
+
+      if (deleteError) {
+        profileDeleteError = deleteError
+        console.error("[DELETE USER] Error deleting profile:", deleteError)
+      } else {
+        profileDeleted = true
+        console.log(`[DELETE USER] ✅ Profile deleted successfully. Deleted rows:`, deleteData?.length || 0)
+      }
+    } catch (error: any) {
+      profileDeleteError = error
+      console.error("[DELETE USER] Exception deleting profile:", error)
+    }
+    
+    // Step 2: Delete the auth user
+    console.log(`[DELETE USER] Step 2: Deleting auth user: ${userId}`)
     try {
       // Verify user exists in auth before deletion
       const { data: userBeforeDelete, error: getUserError } = await supabaseAdmin.auth.admin.getUserById(userId)
       
-      if (getUserError) {
+      if (getUserError && getUserError.status !== 404) {
         console.error("[DELETE USER] Error fetching user before delete:", getUserError)
-        return NextResponse.json(
-          { 
-            error: `User not found in auth: ${getUserError.message}`,
-            details: "Cannot delete user that doesn't exist"
-          },
-          { status: 404 }
-        )
-      }
-      
-      if (!userBeforeDelete?.user) {
-        console.error("[DELETE USER] User not found in auth.users")
-        return NextResponse.json(
-          { 
-            error: "User not found in auth.users",
-            details: "User may have already been deleted"
-          },
-          { status: 404 }
-        )
-      }
-      
-      console.log(`[DELETE USER] User found: ${userBeforeDelete.user.email}`)
-      
-      // Delete the auth user - try multiple times if needed
-      let authDeleteError: any = null
-      let deletionAttempts = 0
-      const maxAttempts = 3
-      let authUserDeleted = false
-      
-      while (deletionAttempts < maxAttempts && !authUserDeleted) {
-        deletionAttempts++
-        console.log(`[DELETE USER] Attempt ${deletionAttempts}/${maxAttempts}: Deleting auth user ${userId}...`)
+        authDeleteError = getUserError
+      } else if (!userBeforeDelete?.user) {
+        // User doesn't exist - consider it already deleted
+        authUserDeleted = true
+        console.log(`[DELETE USER] User not found in auth.users - may already be deleted`)
+      } else {
+        console.log(`[DELETE USER] User found: ${userBeforeDelete.user.email}`)
         
-        try {
-          const deleteResult = await supabaseAdmin.auth.admin.deleteUser(userId)
-          authDeleteError = deleteResult.error
+        // Delete the auth user - try multiple times if needed
+        let deletionAttempts = 0
+        const maxAttempts = 3
+        
+        while (deletionAttempts < maxAttempts && !authUserDeleted) {
+          deletionAttempts++
+          console.log(`[DELETE USER] Attempt ${deletionAttempts}/${maxAttempts}: Deleting auth user ${userId}...`)
           
-          console.log(`[DELETE USER] Delete result:`, {
-            hasError: !!authDeleteError,
-            error: authDeleteError ? {
-              message: authDeleteError.message,
-              status: authDeleteError.status,
-              name: authDeleteError.name
-            } : null
-          })
-          
-          if (!authDeleteError) {
-            // Wait a moment for deletion to propagate
-            console.log(`[DELETE USER] Waiting for deletion to propagate...`)
-            await new Promise(resolve => setTimeout(resolve, 1000))
+          try {
+            const deleteResult = await supabaseAdmin.auth.admin.deleteUser(userId)
+            authDeleteError = deleteResult.error
             
-            // Verify deletion succeeded
-            console.log(`[DELETE USER] Verifying deletion...`)
-            const { data: userAfterDelete, error: verifyError } = await supabaseAdmin.auth.admin.getUserById(userId)
-            
-            console.log(`[DELETE USER] Verification result:`, {
-              hasError: !!verifyError,
-              errorStatus: verifyError?.status,
-              userExists: !!userAfterDelete?.user,
-              userId: userAfterDelete?.user?.id
-            })
-            
-            // If verifyError exists and it's a 404, user was deleted successfully
-            // If verifyError is null and userAfterDelete exists, user still exists
-            if (verifyError && (verifyError.status === 404 || verifyError.message?.includes('not found'))) {
-              // User was deleted successfully (404 = not found)
-              console.log(`[DELETE USER] ✅ Auth user deleted successfully (verified with 404): ${userId}`)
-              authUserDeleted = true
-              break
-            } else if (!verifyError && userAfterDelete?.user) {
-              // User still exists, try again
-              console.log(`[DELETE USER] ⚠️ User still exists after attempt ${deletionAttempts}`)
-              console.log(`[DELETE USER] User details:`, {
-                id: userAfterDelete.user.id,
-                email: userAfterDelete.user.email
-              })
-              if (deletionAttempts < maxAttempts) {
-                console.log(`[DELETE USER] Retrying in 1 second...`)
-                await new Promise(resolve => setTimeout(resolve, 1000))
-                continue
-              } else {
-                authDeleteError = { 
-                  message: "User still exists after all deletion attempts", 
-                  status: 500,
-                  details: "The deleteUser API call returned success but the user was not actually deleted"
+            if (!authDeleteError) {
+              // Wait a moment for deletion to propagate
+              await new Promise(resolve => setTimeout(resolve, 1000))
+              
+              // Verify deletion succeeded
+              const { data: userAfterDelete, error: verifyError } = await supabaseAdmin.auth.admin.getUserById(userId)
+              
+              if (verifyError && (verifyError.status === 404 || verifyError.message?.includes('not found'))) {
+                authUserDeleted = true
+                console.log(`[DELETE USER] ✅ Auth user deleted successfully: ${userId}`)
+                break
+              } else if (!verifyError && userAfterDelete?.user) {
+                // User still exists, try again
+                if (deletionAttempts < maxAttempts) {
+                  await new Promise(resolve => setTimeout(resolve, 1000))
+                  continue
+                } else {
+                  authDeleteError = { 
+                    message: "User still exists after all deletion attempts", 
+                    status: 500
+                  }
                 }
+              } else {
+                // Assume success if no user found
+                authUserDeleted = true
+                console.log(`[DELETE USER] ✅ Auth user deletion appears successful: ${userId}`)
+                break
               }
             } else {
-              // Unexpected state - assume success if no user found
-              console.log(`[DELETE USER] ✅ Deletion appears successful (no user found in verification)`)
-              authUserDeleted = true
-              break
+              if (deletionAttempts < maxAttempts) {
+                await new Promise(resolve => setTimeout(resolve, 1000))
+                continue
+              }
             }
-          } else {
-            // Error occurred, log it
-            console.error(`[DELETE USER] ❌ Error on attempt ${deletionAttempts}:`, {
-              message: authDeleteError.message,
-              status: authDeleteError.status,
-              name: authDeleteError.name
-            })
+          } catch (deleteException: any) {
+            authDeleteError = {
+              message: deleteException.message || "Unknown exception",
+              status: 500
+            }
             if (deletionAttempts < maxAttempts) {
-              console.log(`[DELETE USER] Retrying in 1 second...`)
               await new Promise(resolve => setTimeout(resolve, 1000))
               continue
             }
           }
-        } catch (deleteException: any) {
-          console.error(`[DELETE USER] Exception during deletion attempt ${deletionAttempts}:`, deleteException)
-          authDeleteError = {
-            message: deleteException.message || "Unknown exception",
-            status: 500,
-            exception: deleteException.constructor?.name
-          }
-          if (deletionAttempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 1000))
-            continue
-          }
         }
       }
-      
-      // Final check: if auth user was not deleted, DO NOT proceed with profile deletion
-      if (!authUserDeleted) {
-        if (authDeleteError) {
-          console.error("[DELETE USER] ❌ Auth user deletion failed after all attempts:", authDeleteError)
-          console.error("[DELETE USER] Error details:", {
-            message: authDeleteError.message,
-            status: authDeleteError.status,
-            attempts: deletionAttempts
-          })
-        } else {
-          // No error but user still exists - this is a critical issue
-          const { data: finalCheck, error: finalError } = await supabaseAdmin.auth.admin.getUserById(userId)
-          if (!finalError && finalCheck?.user) {
-            console.error("[DELETE USER] ❌ CRITICAL: User still exists after deletion attempts!")
-            authDeleteError = {
-              message: "User still exists after deletion attempts",
-              status: 500,
-              userId: userId
-            }
-          }
-        }
-        
-        // DO NOT delete profile if auth user deletion failed
-        return NextResponse.json(
-          { 
-            error: `Failed to delete auth user: ${authDeleteError?.message || "Unknown error"}`,
-            errorCode: authDeleteError?.status || 500,
-            details: "User profile was NOT deleted to maintain data integrity. Auth user deletion failed.",
-            userId: userId,
-            attempts: deletionAttempts,
-            authUserDeleted: false
-          },
-          { status: 500 }
-        )
-      }
-      
-      // Final verification - double check before proceeding
-      const { data: finalCheck, error: finalError } = await supabaseAdmin.auth.admin.getUserById(userId)
-      if (!finalError && finalCheck?.user) {
-        console.error("[DELETE USER] ❌ CRITICAL: User still exists after successful deletion!")
-        return NextResponse.json(
-          { 
-            error: "Auth user deletion verification failed - user still exists",
-            details: "The auth user could not be deleted. Profile was NOT deleted to maintain data integrity.",
-            userId: userId
-          },
-          { status: 500 }
-        )
-      }
-      
-      console.log(`[DELETE USER] ✅ Auth user confirmed deleted: ${userId}`)
     } catch (error: any) {
+      authDeleteError = error
       console.error("[DELETE USER] Exception deleting auth user:", error)
-      console.error("[DELETE USER] Error stack:", error.stack)
-      return NextResponse.json(
-        { 
-          error: `Failed to delete auth user: ${error.message || "Unknown error"}`,
-          errorType: error.constructor?.name,
-          details: "User profile was not deleted to maintain data integrity",
-          userId: userId
-        },
-        { status: 500 }
-      )
     }
-
-    // Now delete the profile record (not the table, just the user's profile row)
-    // This will cascade delete related data due to foreign keys
-    console.log(`[DELETE USER] Deleting profile record for user: ${userId}`)
     
-    const { error: deleteError, data: deleteData } = await supabaseAdmin
-      .from("profiles")
-      .delete()
-      .eq("id", userId)
-      .select()
-
-    if (deleteError) {
-      console.error("[DELETE USER] Error deleting user profile:", deleteError)
-      // Auth user is already deleted, but profile deletion failed
-      // Log this as a critical error - user can't authenticate but profile still exists
-      console.error("[DELETE USER] CRITICAL: Auth user deleted but profile deletion failed. User ID:", userId)
-      return NextResponse.json(
-        { 
-          error: `Auth user deleted but profile deletion failed: ${deleteError.message}`,
-          warning: "User cannot authenticate, but profile data remains. Manual cleanup may be required.",
-          userId: userId
-        },
-        { status: 500 }
-      )
-    }
-
-    console.log(`[DELETE USER] ✅ Profile record deleted successfully. Deleted rows:`, deleteData?.length || 0)
-    
-    // Final verification: Check that both auth user and profile are gone
+    // Final verification
     const { data: finalAuthCheck } = await supabaseAdmin.auth.admin.getUserById(userId)
     const { data: finalProfileCheck } = await supabaseAdmin
       .from("profiles")
@@ -485,22 +372,33 @@ export async function DELETE(
       .eq("id", userId)
       .single()
 
-    if (finalAuthCheck?.user) {
-      console.error("[DELETE USER] WARNING: Auth user still exists after deletion!")
-    }
-    
-    if (finalProfileCheck) {
-      console.error("[DELETE USER] WARNING: Profile still exists after deletion!")
-    }
+    const authUserActuallyDeleted = !finalAuthCheck?.user
+    const profileActuallyDeleted = !finalProfileCheck
 
-    return NextResponse.json({ 
-      success: true,
-      message: "User deleted successfully",
-      deleted: {
-        authUser: !finalAuthCheck?.user,
-        profile: !finalProfileCheck
-      }
-    })
+    // Return result based on what was actually deleted
+    if (authUserActuallyDeleted && profileActuallyDeleted) {
+      return NextResponse.json({ 
+        success: true,
+        message: "User and profile deleted successfully",
+        deleted: {
+          authUser: true,
+          profile: true
+        }
+      })
+    } else {
+      return NextResponse.json({
+        success: false,
+        message: "Deletion completed with some issues",
+        deleted: {
+          authUser: authUserActuallyDeleted,
+          profile: profileActuallyDeleted
+        },
+        errors: {
+          authUser: authDeleteError ? authDeleteError.message : (authUserActuallyDeleted ? null : "Auth user still exists"),
+          profile: profileDeleteError ? profileDeleteError.message : (profileActuallyDeleted ? null : "Profile still exists")
+        }
+      }, { status: authUserActuallyDeleted && profileActuallyDeleted ? 200 : 500 })
+    }
   } catch (error: any) {
     console.error("Error deleting user:", error)
     return NextResponse.json(
