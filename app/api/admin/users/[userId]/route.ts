@@ -26,14 +26,19 @@ export async function GET(
     }
 
     // Check if user is admin
-    const { data: profile } = await supabase
+    // Handle profile errors properly (user might not have a profile)
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single()
 
-    if (profile?.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden - Admin only" }, { status: 403 })
+    // If profile doesn't exist or there's an error, user is not authorized
+    if (!profile || profileError || profile.role !== "admin") {
+      return NextResponse.json({ 
+        error: "Forbidden - Admin only",
+        details: profileError ? `Profile check failed: ${profileError.message}` : "User is not an admin"
+      }, { status: 403 })
     }
 
     // Use service role client if available to bypass RLS
@@ -84,14 +89,19 @@ export async function PATCH(
     }
 
     // Check if user is admin
-    const { data: profile } = await supabase
+    // Handle profile errors properly (user might not have a profile)
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single()
 
-    if (profile?.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden - Admin only" }, { status: 403 })
+    // If profile doesn't exist or there's an error, user is not authorized
+    if (!profile || profileError || profile.role !== "admin") {
+      return NextResponse.json({ 
+        error: "Forbidden - Admin only",
+        details: profileError ? `Profile check failed: ${profileError.message}` : "User is not an admin"
+      }, { status: 403 })
     }
 
     const body = await request.json()
@@ -176,14 +186,19 @@ export async function DELETE(
     }
 
     // Check if user is admin
-    const { data: profile } = await supabase
+    // Handle profile errors properly (user might not have a profile)
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single()
 
-    if (profile?.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden - Admin only" }, { status: 403 })
+    // If profile doesn't exist or there's an error, user is not authorized
+    if (!profile || profileError || profile.role !== "admin") {
+      return NextResponse.json({ 
+        error: "Forbidden - Admin only",
+        details: profileError ? `Profile check failed: ${profileError.message}` : "User is not an admin"
+      }, { status: 403 })
     }
 
     // Prevent admin from deleting themselves
@@ -194,46 +209,72 @@ export async function DELETE(
       )
     }
 
-    // Use service role client if available to bypass RLS
+    // Use service role client - REQUIRED for deleting auth users
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    const supabaseAdmin = serviceRoleKey
-      ? createServiceClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          serviceRoleKey
-        )
-      : supabase
+    if (!serviceRoleKey) {
+      return NextResponse.json(
+        { error: "Service role key not configured. Cannot delete auth user." },
+        { status: 500 }
+      )
+    }
 
-    // Delete user profile (this will cascade delete related data due to foreign keys)
+    const supabaseAdmin = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      serviceRoleKey,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    )
+
+    // IMPORTANT: Delete auth user FIRST, then profile
+    // This ensures both are deleted together, or neither is deleted
+    // If auth deletion fails, we don't delete the profile (user can still access system)
+    try {
+      const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
+      
+      if (authDeleteError) {
+        console.error("Error deleting auth user:", authDeleteError)
+        return NextResponse.json(
+          { 
+            error: `Failed to delete auth user: ${authDeleteError.message}`,
+            details: "User profile was not deleted to maintain data integrity"
+          },
+          { status: 500 }
+        )
+      }
+    } catch (error: any) {
+      console.error("Error deleting auth user:", error)
+      return NextResponse.json(
+        { 
+          error: `Failed to delete auth user: ${error.message || "Unknown error"}`,
+          details: "User profile was not deleted to maintain data integrity"
+        },
+        { status: 500 }
+      )
+    }
+
+    // Now delete the profile (auth user is already deleted, so user can't authenticate)
+    // This will cascade delete related data due to foreign keys
     const { error: deleteError } = await supabaseAdmin
       .from("profiles")
       .delete()
       .eq("id", userId)
 
     if (deleteError) {
-      console.error("Error deleting user:", deleteError)
+      console.error("Error deleting user profile:", deleteError)
+      // Auth user is already deleted, but profile deletion failed
+      // Log this as a critical error - user can't authenticate but profile still exists
+      console.error("CRITICAL: Auth user deleted but profile deletion failed. User ID:", userId)
       return NextResponse.json(
-        { error: deleteError.message || "Failed to delete user" },
+        { 
+          error: `Auth user deleted but profile deletion failed: ${deleteError.message}`,
+          warning: "User cannot authenticate, but profile data remains. Manual cleanup may be required."
+        },
         { status: 500 }
       )
-    }
-
-    // Also delete the auth user using Admin API
-    // This prevents deleted users from being able to authenticate
-    try {
-      if (serviceRoleKey) {
-        const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
-        
-        if (authDeleteError) {
-          console.error("Error deleting auth user:", authDeleteError)
-          // Don't fail the request if auth deletion fails - profile is already deleted
-          // But log it for investigation
-        }
-      } else {
-        console.warn("Service role key not available - auth user not deleted. User profile deleted but auth user remains.")
-      }
-    } catch (error: any) {
-      console.error("Error deleting auth user:", error)
-      // Continue even if auth deletion fails - profile is already deleted
     }
 
     return NextResponse.json({ 
