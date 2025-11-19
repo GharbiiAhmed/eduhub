@@ -255,38 +255,31 @@ export async function DELETE(
       )
     }
 
-    // Delete both auth user and profile - simple and direct approach
-    console.log(`[DELETE USER] Deleting user ${userId} and their profile`)
-    
-    // Step 1: Delete auth user
+    // Delete auth user - this will CASCADE delete the profile and all associated data
+    // The profiles table has: id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE
+    // So deleting the auth user automatically deletes the profile and all related records
     console.log(`[DELETE USER] Deleting auth user: ${userId}`)
+    console.log(`[DELETE USER] This will automatically cascade delete profile and all associated data`)
+    
     const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
     
     if (authDeleteError) {
       console.error("[DELETE USER] Error deleting auth user:", authDeleteError)
-      // Continue anyway to try deleting profile
-    } else {
-      console.log(`[DELETE USER] ✅ Auth user deletion call succeeded`)
+      return NextResponse.json(
+        { 
+          error: `Failed to delete user: ${authDeleteError.message}`,
+          details: "User deletion failed. Profile and associated data were not deleted."
+        },
+        { status: 500 }
+      )
     }
     
-    // Step 2: Delete profile
-    console.log(`[DELETE USER] Deleting profile: ${userId}`)
-    const { error: profileDeleteError, data: profileDeleteData } = await supabaseAdmin
-      .from("profiles")
-      .delete()
-      .eq("id", userId)
-      .select()
+    console.log(`[DELETE USER] ✅ Auth user deletion call succeeded`)
     
-    if (profileDeleteError) {
-      console.error("[DELETE USER] Error deleting profile:", profileDeleteError)
-    } else {
-      console.log(`[DELETE USER] ✅ Profile deletion succeeded. Rows deleted:`, profileDeleteData?.length || 0)
-    }
+    // Wait a moment for cascade deletions to propagate
+    await new Promise(resolve => setTimeout(resolve, 1000))
     
-    // Wait a moment for deletions to propagate
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    // Verify both deletions
+    // Verify deletion (auth user and profile should both be gone due to CASCADE)
     const { data: authCheck } = await supabaseAdmin.auth.admin.getUserById(userId)
     const { data: profileCheck } = await supabaseAdmin
       .from("profiles")
@@ -300,24 +293,26 @@ export async function DELETE(
     if (authDeleted && profileDeleted) {
       return NextResponse.json({ 
         success: true,
-        message: "User and profile deleted successfully",
+        message: "User deleted successfully. Profile and all associated data were automatically removed via CASCADE.",
         deleted: {
           authUser: true,
-          profile: true
+          profile: true,
+          associatedData: true // All data with ON DELETE CASCADE was removed
         }
       })
     } else {
       return NextResponse.json({
         success: false,
-        message: "Deletion completed with issues",
+        message: "Deletion may not have completed fully",
         deleted: {
           authUser: authDeleted,
           profile: profileDeleted
         },
-        errors: {
-          authUser: authDeleteError ? authDeleteError.message : (authDeleted ? null : "Auth user still exists"),
-          profile: profileDeleteError ? profileDeleteError.message : (profileDeleted ? null : "Profile still exists")
-        }
+        warning: authDeleted && !profileDeleted 
+          ? "Auth user deleted but profile still exists (CASCADE may not have triggered)" 
+          : !authDeleted 
+          ? "Auth user still exists" 
+          : "Unknown state"
       }, { status: 500 })
     }
   } catch (error: any) {
