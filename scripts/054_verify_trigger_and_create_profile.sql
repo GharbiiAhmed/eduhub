@@ -90,3 +90,5 @@ BEGIN
   RAISE NOTICE 'Profile created for user % (email: %)', target_user_id, user_email;
 END $$;
 
+
+

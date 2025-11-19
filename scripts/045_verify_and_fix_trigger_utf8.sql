@@ -93,3 +93,5 @@ GRANT EXECUTE ON FUNCTION public.handle_new_user() TO postgres, anon, authentica
 -- Test query to check if a profile was created (replace USER_ID with actual user ID):
 -- SELECT id, email, full_name, role, status FROM public.profiles WHERE id = 'USER_ID';
 
+
+

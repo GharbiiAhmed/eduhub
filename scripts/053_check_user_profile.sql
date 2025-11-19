@@ -32,3 +32,5 @@ SELECT
 FROM auth.users
 WHERE id = '49fa1e0a-92c0-437f-bd80-e6a71152856c';
 
+
+

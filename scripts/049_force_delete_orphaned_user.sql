@@ -78,3 +78,5 @@ WHERE student_id = '6680c6a7-5470-47c1-918e-f8ca11e89754';
 -- Step 4: After cleaning up related data, try deleting via Supabase Admin API
 -- Use the TypeScript script: npx tsx scripts/048_delete_orphaned_auth_user.ts 6680c6a7-5470-47c1-918e-f8ca11e89754
 
+
+

@@ -134,31 +134,30 @@ export function SignUpClient() {
         console.log('Note: Profile creation will be handled by trigger or API endpoint.')
       }
 
-        // Only notify admin for instructor registrations
-        if (formData.role === 'instructor') {
-          try {
-            await fetch('/api/admin/notify-new-user', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                userId: data.user.id,
-                email: formData.email,
-                fullName: formData.fullName,
-                role: formData.role
-              })
+      // Only notify admin for instructor registrations
+      if (formData.role === 'instructor') {
+        try {
+          await fetch('/api/admin/notify-new-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: data.user.id,
+              email: formData.email,
+              fullName: formData.fullName,
+              role: formData.role
             })
-          } catch (err) {
-            console.error('Failed to notify admin:', err)
-          }
+          })
+        } catch (err) {
+          console.error('Failed to notify admin:', err)
         }
+      }
 
-        // Redirect based on status
-        if (userStatus === 'pending') {
-          router.push("/auth/pending-approval")
-        } else {
-          // Students are auto-approved, redirect to success page
-          router.push("/auth/sign-up-success")
-        }
+      // Redirect based on status
+      if (userStatus === 'pending') {
+        router.push("/auth/pending-approval")
+      } else {
+        // Students are auto-approved, redirect to success page
+        router.push("/auth/sign-up-success")
       }
     } catch (error: unknown) {
       console.error('Sign-up error details:', error)

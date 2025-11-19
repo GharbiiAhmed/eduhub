@@ -51,3 +51,5 @@ ORDER BY au.created_at DESC;
 --   await supabaseAdmin.auth.admin.deleteUser(user.id)
 -- }
 
+
+

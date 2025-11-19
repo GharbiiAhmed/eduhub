@@ -27,17 +27,17 @@ export async function GET(
 
     // Check if user is admin
     // Handle profile errors properly (user might not have a profile)
-    const { data: profile, error: profileError } = await supabase
+    const { data: adminProfile, error: adminProfileError } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single()
 
     // If profile doesn't exist or there's an error, user is not authorized
-    if (!profile || profileError || profile.role !== "admin") {
+    if (!adminProfile || adminProfileError || adminProfile.role !== "admin") {
       return NextResponse.json({ 
         error: "Forbidden - Admin only",
-        details: profileError ? `Profile check failed: ${profileError.message}` : "User is not an admin"
+        details: adminProfileError ? `Profile check failed: ${adminProfileError.message}` : "User is not an admin"
       }, { status: 403 })
     }
 
@@ -51,13 +51,13 @@ export async function GET(
       : supabase
 
     // Fetch user profile
-    const { data: userProfile, error: profileError } = await supabaseAdmin
+    const { data: userProfile, error: userProfileError } = await supabaseAdmin
       .from("profiles")
       .select("*")
       .eq("id", userId)
       .single()
 
-    if (profileError || !userProfile) {
+    if (userProfileError || !userProfile) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
@@ -173,8 +173,10 @@ export async function DELETE(
   request: NextRequest,
   context: RouteContext
 ) {
+  console.log(`[DELETE USER] ========== DELETE USER ENDPOINT CALLED ==========`)
   try {
     const { userId } = await context.params
+    console.log(`[DELETE USER] Received userId from params: ${userId}`)
     const supabase = await createClient()
 
     const {
@@ -255,33 +257,98 @@ export async function DELETE(
       )
     }
 
-    // Delete auth user - this will CASCADE delete the profile and all associated data
-    // The profiles table has: id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE
-    // So deleting the auth user automatically deletes the profile and all related records
-    console.log(`[DELETE USER] Deleting auth user: ${userId}`)
-    console.log(`[DELETE USER] This will automatically cascade delete profile and all associated data`)
+    // First verify the user exists before attempting deletion
+    console.log(`[DELETE USER] Verifying user exists: ${userId}`)
+    const { data: userBeforeDelete, error: getUserError } = await supabaseAdmin.auth.admin.getUserById(userId)
     
-    const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
-    
-    if (authDeleteError) {
-      console.error("[DELETE USER] Error deleting auth user:", authDeleteError)
+    if (getUserError && getUserError.status !== 404) {
+      console.error("[DELETE USER] Error fetching user:", getUserError)
       return NextResponse.json(
         { 
-          error: `Failed to delete user: ${authDeleteError.message}`,
-          details: "User deletion failed. Profile and associated data were not deleted."
+          error: `Failed to fetch user: ${getUserError.message}`,
+          details: "Cannot delete user that cannot be accessed"
         },
         { status: 500 }
       )
     }
     
-    console.log(`[DELETE USER] ✅ Auth user deletion call succeeded`)
+    if (!userBeforeDelete?.user) {
+      console.log(`[DELETE USER] User not found - may already be deleted`)
+      return NextResponse.json(
+        { 
+          error: "User not found",
+          details: "User may have already been deleted"
+        },
+        { status: 404 }
+      )
+    }
+    
+    console.log(`[DELETE USER] User found: ${userBeforeDelete.user.email}`)
+    console.log(`[DELETE USER] Attempting to delete auth user: ${userId}`)
+    console.log(`[DELETE USER] This will automatically cascade delete profile and all associated data`)
+    console.log(`[DELETE USER] Service role key configured: ${!!serviceRoleKey}`)
+    console.log(`[DELETE USER] Supabase URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL}`)
+    
+    // Delete auth user - this will CASCADE delete the profile and all associated data
+    // The profiles table has: id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE
+    let deleteResult
+    try {
+      console.log(`[DELETE USER] Calling supabaseAdmin.auth.admin.deleteUser(${userId})...`)
+      deleteResult = await supabaseAdmin.auth.admin.deleteUser(userId)
+      console.log(`[DELETE USER] deleteUser call completed. Result:`, {
+        hasError: !!deleteResult.error,
+        error: deleteResult.error ? {
+          message: deleteResult.error.message,
+          status: deleteResult.error.status,
+          name: deleteResult.error.name
+        } : null,
+        data: deleteResult.data
+      })
+    } catch (deleteException: any) {
+      console.error("[DELETE USER] ❌ Exception thrown during deleteUser call:", deleteException)
+      console.error("[DELETE USER] Exception details:", {
+        message: deleteException.message,
+        stack: deleteException.stack,
+        name: deleteException.name
+      })
+      return NextResponse.json(
+        { 
+          error: `Exception deleting auth user: ${deleteException.message}`,
+          details: "An exception was thrown during the deleteUser call",
+          userId: userId
+        },
+        { status: 500 }
+      )
+    }
+    
+    if (deleteResult.error) {
+      console.error("[DELETE USER] ❌ Error deleting auth user:", deleteResult.error)
+      console.error("[DELETE USER] Error details:", {
+        message: deleteResult.error.message,
+        status: deleteResult.error.status,
+        name: deleteResult.error.name
+      })
+      return NextResponse.json(
+        { 
+          error: `Failed to delete auth user: ${deleteResult.error.message}`,
+          errorCode: deleteResult.error.status,
+          details: "Auth user deletion failed. Profile and associated data were NOT deleted.",
+          userId: userId
+        },
+        { status: 500 }
+      )
+    }
+    
+    console.log(`[DELETE USER] ✅ Auth user deletion API call succeeded (no error returned)`)
     
     // Wait a moment for cascade deletions to propagate
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    console.log(`[DELETE USER] Waiting for cascade deletions to propagate...`)
+    await new Promise(resolve => setTimeout(resolve, 2000))
     
     // Verify deletion (auth user and profile should both be gone due to CASCADE)
-    const { data: authCheck } = await supabaseAdmin.auth.admin.getUserById(userId)
-    const { data: profileCheck } = await supabaseAdmin
+    console.log(`[DELETE USER] Verifying deletion...`)
+    const { data: authCheck, error: authCheckError } = await supabaseAdmin.auth.admin.getUserById(userId)
+    const { data: profileCheck, error: profileCheckError } = await supabaseAdmin
       .from("profiles")
       .select("id")
       .eq("id", userId)
@@ -290,29 +357,46 @@ export async function DELETE(
     const authDeleted = !authCheck?.user
     const profileDeleted = !profileCheck
     
+    console.log(`[DELETE USER] Verification results:`, {
+      authDeleted,
+      profileDeleted,
+      authCheckError: authCheckError?.status,
+      profileCheckError: profileCheckError?.code
+    })
+    
     if (authDeleted && profileDeleted) {
+      console.log(`[DELETE USER] ✅ Both auth user and profile successfully deleted`)
       return NextResponse.json({ 
         success: true,
         message: "User deleted successfully. Profile and all associated data were automatically removed via CASCADE.",
         deleted: {
           authUser: true,
           profile: true,
-          associatedData: true // All data with ON DELETE CASCADE was removed
+          associatedData: true
         }
       })
-    } else {
+    } else if (!authDeleted) {
+      console.error(`[DELETE USER] ❌ Auth user still exists after deletion attempt`)
       return NextResponse.json({
         success: false,
-        message: "Deletion may not have completed fully",
+        error: "Auth user deletion failed - user still exists",
         deleted: {
-          authUser: authDeleted,
+          authUser: false,
           profile: profileDeleted
         },
-        warning: authDeleted && !profileDeleted 
-          ? "Auth user deleted but profile still exists (CASCADE may not have triggered)" 
-          : !authDeleted 
-          ? "Auth user still exists" 
-          : "Unknown state"
+        details: "The deleteUser API call returned success but the user still exists. Profile deletion status: " + (profileDeleted ? "deleted" : "still exists")
+      }, { status: 500 })
+    } else {
+      // Auth deleted but profile still exists (shouldn't happen with CASCADE)
+      console.error(`[DELETE USER] ⚠️ Auth user deleted but profile still exists (CASCADE may not have triggered)`)
+      return NextResponse.json({
+        success: false,
+        warning: "Auth user deleted but profile still exists",
+        deleted: {
+          authUser: true,
+          profile: false
+        },
+        details: "This should not happen - profile should be automatically deleted via CASCADE when auth user is deleted"
       }, { status: 500 })
     }
   } catch (error: any) {

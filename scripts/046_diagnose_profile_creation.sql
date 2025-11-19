@@ -55,3 +55,5 @@ WHERE tablename = 'profiles' AND policyname = 'profiles_insert_own';
 -- 6. Check for any trigger execution errors in PostgreSQL logs
 -- (This requires access to PostgreSQL logs, which may not be available in Supabase dashboard)
 
+
+
