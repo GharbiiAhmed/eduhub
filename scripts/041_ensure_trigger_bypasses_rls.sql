@@ -58,3 +58,4 @@ CREATE TRIGGER on_auth_user_created
 GRANT EXECUTE ON FUNCTION public.handle_new_user() TO postgres, anon, authenticated, service_role;
 
 
+

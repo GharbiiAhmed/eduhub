@@ -1,36 +1,14 @@
--- Add a safe insert policy for profiles table
--- This allows users to insert their own profile as a fallback if the trigger fails
--- The policy ensures users can only insert their own profile (auth.uid() = id)
--- This prevents RLS errors from cached client code trying to insert
--- Fixed to properly handle UTF-8 characters (French, Arabic, etc.)
+-- Verify and fix trigger function for UTF-8 support
+-- This script ensures the trigger properly handles French, Arabic, and all Unicode characters
+
+-- First, let's check the current function definition
+-- Run this to see the current function:
+-- SELECT pg_get_functiondef(oid) FROM pg_proc WHERE proname = 'handle_new_user';
 
 -- Ensure database encoding supports UTF-8
--- This is usually set at database creation, but we ensure it here
 SET client_encoding = 'UTF8';
 
--- Drop the policy if it exists, then recreate it
--- This policy allows users to insert their own profile row
--- Only allows insert if the user is authenticated and the id matches their auth.uid()
--- Made more explicit to handle all character encodings properly
--- Note: The trigger should handle profile creation, but this policy allows client-side
--- inserts as a fallback for cases where cached code tries to insert
-DROP POLICY IF EXISTS "profiles_insert_own" ON public.profiles;
-
--- Allow users to insert their own profile when authenticated
--- This handles cases where client code tries to insert during/after signup
--- Removed TO authenticated to allow inserts when auth.uid() is available
--- even if the session isn't fully established yet
-CREATE POLICY "profiles_insert_own" ON public.profiles 
-FOR INSERT 
-WITH CHECK (
-  auth.uid() IS NOT NULL 
-  AND auth.uid() = id
-);
-
--- Ensure the trigger function is properly configured with SECURITY DEFINER
--- This is the primary mechanism for profile creation
--- Updated to explicitly handle UTF-8 encoding for full_name field
--- Handles French, Arabic, and all other Unicode characters properly
+-- Recreate the trigger function with proper UTF-8 handling
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER 
 SECURITY DEFINER
@@ -49,6 +27,7 @@ BEGIN
   
   -- Extract full_name with proper UTF-8 handling
   -- The ->> operator returns text, but we explicitly cast to ensure encoding
+  -- This is critical for French, Arabic, and all Unicode characters
   IF new.raw_user_meta_data ? 'full_name' THEN
     user_full_name := (new.raw_user_meta_data ->> 'full_name')::TEXT;
   ELSE
@@ -92,7 +71,7 @@ EXCEPTION
 END;
 $$;
 
--- Ensure the trigger exists
+-- Verify the trigger exists and is enabled
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
@@ -102,13 +81,15 @@ CREATE TRIGGER on_auth_user_created
 -- Grant execute permission to the trigger function
 GRANT EXECUTE ON FUNCTION public.handle_new_user() TO postgres, anon, authenticated, service_role;
 
--- Verify the policy was created successfully
--- Run this query to check: SELECT * FROM pg_policies WHERE tablename = 'profiles' AND policyname = 'profiles_insert_own';
+-- Verify the function was created correctly
+-- Run this query to verify:
+-- SELECT 
+--   proname as function_name,
+--   prosecdef as security_definer,
+--   proconfig as settings
+-- FROM pg_proc 
+-- WHERE proname = 'handle_new_user';
 
--- IMPORTANT NOTES:
--- 1. The trigger function uses SECURITY DEFINER and bypasses RLS completely
--- 2. The trigger handles UTF-8 encoding properly for French, Arabic, and all Unicode characters
--- 3. Client-side insert errors (401/42501) can be safely ignored - the trigger creates the profile automatically
--- 4. If you see client-side errors, clear your browser cache and try again
--- 5. The profile is created by the trigger when a user signs up, regardless of client-side errors
+-- Test query to check if a profile was created (replace USER_ID with actual user ID):
+-- SELECT id, email, full_name, role, status FROM public.profiles WHERE id = 'USER_ID';
 

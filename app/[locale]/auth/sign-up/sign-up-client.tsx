@@ -86,34 +86,46 @@ export function SignUpClient() {
       // Set status based on role: students are auto-approved, instructors need approval
       const userStatus = formData.role === 'instructor' ? 'pending' : 'approved'
       
-      // The database trigger creates the profile automatically with full_name from metadata
-      // Wait a moment for trigger to complete, then update status via API (bypasses RLS)
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // Update profile status via API endpoint (uses service role to bypass RLS)
-      // The trigger already set full_name from metadata, we just need to ensure status is correct
+      // Create/update profile immediately via API endpoint (uses service role to bypass RLS)
+      // This ensures the profile is created even if the trigger fails or hasn't run yet
+      // This is especially important for UTF-8 characters (French, Arabic, etc.)
       try {
         // Use absolute URL to ensure it works correctly with all locales
         const apiUrl = `${window.location.origin}/api/auth/update-profile`
+        const requestBody = {
+          userId: data.user.id,
+          fullName: formData.fullName || '', // Ensure we always send a string, even if empty
+          role: formData.role,
+          status: userStatus
+        }
+        
+        console.log('Creating profile with data:', { ...requestBody, fullName: requestBody.fullName?.substring(0, 20) + '...' })
+        
         const updateResponse = await fetch(apiUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: data.user.id,
-            fullName: formData.fullName, // Update in case metadata didn't include it
-            role: formData.role, // Pass role in case profile needs to be created
-            status: userStatus
-          })
+          headers: { 
+            'Content-Type': 'application/json; charset=utf-8'
+          },
+          body: JSON.stringify(requestBody)
         })
 
+        const responseData = await updateResponse.json()
+        
         if (!updateResponse.ok) {
-          const updateError = await updateResponse.json()
-          console.error('Profile update error:', updateError)
-          // Don't block signup - trigger already created profile
+          console.error('Profile creation error:', responseData)
+          // Log detailed error for debugging
+          console.error('Error details:', {
+            status: updateResponse.status,
+            statusText: updateResponse.statusText,
+            error: responseData
+          })
+          // Don't block signup - try to continue anyway
+        } else {
+          console.log('Profile created/updated successfully:', responseData)
         }
       } catch (err) {
-        console.error('Failed to update profile:', err)
-        // Don't block signup - trigger already created profile
+        console.error('Failed to create profile:', err)
+        // Don't block signup - user can still verify email
       }
 
         // Only notify admin for instructor registrations

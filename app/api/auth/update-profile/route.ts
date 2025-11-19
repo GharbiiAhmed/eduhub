@@ -34,62 +34,66 @@ export async function POST(request: NextRequest) {
     // First, check if profile exists (trigger should have created it)
     const { data: existingProfile, error: fetchError } = await supabaseAdmin
       .from('profiles')
-      .select('id')
+      .select('id, email, role, status, full_name')
       .eq('id', userId)
       .single()
 
-    // If profile doesn't exist, create it (trigger might have failed)
+    // Always use upsert to ensure profile exists with correct data
+    // This handles both creation and update in one operation
+    // Fetch user email from auth.users if profile doesn't exist
+    let userEmail = ''
     if (!existingProfile || fetchError) {
-      // Fetch user email from auth.users
       const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId)
-      const userEmail = authUser?.user?.email || ''
-      
-      // Determine role and status from request or defaults
-      const userRole = body.role || 'student'
-      const userStatus = status || (userRole === 'instructor' ? 'pending' : 'approved')
-      
-      const insertData: any = {
-        id: userId,
-        email: userEmail,
-        role: userRole,
-        status: userStatus,
-        full_name: fullName || ''
-      }
-      
-      const { error: insertError } = await supabaseAdmin
-        .from('profiles')
-        .upsert(insertData, { onConflict: 'id' })
-      
-      if (insertError) {
-        console.error('Profile insert error:', insertError)
-        return NextResponse.json(
-          { error: insertError.message },
-          { status: 500 }
-        )
-      }
+      userEmail = authUser?.user?.email || ''
     } else {
-      // Update existing profile using service role (bypasses RLS)
-      const updateData: any = {}
-      if (fullName) updateData.full_name = fullName
-      if (status) updateData.status = status
-
-      const { error: updateError } = await supabaseAdmin
-        .from('profiles')
-        .update(updateData)
-        .eq('id', userId)
-
-      if (updateError) {
-        console.error('Profile update error:', updateError)
-        return NextResponse.json(
-          { error: updateError.message },
-          { status: 500 }
-        )
-      }
+      userEmail = existingProfile.email || ''
+    }
+    
+    // Determine role and status from request or existing profile or defaults
+    const userRole = body.role || existingProfile?.role || 'student'
+    const userStatus = status || existingProfile?.status || (userRole === 'instructor' ? 'pending' : 'approved')
+    
+    // Prepare data for upsert - always include full_name
+    // Use provided fullName, or keep existing, or use empty string
+    const finalFullName = fullName !== null && fullName !== undefined 
+      ? fullName 
+      : (existingProfile?.full_name !== null && existingProfile?.full_name !== undefined 
+          ? existingProfile.full_name 
+          : '')
+    
+    const profileData: any = {
+      id: userId,
+      email: userEmail,
+      role: userRole,
+      status: userStatus,
+      full_name: finalFullName
+    }
+    
+    // Use upsert to create or update the profile
+    // Service role bypasses RLS, so this will work regardless of trigger
+    const { data: upsertedProfile, error: upsertError } = await supabaseAdmin
+      .from('profiles')
+      .upsert(profileData, { onConflict: 'id' })
+      .select()
+      .single()
+    
+    if (upsertError) {
+      console.error('Profile upsert error:', upsertError)
+      console.error('Profile data attempted:', profileData)
+      return NextResponse.json(
+        { 
+          error: upsertError.message,
+          details: upsertError,
+          attemptedData: profileData
+        },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({ 
       success: true,
-      message: "Profile updated successfully"
+      message: "Profile updated successfully",
+      profile: upsertedProfile
     })
   } catch (error) {
     console.error("Error updating profile:", error)
