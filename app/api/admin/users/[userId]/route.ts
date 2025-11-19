@@ -450,9 +450,9 @@ export async function DELETE(
       )
     }
 
-    // Now delete the profile (auth user is already deleted, so user can't authenticate)
+    // Now delete the profile record (not the table, just the user's profile row)
     // This will cascade delete related data due to foreign keys
-    console.log(`[DELETE USER] Deleting profile for user: ${userId}`)
+    console.log(`[DELETE USER] Deleting profile record for user: ${userId}`)
     
     const { error: deleteError, data: deleteData } = await supabaseAdmin
       .from("profiles")
@@ -475,7 +475,7 @@ export async function DELETE(
       )
     }
 
-    console.log(`[DELETE USER] ✅ Profile deleted successfully. Deleted rows:`, deleteData?.length || 0)
+    console.log(`[DELETE USER] ✅ Profile record deleted successfully. Deleted rows:`, deleteData?.length || 0)
     
     // Final verification: Check that both auth user and profile are gone
     const { data: finalAuthCheck } = await supabaseAdmin.auth.admin.getUserById(userId)
