@@ -214,11 +214,22 @@ export async function DELETE(
     // Use service role client - REQUIRED for deleting auth users
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!serviceRoleKey) {
+      console.error("[DELETE USER] ❌ SUPABASE_SERVICE_ROLE_KEY is not set in environment variables")
+      console.error("[DELETE USER] Environment check:", {
+        hasServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+        hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        nodeEnv: process.env.NODE_ENV
+      })
       return NextResponse.json(
-        { error: "Service role key not configured. Cannot delete auth user." },
+        { 
+          error: "Service role key not configured. Cannot delete auth user.",
+          details: "SUPABASE_SERVICE_ROLE_KEY environment variable is missing. Please configure it in your deployment environment (Netlify)."
+        },
         { status: 500 }
       )
     }
+    
+    console.log(`[DELETE USER] Service role key found: ${serviceRoleKey.substring(0, 10)}...`)
 
     const supabaseAdmin = createServiceClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
