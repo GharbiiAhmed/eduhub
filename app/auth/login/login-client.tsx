@@ -33,14 +33,16 @@ export function LoginClient() {
       
       // Fetch user profile to get role and status
       if (data.user) {
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('role, status')
           .eq('id', data.user.id)
           .single()
 
         // Check if profile exists (user was deleted)
-        if (!profile) {
+        // ProfileError with code PGRST116 means no rows returned (profile doesn't exist)
+        if (!profile || profileError) {
+          // Sign out immediately to clear the session
           await supabase.auth.signOut()
           setError("Your account has been deleted. Please contact support if you believe this is an error.")
           setIsLoading(false)

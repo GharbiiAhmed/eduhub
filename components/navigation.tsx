@@ -122,7 +122,7 @@ export function Navigation({ userType: propUserType, user: propUser }: Navigatio
       if (event === 'SIGNED_IN' && session?.user) {
         setUser(session.user)
         // Fetch profile for role and status
-        // Handle case where profile might not exist yet (during signup)
+        // If profile doesn't exist (user was deleted), sign out immediately
         supabase
           .from('profiles')
           .select('role, status')
@@ -130,14 +130,20 @@ export function Navigation({ userType: propUserType, user: propUser }: Navigatio
           .single()
           .then(({ data: profile, error: profileError }) => {
             if (!isMounted) return
+            // If profile doesn't exist (user was deleted), sign out immediately
+            if (!profile || profileError) {
+              supabase.auth.signOut()
+              setUser(null)
+              setUserType(undefined)
+              setUserStatus(undefined)
+              return
+            }
             // Only set profile data if it exists and there's no error
-            if (!profileError && profile) {
-              if (profile.role) {
-                setUserType(profile.role as 'student' | 'instructor' | 'admin')
-              }
-              if (profile.status) {
-                setUserStatus(profile.status)
-              }
+            if (profile.role) {
+              setUserType(profile.role as 'student' | 'instructor' | 'admin')
+            }
+            if (profile.status) {
+              setUserStatus(profile.status)
             }
           })
       } else if (event === 'SIGNED_OUT') {

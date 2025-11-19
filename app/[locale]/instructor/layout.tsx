@@ -15,13 +15,15 @@ export default async function InstructorLayout({ children }: { children: React.R
   }
 
   // Check if profile exists (user was deleted)
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("role, status")
     .eq("id", user.id)
     .single()
 
-  if (!profile) {
+  // If profile doesn't exist (user was deleted), sign out and redirect
+  // ProfileError with code PGRST116 means no rows returned (profile doesn't exist)
+  if (!profile || profileError) {
     await supabase.auth.signOut()
     redirect("/auth/login")
   }

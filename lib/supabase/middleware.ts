@@ -40,18 +40,19 @@ export async function updateSession(request: NextRequest) {
 
     // Check user status for authenticated users
     if (user) {
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("status")
+        .select("status, role")
         .eq("id", user.id)
         .single()
 
       // If profile doesn't exist (user was deleted), block access and redirect to login
+      // ProfileError with code PGRST116 means no rows returned (profile doesn't exist)
       // This prevents deleted users from accessing the system
-      if (!profile && !request.nextUrl.pathname.startsWith("/auth")) {
+      if ((!profile || profileError) && !request.nextUrl.pathname.startsWith("/auth")) {
         const url = request.nextUrl.clone()
         url.pathname = "/auth/login"
-        // Clear auth session by signing out
+        // Clear auth session by signing out immediately
         await supabase.auth.signOut()
         return NextResponse.redirect(url)
       }

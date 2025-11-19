@@ -12,10 +12,15 @@ export default async function DashboardPage() {
     redirect("/auth/login")
   }
 
-  const { data: profile } = await supabase.from("profiles").select("role, status").eq("id", user.id).single()
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role, status")
+    .eq("id", user.id)
+    .single()
 
   // If profile doesn't exist (user was deleted), redirect to login and sign out
-  if (!profile) {
+  // ProfileError with code PGRST116 means no rows returned (profile doesn't exist)
+  if (!profile || profileError) {
     await supabase.auth.signOut()
     redirect("/auth/login")
   }
