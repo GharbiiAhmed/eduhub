@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { createClient as createServiceClient } from "@supabase/supabase-js"
 import { NextRequest, NextResponse } from "next/server"
+import { sendRejectionEmail } from "@/lib/email"
 
 // POST - Reject a user
 export async function POST(
@@ -84,8 +85,14 @@ export async function POST(
       console.error("Error creating notification:", notificationError)
     }
 
-    // TODO: Send email to user
-    console.log(`User ${userProfile.email} has been rejected`)
+    // Send rejection email to user
+    try {
+      await sendRejectionEmail(userProfile.email, userProfile.full_name || 'User', reason)
+      console.log(`✅ Rejection email sent to ${userProfile.email}`)
+    } catch (emailError: any) {
+      console.error("Error sending rejection email:", emailError)
+      // Don't fail the request if email fails
+    }
 
     return NextResponse.json({ 
       success: true,
@@ -99,6 +106,8 @@ export async function POST(
     )
   }
 }
+
+
 
 
 

@@ -95,3 +95,5 @@ GRANT EXECUTE ON FUNCTION public.handle_new_user() TO postgres, anon, authentica
 
 
 
+
+

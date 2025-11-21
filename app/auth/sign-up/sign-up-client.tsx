@@ -56,7 +56,12 @@ export function SignUpClient() {
     try {
       // Get the current URL to construct the redirect URL for email verification
       // This works for both localhost and deployed environments
-      const redirectUrl = `${window.location.origin}/auth/pending-approval`
+      // Students are auto-approved, so redirect to success page after email verification
+      // Instructors need approval, so redirect to pending-approval page
+      const redirectPath = formData.role === 'instructor' 
+        ? '/auth/pending-approval' 
+        : '/auth/sign-up-success'
+      const redirectUrl = `${window.location.origin}${redirectPath}`
       
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { createClient as createServiceClient } from "@supabase/supabase-js"
 import { type NextRequest, NextResponse } from "next/server"
+import { sendBanEmail } from "@/lib/email"
 
 interface RouteContext {
   params: Promise<{
@@ -139,6 +140,13 @@ export async function PATCH(
       )
     }
 
+    // Get user profile before update to check if status is changing to banned
+    const { data: currentProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("email, full_name, status")
+      .eq("id", userId)
+      .single()
+
     // Update user profile
     const { data: updatedProfile, error: updateError } = await supabaseAdmin
       .from("profiles")
@@ -153,6 +161,21 @@ export async function PATCH(
         { error: updateError.message || "Failed to update user" },
         { status: 500 }
       )
+    }
+
+    // Send email if user was banned
+    if (updateData.status === 'banned' && currentProfile && currentProfile.status !== 'banned') {
+      try {
+        await sendBanEmail(
+          currentProfile.email, 
+          currentProfile.full_name || 'User',
+          body.reason // If reason is provided in the request body
+        )
+        console.log(`✅ Ban email sent to ${currentProfile.email}`)
+      } catch (emailError: any) {
+        console.error("Error sending ban email:", emailError)
+        // Don't fail the request if email fails
+      }
     }
 
     return NextResponse.json({ 

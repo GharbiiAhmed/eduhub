@@ -25,9 +25,15 @@ export default async function DashboardPage() {
     redirect("/auth/login")
   }
 
-  // Check if user is pending - redirect to pending approval page
-  if (profile.status === 'pending') {
+  // Check if user is pending - only instructors should be redirected to pending approval page
+  // Students are auto-approved and should never be pending
+  if (profile.status === 'pending' && profile.role === 'instructor') {
     redirect("/auth/pending-approval")
+  }
+  
+  // If a student somehow has pending status, redirect them to their courses (they're auto-approved)
+  if (profile.status === 'pending' && profile.role === 'student') {
+    redirect("/student/courses")
   }
 
   // Check if user is banned or inactive - redirect to login

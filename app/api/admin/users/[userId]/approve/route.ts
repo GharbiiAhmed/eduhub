@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { createClient as createServiceClient } from "@supabase/supabase-js"
 import { NextRequest, NextResponse } from "next/server"
+import { sendApprovalEmail } from "@/lib/email"
 
 // POST - Approve a user
 export async function POST(
@@ -81,9 +82,14 @@ export async function POST(
       console.error("Error creating notification:", notificationError)
     }
 
-    // TODO: Send email to user
-    // You can integrate with Resend, SendGrid, or Supabase Email here
-    console.log(`User ${userProfile.email} has been approved`)
+    // Send approval email to user
+    try {
+      await sendApprovalEmail(userProfile.email, userProfile.full_name || 'User')
+      console.log(`✅ Approval email sent to ${userProfile.email}`)
+    } catch (emailError: any) {
+      console.error("Error sending approval email:", emailError)
+      // Don't fail the request if email fails
+    }
 
     return NextResponse.json({ 
       success: true,
@@ -97,6 +103,8 @@ export async function POST(
     )
   }
 }
+
+
 
 
 

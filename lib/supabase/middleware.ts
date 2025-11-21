@@ -57,13 +57,15 @@ export async function updateSession(request: NextRequest) {
         return NextResponse.redirect(url)
       }
 
-      // If user is pending, redirect to pending approval page (except for auth routes and pending approval page itself)
+      // If user is pending AND is an instructor, redirect to pending approval page (except for auth routes and pending approval page itself)
+      // Students should never be pending, but if they are, they should be redirected to dashboard
       const pathname = request.nextUrl.pathname
       const isAuthRoute = pathname.includes("/auth/")
       const isPendingApprovalPage = pathname.includes("/pending-approval")
       const isPublicRoute = pathname === "/" || pathname.match(/^\/(en|es|fr|ar|de|it|pt|ru|zh|ja|ko)?\/?$/)
       
       if (profile?.status === 'pending' && 
+          profile?.role === 'instructor' &&
           !isAuthRoute && 
           !isPendingApprovalPage &&
           !isPublicRoute) {
