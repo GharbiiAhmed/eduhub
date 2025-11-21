@@ -147,6 +147,25 @@ export async function PATCH(
       .eq("id", userId)
       .single()
 
+    if (!currentProfile) {
+      return NextResponse.json(
+        { error: "User not found" },
+        { status: 404 }
+      )
+    }
+
+    const wasBanned = currentProfile.status === 'banned'
+    const willBeBanned = updateData.status === 'banned'
+
+    console.log(`[UPDATE USER] Status change check:`, {
+      userId,
+      currentStatus: currentProfile.status,
+      newStatus: updateData.status,
+      wasBanned,
+      willBeBanned,
+      shouldSendEmail: willBeBanned && !wasBanned
+    })
+
     // Update user profile
     const { data: updatedProfile, error: updateError } = await supabaseAdmin
       .from("profiles")
@@ -163,19 +182,31 @@ export async function PATCH(
       )
     }
 
-    // Send email if user was banned
-    if (updateData.status === 'banned' && currentProfile && currentProfile.status !== 'banned') {
+    // Send email if user was banned (status changed from not-banned to banned)
+    if (willBeBanned && !wasBanned) {
+      console.log(`[UPDATE USER] User was banned. Sending ban email to ${currentProfile.email}`)
       try {
-        await sendBanEmail(
+        const emailResult = await sendBanEmail(
           currentProfile.email, 
           currentProfile.full_name || 'User',
           body.reason // If reason is provided in the request body
         )
-        console.log(`✅ Ban email sent to ${currentProfile.email}`)
+        
+        if (emailResult.success) {
+          console.log(`✅ Ban email sent successfully to ${currentProfile.email}`)
+        } else {
+          console.error(`❌ Failed to send ban email to ${currentProfile.email}:`, emailResult.error)
+        }
       } catch (emailError: any) {
-        console.error("Error sending ban email:", emailError)
+        console.error("❌ Exception sending ban email:", emailError)
+        console.error("Error details:", {
+          message: emailError.message,
+          stack: emailError.stack
+        })
         // Don't fail the request if email fails
       }
+    } else if (willBeBanned && wasBanned) {
+      console.log(`[UPDATE USER] User was already banned, skipping email`)
     }
 
     return NextResponse.json({ 

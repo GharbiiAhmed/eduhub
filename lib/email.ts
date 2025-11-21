@@ -70,7 +70,7 @@ export async function sendEmail(options: EmailOptions): Promise<{ success: boole
 /**
  * Send account approval email
  */
-export async function sendApprovalEmail(email: string, fullName: string): Promise<void> {
+export async function sendApprovalEmail(email: string, fullName: string): Promise<{ success: boolean; error?: string }> {
   const subject = 'Your Account Has Been Approved - EduHub'
   const html = `
     <!DOCTYPE html>
@@ -112,13 +112,13 @@ export async function sendApprovalEmail(email: string, fullName: string): Promis
     </html>
   `
 
-  await sendEmail({ to: email, subject, html })
+  return await sendEmail({ to: email, subject, html })
 }
 
 /**
  * Send account rejection email
  */
-export async function sendRejectionEmail(email: string, fullName: string, reason?: string): Promise<void> {
+export async function sendRejectionEmail(email: string, fullName: string, reason?: string): Promise<{ success: boolean; error?: string }> {
   const subject = 'Account Registration Update - EduHub'
   const html = `
     <!DOCTYPE html>
@@ -154,13 +154,13 @@ export async function sendRejectionEmail(email: string, fullName: string, reason
     </html>
   `
 
-  await sendEmail({ to: email, subject, html })
+  return await sendEmail({ to: email, subject, html })
 }
 
 /**
  * Send account ban email
  */
-export async function sendBanEmail(email: string, fullName: string, reason?: string): Promise<void> {
+export async function sendBanEmail(email: string, fullName: string, reason?: string): Promise<{ success: boolean; error?: string }> {
   const subject = 'Account Suspension Notice - EduHub'
   const html = `
     <!DOCTYPE html>
@@ -196,6 +196,6 @@ export async function sendBanEmail(email: string, fullName: string, reason?: str
     </html>
   `
 
-  await sendEmail({ to: email, subject, html })
+  return await sendEmail({ to: email, subject, html })
 }
 

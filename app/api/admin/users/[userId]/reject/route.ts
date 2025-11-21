@@ -87,10 +87,20 @@ export async function POST(
 
     // Send rejection email to user
     try {
-      await sendRejectionEmail(userProfile.email, userProfile.full_name || 'User', reason)
-      console.log(`✅ Rejection email sent to ${userProfile.email}`)
+      console.log(`[REJECT USER] Sending rejection email to ${userProfile.email}`)
+      const emailResult = await sendRejectionEmail(userProfile.email, userProfile.full_name || 'User', reason)
+      
+      if (emailResult.success) {
+        console.log(`✅ Rejection email sent successfully to ${userProfile.email}`)
+      } else {
+        console.error(`❌ Failed to send rejection email to ${userProfile.email}:`, emailResult.error)
+      }
     } catch (emailError: any) {
-      console.error("Error sending rejection email:", emailError)
+      console.error("❌ Exception sending rejection email:", emailError)
+      console.error("Error details:", {
+        message: emailError.message,
+        stack: emailError.stack
+      })
       // Don't fail the request if email fails
     }
 

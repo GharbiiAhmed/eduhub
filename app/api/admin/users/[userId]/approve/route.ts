@@ -84,10 +84,20 @@ export async function POST(
 
     // Send approval email to user
     try {
-      await sendApprovalEmail(userProfile.email, userProfile.full_name || 'User')
-      console.log(`✅ Approval email sent to ${userProfile.email}`)
+      console.log(`[APPROVE USER] Sending approval email to ${userProfile.email}`)
+      const emailResult = await sendApprovalEmail(userProfile.email, userProfile.full_name || 'User')
+      
+      if (emailResult.success) {
+        console.log(`✅ Approval email sent successfully to ${userProfile.email}`)
+      } else {
+        console.error(`❌ Failed to send approval email to ${userProfile.email}:`, emailResult.error)
+      }
     } catch (emailError: any) {
-      console.error("Error sending approval email:", emailError)
+      console.error("❌ Exception sending approval email:", emailError)
+      console.error("Error details:", {
+        message: emailError.message,
+        stack: emailError.stack
+      })
       // Don't fail the request if email fails
     }
 
