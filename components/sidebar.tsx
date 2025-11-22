@@ -32,9 +32,10 @@ import { createClient } from '@/lib/supabase/client'
 interface SidebarProps {
   userType: 'student' | 'instructor' | 'admin'
   className?: string
+  onLinkClick?: () => void
 }
 
-export function Sidebar({ userType, className }: SidebarProps) {
+export function Sidebar({ userType, className, onLinkClick }: SidebarProps) {
   const t = useTranslations('navigation')
   const tCommon = useTranslations('common')
   const tDashboard = useTranslations('dashboard')
@@ -446,6 +447,7 @@ export function Sidebar({ userType, className }: SidebarProps) {
                     <Link
                       key={item.href}
                       href={item.href}
+                      onClick={onLinkClick}
                       className={cn(
                         "group flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors",
                         isActive

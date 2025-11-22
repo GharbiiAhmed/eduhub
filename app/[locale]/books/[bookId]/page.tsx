@@ -196,12 +196,12 @@ export default function BookDetailPage({
           </Link>
 
           {/* Hero Section */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-600 p-8 md:p-12 mb-8 shadow-2xl">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-600 p-4 sm:p-6 md:p-8 lg:p-12 mb-4 sm:mb-6 md:mb-8 shadow-2xl">
             <div className="absolute inset-0 bg-black/10"></div>
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
             <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
             
-            <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 md:gap-8 items-center">
               {/* Book Cover */}
               <div className="flex items-center justify-center">
                 {book.cover_url ? (
@@ -268,7 +268,7 @@ export default function BookDetailPage({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
             {/* Main Content */}
             <div className="lg:col-span-2 space-y-6">
               {/* Description */}

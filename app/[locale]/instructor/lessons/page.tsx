@@ -84,7 +84,7 @@ export default async function InstructorLessonsPage() {
   const textLessons = lessons.filter(l => l.content_type === 'text' || l.text_content).length
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 sm:space-y-6 md:space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

@@ -324,7 +324,7 @@ export default function StudentCertificatesPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 sm:space-y-6 md:space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -575,7 +575,7 @@ export default function StudentCertificatesPage() {
                 </Button>
               </div>
               
-              <div className="border-4 border-blue-600 rounded-lg p-8 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
+              <div className="border-4 border-blue-600 rounded-lg p-4 sm:p-6 md:p-8 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
                 <div className="text-center space-y-4">
                   <div className="flex justify-center mb-4">
                     <Award className="w-16 h-16 text-blue-600" />

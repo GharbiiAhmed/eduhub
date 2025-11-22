@@ -566,11 +566,11 @@ export default function InstructorMessagesPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 sm:space-y-6 md:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('title')}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{t('title')}</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-2">
             {t('connectWithYourStudents')}
           </p>
@@ -669,12 +669,12 @@ export default function InstructorMessagesPage() {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
         {/* Conversations List */}
         <div className="lg:col-span-1">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <CardTitle className="flex items-center">
                   <MessageSquare className="w-5 h-5 mr-2 text-blue-600" />
                   {t('conversations')}
@@ -760,7 +760,7 @@ export default function InstructorMessagesPage() {
           {selectedConversation ? (
             <Card className="h-[600px] flex flex-col">
               <CardHeader>
-                <CardTitle className="flex items-center justify-between">
+                <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div className="flex items-center">
                     <MessageSquare className="w-5 h-5 mr-2 text-green-600" />
                     {selectedConversation.title}
@@ -772,7 +772,7 @@ export default function InstructorMessagesPage() {
                   </div>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="flex-1 overflow-auto p-6 space-y-4">
+              <CardContent className="flex-1 overflow-auto p-4 sm:p-6 space-y-3 sm:space-y-4">
                 {messages.length === 0 ? (
                   <div className="text-center py-12">
                     <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />

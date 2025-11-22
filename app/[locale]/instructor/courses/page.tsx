@@ -28,13 +28,13 @@ export default async function InstructorCoursesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">{tDashboard('myCourses')}</h1>
-          <p className="text-muted-foreground">{tDashboard('manageCourseContent')}</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">{tDashboard('myCourses')}</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">{tDashboard('manageCourseContent')}</p>
         </div>
         <Link href="/instructor/courses/create">
-          <Button>{t('createCourse')}</Button>
+          <Button className="w-full sm:w-auto">{t('createCourse')}</Button>
         </Link>
       </div>
 
@@ -47,11 +47,11 @@ export default async function InstructorCoursesPage() {
                 <CardDescription className="line-clamp-2">{course.description}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between text-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
                   <span className="text-muted-foreground">{tCommon('status')}:</span>
                   <span className="font-medium capitalize">{course.status}</span>
                 </div>
-                <div className="flex items-center justify-between text-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
                   <span className="text-muted-foreground">{t('price')}:</span>
                   <span className="font-medium">${course.price}</span>
                 </div>
@@ -66,7 +66,7 @@ export default async function InstructorCoursesPage() {
         </div>
       ) : (
         <Card>
-          <CardContent className="pt-6 text-center">
+          <CardContent className="pt-4 sm:pt-6 text-center">
             <p className="text-muted-foreground mb-4">{tDashboard('noCoursesYet')}</p>
             <Link href="/instructor/courses/create">
               <Button>{tDashboard('createFirstCourse')}</Button>

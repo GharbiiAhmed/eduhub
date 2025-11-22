@@ -192,12 +192,12 @@ export default function StudentLessonsPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 sm:space-y-6 md:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{tDashboard('recentLessons')}</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{tDashboard('recentLessons')}</h1>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-2">
             {tDashboard('continueLearning')}
           </p>
         </div>
@@ -210,7 +210,7 @@ export default function StudentLessonsPage() {
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6">
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t('lessons')}</CardTitle>
@@ -267,12 +267,12 @@ export default function StudentLessonsPage() {
       {/* Filter Tabs */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <CardTitle className="flex items-center">
               <BookMarked className="w-5 h-5 mr-2 text-purple-600" />
               {t('lessonLibrary')}
             </CardTitle>
-            <div className="flex space-x-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               {(['all', 'recent', 'completed', 'in-progress'] as const).map((filterType) => (
                 <Button
                   key={filterType}

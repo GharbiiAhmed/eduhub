@@ -661,11 +661,11 @@ export default function StudentMessagesPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 sm:space-y-6 md:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('title')}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{t('title')}</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-2">
             {t('connectWithInstructorsAndStudents')}
           </p>
@@ -780,12 +780,12 @@ export default function StudentMessagesPage() {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
         {/* Conversations List */}
         <div className="lg:col-span-1">
           <Card>
             <CardHeader>
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <CardTitle className="flex items-center">
                   <MessageSquare className="w-5 h-5 mr-2 text-blue-600" />
                   {t('conversations')}
@@ -871,7 +871,7 @@ export default function StudentMessagesPage() {
           {selectedConversation ? (
             <Card className="h-[600px] flex flex-col">
               <CardHeader>
-                <CardTitle className="flex items-center justify-between">
+                <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div className="flex items-center">
                     <MessageSquare className="w-5 h-5 mr-2 text-green-600" />
                     {selectedConversation.title}

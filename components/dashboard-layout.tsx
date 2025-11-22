@@ -1,10 +1,13 @@
 "use client"
 
-import React from 'react'
+import React, { useState } from 'react'
 import { Navigation } from '@/components/navigation'
 import { Sidebar } from '@/components/sidebar'
 import { createClient } from '@/lib/supabase/client'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import { Menu, X } from 'lucide-react'
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -15,6 +18,7 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children, userType, showSidebar = true }: DashboardLayoutProps) {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const supabase = createClient()
   
   useEffect(() => {
@@ -49,14 +53,39 @@ export function DashboardLayout({ children, userType, showSidebar = true }: Dash
       <Navigation userType={userType} user={user} />
       
       <div className="flex">
+        {/* Desktop Sidebar */}
         {showSidebar && (
           <div className="hidden lg:block">
             <Sidebar userType={userType} />
           </div>
         )}
         
-        <main className="flex-1 min-h-screen">
-          <div className="p-6">
+        {/* Mobile Sidebar Button */}
+        {showSidebar && (
+          <div className="lg:hidden fixed top-20 left-4 z-50">
+            <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
+              <SheetTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="bg-white dark:bg-gray-800 shadow-lg border-2"
+                  aria-label="Toggle sidebar"
+                >
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-64 p-0 sm:max-w-[16rem]">
+                <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+                <div className="h-full overflow-y-auto">
+                  <Sidebar userType={userType} onLinkClick={() => setMobileSidebarOpen(false)} />
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
+        )}
+        
+        <main className="flex-1 min-h-screen lg:ml-0">
+          <div className="p-4 lg:p-6">
             {children}
           </div>
         </main>

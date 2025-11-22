@@ -84,12 +84,12 @@ export default async function AdminUsersPage() {
   const pendingUsers = users?.filter(u => u.status === 'pending').length || 0
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 sm:space-y-6 md:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('userManagement')}</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{t('userManagement')}</h1>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-2">
             {t('manageAllPlatformUsers')}
           </p>
         </div>
@@ -102,7 +102,7 @@ export default async function AdminUsersPage() {
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t('totalUsers')}</CardTitle>
@@ -195,9 +195,9 @@ export default async function AdminUsersPage() {
                 />
               </div>
             </div>
-            <div className="flex space-x-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Select>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-full sm:w-48">
                   <SelectValue placeholder={t('filterByRole')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -208,7 +208,7 @@ export default async function AdminUsersPage() {
                 </SelectContent>
               </Select>
               <Select>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-full sm:w-48">
                   <SelectValue placeholder={t('filterByStatus')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -224,7 +224,7 @@ export default async function AdminUsersPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -285,7 +285,7 @@ export default async function AdminUsersPage() {
                          user.status || t('active')}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <div className="flex items-center space-x-1 text-sm text-gray-600 dark:text-gray-400">
                         <Calendar className="w-4 h-4" />
                         <span>
@@ -293,7 +293,7 @@ export default async function AdminUsersPage() {
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       <div className="text-sm text-gray-600 dark:text-gray-400">
                         {user.last_login_at ? 
                           new Date(user.last_login_at).toLocaleDateString() : 

@@ -27,13 +27,13 @@ export default async function InstructorBooksPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">{t('myBooks')}</h1>
-          <p className="text-muted-foreground">{t('manageBooksAndSales')}</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">{t('myBooks')}</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">{t('manageBooksAndSales')}</p>
         </div>
         <Link href="/instructor/books/create">
-          <Button>{t('addBook')}</Button>
+          <Button className="w-full sm:w-auto">{t('addBook')}</Button>
         </Link>
       </div>
 
@@ -46,7 +46,7 @@ export default async function InstructorBooksPage() {
                 <CardDescription className="line-clamp-1">{book.author}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between text-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
                   <span className="text-muted-foreground">{tCommon('price')}:</span>
                   <span className="font-medium">${book.price}</span>
                 </div>
@@ -69,7 +69,7 @@ export default async function InstructorBooksPage() {
         </div>
       ) : (
         <Card>
-          <CardContent className="pt-6 text-center">
+          <CardContent className="pt-4 sm:pt-6 text-center">
             <p className="text-muted-foreground mb-4">{t('noBooksAddedYet')}</p>
             <Link href="/instructor/books/create">
               <Button>{t('addYourFirstBook')}</Button>

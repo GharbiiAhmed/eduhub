@@ -195,7 +195,7 @@ export default async function InstructorAnalyticsPage() {
   const earningsProgress = earningsTarget > 0 ? (totalRevenue / earningsTarget) * 100 : 0
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 sm:space-y-6 md:space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -356,7 +356,7 @@ export default async function InstructorAnalyticsPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
         {/* Course Revenue Chart */}
         <Card>
           <CardHeader>
@@ -435,7 +435,7 @@ export default async function InstructorAnalyticsPage() {
       </div>
 
       {/* Monthly Earnings & Student Growth */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -492,21 +492,21 @@ export default async function InstructorAnalyticsPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center p-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div className="text-center p-4 sm:p-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
                 <CheckCircle className="w-8 h-8 text-green-600" />
               </div>
               <div className="text-2xl font-bold text-gray-900 dark:text-white">{publishedCourses}</div>
               <div className="text-sm text-gray-600 dark:text-gray-400">{t('publishedCourses')}</div>
             </div>
-            <div className="text-center p-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div className="text-center p-4 sm:p-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-yellow-100 dark:bg-yellow-900 flex items-center justify-center">
                 <Clock className="w-8 h-8 text-yellow-600" />
               </div>
               <div className="text-2xl font-bold text-gray-900 dark:text-white">{draftCourses}</div>
               <div className="text-sm text-gray-600 dark:text-gray-400">{t('draftCourses')}</div>
             </div>
-            <div className="text-center p-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div className="text-center p-4 sm:p-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
                 <Award className="w-8 h-8 text-blue-600" />
               </div>

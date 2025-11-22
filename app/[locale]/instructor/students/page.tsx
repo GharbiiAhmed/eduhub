@@ -188,12 +188,12 @@ export default async function InstructorStudentsPage() {
   ) || []
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 sm:space-y-6 md:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('myStudents')}</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{t('myStudents')}</h1>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-2">
             {t('manageAndTrackStudents')}
           </p>
         </div>
@@ -206,7 +206,7 @@ export default async function InstructorStudentsPage() {
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t('totalEnrollments')}</CardTitle>
@@ -276,9 +276,9 @@ export default async function InstructorStudentsPage() {
                 />
               </div>
             </div>
-            <div className="flex space-x-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Select>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-full sm:w-48">
                   <SelectValue placeholder={t('filterByCourse')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -291,7 +291,7 @@ export default async function InstructorStudentsPage() {
                 </SelectContent>
               </Select>
               <Select>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-full sm:w-48">
                   <SelectValue placeholder={t('filterByProgress')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -305,16 +305,16 @@ export default async function InstructorStudentsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{tCommon('students')}</TableHead>
-                  <TableHead>{tCommon('course')}</TableHead>
-                  <TableHead>{t('completion')}</TableHead>
-                  <TableHead>{t('enrolled')}</TableHead>
-                  <TableHead>{t('lastActive')}</TableHead>
-                  <TableHead className="text-right">{tCommon('actions')}</TableHead>
+                  <TableHead className="min-w-[200px]">{tCommon('students')}</TableHead>
+                  <TableHead className="min-w-[150px]">{tCommon('course')}</TableHead>
+                  <TableHead className="min-w-[120px]">{t('completion')}</TableHead>
+                  <TableHead className="min-w-[120px] hidden md:table-cell">{t('enrolled')}</TableHead>
+                  <TableHead className="min-w-[120px] hidden lg:table-cell">{t('lastActive')}</TableHead>
+                  <TableHead className="text-right min-w-[100px]">{tCommon('actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -361,7 +361,7 @@ export default async function InstructorStudentsPage() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <div className="flex items-center space-x-1 text-sm text-gray-600 dark:text-gray-400">
                         <Calendar className="w-4 h-4" />
                         <span>
@@ -369,7 +369,7 @@ export default async function InstructorStudentsPage() {
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       <div className="flex items-center space-x-1 text-sm text-gray-600 dark:text-gray-400">
                         <Clock className="w-4 h-4" />
                         <span>
@@ -419,7 +419,7 @@ export default async function InstructorStudentsPage() {
       </Card>
 
       {/* Student Performance Overview */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -437,7 +437,7 @@ export default async function InstructorStudentsPage() {
                   .sort((a, b) => b.progress - a.progress)
                   .slice(0, 5)
                   .map((student, index) => (
-                <div key={`${student.student_id}-${student.course_id}`} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div key={`${student.student_id}-${student.course_id}`} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
                       <span className="text-white font-semibold text-sm">{index + 1}</span>

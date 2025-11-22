@@ -279,21 +279,21 @@ export default async function AdminAnalyticsPage() {
     .slice(0, 5)
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 sm:space-y-6 md:space-y-8">
       {/* Header with Gradient */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 p-8 text-white shadow-2xl">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 p-4 sm:p-6 md:p-8 text-white shadow-2xl">
         <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]"></div>
-        <div className="relative z-10 flex items-center justify-between">
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <div className="flex items-center space-x-3 mb-2">
               <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
                 <BarChart3 className="w-6 h-6" />
               </div>
-              <h1 className="text-4xl font-bold">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">
                 {t('platformAnalytics')}
               </h1>
             </div>
-            <p className="text-indigo-100 text-lg">
+            <p className="text-indigo-100 text-sm sm:text-base md:text-lg">
               {t('comprehensiveInsightsIntoPlatform')}
             </p>
           </div>
@@ -311,7 +311,7 @@ export default async function AdminAnalyticsPage() {
       </div>
 
       {/* Key Metrics with Circular Progress */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <Card className="relative overflow-hidden border-2 border-green-200 dark:border-green-800 hover:shadow-xl hover:scale-105 transition-all duration-300 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900">
           <div className="absolute top-0 right-0 w-32 h-32 bg-green-400/20 rounded-full blur-3xl"></div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
@@ -321,19 +321,21 @@ export default async function AdminAnalyticsPage() {
             </div>
           </CardHeader>
           <CardContent className="relative z-10">
-            <div className="flex items-center justify-center mb-4">
-              <CircularProgress 
-                value={revenueProgress} 
-                max={100}
-                color="#10b981"
-                label=""
-                showValue={false}
-                size={100}
-                strokeWidth={6}
-              />
+            <div className="flex items-center justify-center mb-2 sm:mb-4">
+              <div className="w-20 h-20 sm:w-[100px] sm:h-[100px]">
+                <CircularProgress 
+                  value={revenueProgress} 
+                  max={100}
+                  color="#10b981"
+                  label=""
+                  showValue={false}
+                  size={80}
+                  strokeWidth={6}
+                />
+              </div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-green-600 dark:text-green-400">${totalPlatformRevenue.toLocaleString()}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-green-600 dark:text-green-400">${totalPlatformRevenue.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground mt-2">
                 {revenueTarget > 0 && (
                   <span className="text-gray-500 block mb-1">
@@ -367,19 +369,21 @@ export default async function AdminAnalyticsPage() {
             </div>
           </CardHeader>
           <CardContent className="relative z-10">
-            <div className="flex items-center justify-center mb-4">
-              <CircularProgress 
-                value={totalUsers} 
-                max={Math.max(totalUsers, 1000)}
-                color="#3b82f6"
-                label=""
-                showValue={false}
-                size={100}
-                strokeWidth={6}
-              />
+            <div className="flex items-center justify-center mb-2 sm:mb-4">
+              <div className="w-20 h-20 sm:w-[100px] sm:h-[100px]">
+                <CircularProgress 
+                  value={totalUsers} 
+                  max={Math.max(totalUsers, 1000)}
+                  color="#3b82f6"
+                  label=""
+                  showValue={false}
+                  size={80}
+                  strokeWidth={6}
+                />
+              </div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{totalUsers}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400">{totalUsers}</div>
               <p className="text-xs text-muted-foreground mt-2">
                 {usersGrowth !== 0 && (
                   <span className={`${usersGrowth >= 0 ? 'text-green-600' : 'text-red-600'} flex items-center justify-center`}>
@@ -408,19 +412,21 @@ export default async function AdminAnalyticsPage() {
             </div>
           </CardHeader>
           <CardContent className="relative z-10">
-            <div className="flex items-center justify-center mb-4">
-              <CircularProgress 
-                value={totalEnrollments} 
-                max={Math.max(totalEnrollments, 500)}
-                color="#8b5cf6"
-                label=""
-                showValue={false}
-                size={100}
-                strokeWidth={6}
-              />
+            <div className="flex items-center justify-center mb-2 sm:mb-4">
+              <div className="w-20 h-20 sm:w-[100px] sm:h-[100px]">
+                <CircularProgress 
+                  value={totalEnrollments} 
+                  max={Math.max(totalEnrollments, 500)}
+                  color="#8b5cf6"
+                  label=""
+                  showValue={false}
+                  size={80}
+                  strokeWidth={6}
+                />
+              </div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">{totalEnrollments}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400">{totalEnrollments}</div>
               <p className="text-xs text-muted-foreground mt-2">
                 {enrollmentsGrowth !== 0 && (
                   <span className={`${enrollmentsGrowth >= 0 ? 'text-green-600' : 'text-red-600'} flex items-center justify-center`}>
@@ -449,19 +455,21 @@ export default async function AdminAnalyticsPage() {
             </div>
           </CardHeader>
           <CardContent className="relative z-10">
-            <div className="flex items-center justify-center mb-4">
-              <CircularProgress 
-                value={100} 
-                max={100}
-                color="#10b981"
-                label=""
-                showValue={false}
-                size={100}
-                strokeWidth={6}
-              />
+            <div className="flex items-center justify-center mb-2 sm:mb-4">
+              <div className="w-20 h-20 sm:w-[100px] sm:h-[100px]">
+                <CircularProgress 
+                  value={100} 
+                  max={100}
+                  color="#10b981"
+                  label=""
+                  showValue={false}
+                  size={80}
+                  strokeWidth={6}
+                />
+              </div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-green-600 dark:text-green-400">100%</div>
+              <div className="text-2xl sm:text-3xl font-bold text-green-600 dark:text-green-400">100%</div>
               <p className="text-xs text-muted-foreground mt-2">
                 <span className="text-green-600 flex items-center justify-center">
                   <CheckCircle className="w-3 h-3 mr-1" />
@@ -473,7 +481,7 @@ export default async function AdminAnalyticsPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
         {/* Commission Breakdown */}
         <Card className="border-2 border-blue-200 dark:border-blue-800 hover:shadow-xl transition-shadow bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950">
           <CardHeader className="border-b">
@@ -487,21 +495,21 @@ export default async function AdminAnalyticsPage() {
               {t('commissionBreakdownDescription')}
             </CardDescription>
           </CardHeader>
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700">
+          <CardContent className="pt-4 sm:pt-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+              <div className="p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700">
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{t('totalRevenue')}</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">${totalRevenue.toLocaleString()}</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">${totalRevenue.toLocaleString()}</p>
                 <p className="text-xs text-gray-500 mt-1">{t('allPaymentsReceived')}</p>
               </div>
-              <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg border-2 border-green-200 dark:border-green-800">
+              <div className="p-3 sm:p-4 bg-green-50 dark:bg-green-950 rounded-lg border-2 border-green-200 dark:border-green-800">
                 <p className="text-sm text-green-700 dark:text-green-300 mb-1">{t('platformCommissionYou')}</p>
-                <p className="text-2xl font-bold text-green-600 dark:text-green-400">${totalPlatformCommission.toLocaleString()}</p>
+                <p className="text-xl sm:text-2xl font-bold text-green-600 dark:text-green-400">${totalPlatformCommission.toLocaleString()}</p>
                 <p className="text-xs text-green-600 dark:text-green-400 mt-1">{t('twentyPercentOfAllPayments')}</p>
               </div>
-              <div className="p-4 bg-purple-50 dark:bg-purple-950 rounded-lg border-2 border-purple-200 dark:border-purple-800">
+              <div className="p-3 sm:p-4 bg-purple-50 dark:bg-purple-950 rounded-lg border-2 border-purple-200 dark:border-purple-800">
                 <p className="text-sm text-purple-700 dark:text-purple-300 mb-1">{t('creatorEarnings')}</p>
-                <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">${totalCreatorEarnings.toLocaleString()}</p>
+                <p className="text-xl sm:text-2xl font-bold text-purple-600 dark:text-purple-400">${totalCreatorEarnings.toLocaleString()}</p>
                 <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">{t('eightyPercentToInstructors')}</p>
               </div>
             </div>
@@ -521,7 +529,7 @@ export default async function AdminAnalyticsPage() {
               {t('commissionBreakdownByType')}
             </CardDescription>
           </CardHeader>
-          <CardContent className="pt-6">
+          <CardContent className="pt-4 sm:pt-6">
             {revenueBreakdown.length > 0 ? (
               <>
                 <RevenueBreakdownChart 
@@ -529,9 +537,9 @@ export default async function AdminAnalyticsPage() {
                   noRevenueText={t('noRevenueGeneratedYet')}
                   revenueWillAppearText={t('revenueWillAppearHere')}
                 />
-                <div className="mt-6 space-y-3">
+                <div className="mt-4 sm:mt-6 space-y-2 sm:space-y-3">
                   {revenueBreakdown.map((item, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:shadow-md transition-all">
+                    <div key={index} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:shadow-md transition-all">
                       <div className="flex items-center space-x-3">
                         <div 
                           className="w-4 h-4 rounded-full" 
@@ -573,14 +581,14 @@ export default async function AdminAnalyticsPage() {
               {t('breakdownOfUserRolesAndActivity')}
             </CardDescription>
           </CardHeader>
-          <CardContent className="pt-6">
+          <CardContent className="pt-4 sm:pt-6">
             {userDistribution.length > 0 ? (
               <>
                 <UserDistributionChart data={userDistribution} />
-                <div className="mt-6 space-y-3">
+                <div className="mt-4 sm:mt-6 space-y-2 sm:space-y-3">
                   {userDistribution.map((item, index) => (
                     <div key={index}>
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                         <span className="text-sm font-medium">{item.role}</span>
                         <span className="text-sm text-gray-600 dark:text-gray-400">
                           {item.count} ({item.percentage}%)
@@ -613,7 +621,7 @@ export default async function AdminAnalyticsPage() {
             {t('coursesWithHighestEnrollmentsAndRevenue')}
           </CardDescription>
         </CardHeader>
-        <CardContent className="pt-6">
+        <CardContent className="pt-4 sm:pt-6">
           {topCourses.length > 0 ? (
             <CourseRevenueChart data={topCourses} />
           ) : (
@@ -625,7 +633,7 @@ export default async function AdminAnalyticsPage() {
       </Card>
 
       {/* Monthly Growth Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
         <Card className="border-2 hover:shadow-xl transition-shadow">
           <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 border-b">
             <CardTitle className="flex items-center text-lg">
@@ -638,7 +646,7 @@ export default async function AdminAnalyticsPage() {
               {t('platformRevenueOverLast6Months')}
             </CardDescription>
           </CardHeader>
-          <CardContent className="pt-6">
+          <CardContent className="pt-4 sm:pt-6">
             {monthlyData.length > 0 ? (
               <MonthlyEarningsChart data={monthlyData} />
             ) : (
@@ -661,7 +669,7 @@ export default async function AdminAnalyticsPage() {
               {t('newUsersAndCoursesOverTime')}
             </CardDescription>
           </CardHeader>
-          <CardContent className="pt-6">
+          <CardContent className="pt-4 sm:pt-6">
             {monthlyData.length > 0 ? (
               <UserGrowthChart data={monthlyData} />
             ) : (

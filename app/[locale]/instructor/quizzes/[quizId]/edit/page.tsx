@@ -82,7 +82,7 @@ export default function EditQuizPage({
 
   if (!quiz) {
     return (
-      <div className="p-6 space-y-4">
+      <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
         <div>{t('quizNotFound')}</div>
         <Button variant="outline" onClick={() => router.push("/instructor/quizzes")}>{t('backToQuizzes')}</Button>
       </div>

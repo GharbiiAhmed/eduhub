@@ -191,7 +191,7 @@ export default function BooksPage() {
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Hero Section */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-green-600 via-emerald-600 to-teal-600 p-8 md:p-12 mb-8">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-green-600 via-emerald-600 to-teal-600 p-4 sm:p-6 md:p-8 lg:p-12 mb-4 sm:mb-6 md:mb-8">
           <div className="absolute inset-0 bg-black/20"></div>
           <div className="relative z-10 space-y-6">
             <div className="flex items-center gap-4">

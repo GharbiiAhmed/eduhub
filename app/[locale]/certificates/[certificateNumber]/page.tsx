@@ -63,7 +63,7 @@ export default async function CertificatePage({
   return (
     <>
       {print === 'true' && <AutoPrint />}
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-8 print:p-0">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4 sm:p-6 md:p-8 print:p-0">
       <div className="max-w-4xl mx-auto">
         {/* Certificate */}
         <div className="bg-white border-8 border-blue-600 rounded-lg shadow-2xl p-12 print:shadow-none print:border-8 print:rounded-lg">
@@ -89,7 +89,7 @@ export default async function CertificatePage({
 
           {/* Details */}
           <div className="mt-12 pt-8 border-t-2 border-gray-300">
-            <div className="grid grid-cols-2 gap-8 text-center">
+            <div className="grid grid-cols-2 gap-4 sm:gap-6 md:gap-8 text-center">
               <div>
                 <p className="text-sm text-gray-600 mb-2">Issued On</p>
                 <p className="font-semibold text-gray-900">

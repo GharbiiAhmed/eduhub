@@ -185,7 +185,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
   }, 0) || 0
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 sm:space-y-6 md:space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
@@ -377,7 +377,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
 
       {/* Student Content */}
       {userProfile.role === 'student' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
           {/* Enrollments */}
           <Card>
             <CardHeader>
@@ -485,7 +485,7 @@ export default async function AdminUserDetailPage({ params }: PageProps) {
 
       {/* Instructor Content */}
       {userProfile.role === 'instructor' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
           {/* Courses */}
           <Card>
             <CardHeader>

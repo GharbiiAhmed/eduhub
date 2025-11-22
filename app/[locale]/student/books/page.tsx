@@ -28,19 +28,19 @@ export default async function StudentBooksPage() {
     .order("purchased_at", { ascending: false })
 
   return (
-    <div className="space-y-8">
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 p-8 md:p-12 border border-primary/20">
+    <div className="space-y-4 sm:space-y-6 md:space-y-8">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 p-4 sm:p-6 md:p-8 lg:p-12 border border-primary/20">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-secondary/10 blur-3xl"></div>
         <div className="relative z-10 space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center glow-primary">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center glow-primary flex-shrink-0">
               <BookOpen className="w-6 h-6 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
                 {t('myLibrary')}
               </h1>
-              <p className="text-muted-foreground">{t('accessYourPurchasedBooks')}</p>
+              <p className="text-sm sm:text-base text-muted-foreground">{t('accessYourPurchasedBooks')}</p>
             </div>
           </div>
         </div>
@@ -50,35 +50,35 @@ export default async function StudentBooksPage() {
         <>
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="glass-effect rounded-2xl p-6 border-primary/20">
-              <div className="flex items-center justify-between">
+            <div className="glass-effect rounded-2xl p-4 sm:p-6 border-primary/20">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">{t('booksOwned')}</p>
-                  <p className="text-3xl font-bold text-primary">{purchases.length}</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-primary">{purchases.length}</p>
                 </div>
-                <BookOpen className="w-10 h-10 text-primary/30" />
+                <BookOpen className="w-10 h-10 text-primary/30 flex-shrink-0" />
               </div>
             </div>
             <div className="glass-effect rounded-2xl p-6 border-secondary/20">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">{t('digitalBooks')}</p>
-                  <p className="text-3xl font-bold text-secondary">
+                  <p className="text-2xl sm:text-3xl font-bold text-secondary">
                     {purchases.filter((p: any) => p.purchase_type === 'digital' || p.purchase_type === 'both').length}
                   </p>
                 </div>
-                <Zap className="w-10 h-10 text-secondary/30" />
+                <Zap className="w-10 h-10 text-secondary/30 flex-shrink-0" />
               </div>
             </div>
             <div className="glass-effect rounded-2xl p-6 border-accent/20">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">{t('physicalBooks')}</p>
-                  <p className="text-3xl font-bold text-accent">
+                  <p className="text-2xl sm:text-3xl font-bold text-accent">
                     {purchases.filter((p: any) => p.purchase_type === 'physical' || p.purchase_type === 'both').length}
                   </p>
                 </div>
-                <Trophy className="w-10 h-10 text-accent/30" />
+                <Trophy className="w-10 h-10 text-accent/30 flex-shrink-0" />
               </div>
             </div>
           </div>
@@ -86,7 +86,7 @@ export default async function StudentBooksPage() {
           {/* Books Grid */}
           <div>
             <h2 className="text-2xl font-bold mb-6">{t('yourBooks')}</h2>
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
               {purchases.map((purchase: any) => (
                 <Card key={purchase.id} className="group hover:shadow-lg transition-all hover:scale-105 border-primary/20 cursor-pointer">
                   <Link href={`/student/books/${purchase.book_id}`}>

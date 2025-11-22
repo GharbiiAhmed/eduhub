@@ -120,7 +120,7 @@ export default function CreateCoursePage() {
         {tCommon('back')} {tCommon('dashboard')}
       </Link>
 
-      <div className="space-y-8">
+      <div className="space-y-4 sm:space-y-6 md:space-y-8">
         <div className="space-y-2">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">

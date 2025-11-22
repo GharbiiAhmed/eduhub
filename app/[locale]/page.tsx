@@ -332,7 +332,7 @@ export default function Home() {
       <section className="relative pt-32 pb-20 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-8 relative z-10">
+            <div className="space-y-4 sm:space-y-6 md:space-y-8 relative z-10">
               <div className="space-y-4">
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/10 border border-secondary/30 hover:border-secondary/50 transition-colors">
                   <Zap className="w-4 h-4 text-secondary" />
@@ -416,7 +416,7 @@ export default function Home() {
             {/* Hero Visual */}
             <div className="relative h-96 lg:h-full">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-secondary/30 to-accent/30 rounded-3xl blur-3xl"></div>
-              <div className="relative glass-effect rounded-3xl p-8 h-full flex flex-col justify-center items-center space-y-8 border-2 border-primary/20 hover:border-primary/40 transition-colors">
+              <div className="relative glass-effect rounded-3xl p-4 sm:p-6 md:p-8 h-full flex flex-col justify-center items-center space-y-4 sm:space-y-6 md:space-y-8 border-2 border-primary/20 hover:border-primary/40 transition-colors">
                 <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-2xl shadow-primary/40 animate-bounce">
                   <BookOpen className="w-12 h-12 text-primary-foreground" />
                 </div>
@@ -863,7 +863,7 @@ export default function Home() {
             ].map((feature, i) => (
               <div
                 key={i}
-                className="glass-effect rounded-2xl p-8 hover:shadow-2xl hover:shadow-primary/20 transition-all duration-300 hover:scale-105 hover:border-primary/50 group cursor-pointer"
+                className="glass-effect rounded-2xl p-4 sm:p-6 md:p-8 hover:shadow-2xl hover:shadow-primary/20 transition-all duration-300 hover:scale-105 hover:border-primary/50 group cursor-pointer"
               >
                 <div
                   className={`w-14 h-14 rounded-xl bg-gradient-to-br ${feature.color} flex items-center justify-center mb-4 shadow-lg group-hover:shadow-xl transition-shadow`}
@@ -886,7 +886,7 @@ export default function Home() {
             <p className="text-xl text-muted-foreground">{t('howItWorksSubtitle')}</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
             {[
               {
                 step: "01",
@@ -908,7 +908,7 @@ export default function Home() {
               },
             ].map((item, i) => (
               <div key={i} className="relative">
-                <div className="glass-effect rounded-2xl p-8 text-center space-y-4 hover:shadow-2xl hover:shadow-primary/20 transition-all duration-300 hover:scale-105">
+                <div className="glass-effect rounded-2xl p-4 sm:p-6 md:p-8 text-center space-y-3 sm:space-y-4 hover:shadow-2xl hover:shadow-primary/20 transition-all duration-300 hover:scale-105">
                   <div className="text-6xl font-bold text-primary/20 absolute top-4 right-4">
                     {item.step}
                   </div>
@@ -956,7 +956,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t border-border py-12 px-6 relative z-10 bg-muted/30">
         <div className="max-w-6xl mx-auto">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
+          <div className="grid md:grid-cols-4 gap-4 sm:gap-6 md:gap-8 mb-4 sm:mb-6 md:mb-8">
             <div>
               <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                 <BookOpen className="w-6 h-6 text-primary" />

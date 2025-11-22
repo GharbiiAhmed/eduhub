@@ -9,6 +9,7 @@ import { Link, useRouter } from '@/i18n/routing'
 import { useTranslations, useLocale } from 'next-intl'
 import { useState } from "react"
 import { Mail, Lock, ArrowRight, Sparkles } from "lucide-react"
+import { Chrome } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 
 export function LoginClient() {
@@ -18,6 +19,7 @@ export function LoginClient() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const router = useRouter()
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -116,6 +118,33 @@ export function LoginClient() {
     }
   }
 
+  const handleGoogleSignIn = async () => {
+    const supabase = createClient()
+    setIsGoogleLoading(true)
+    setError(null)
+
+    try {
+      const localePrefix = locale !== 'en' ? `/${locale}` : ''
+      const redirectUrl = `${window.location.origin}${localePrefix}/api/auth/callback?next=${encodeURIComponent('/dashboard')}`
+      
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      })
+
+      if (error) throw error
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : t('anErrorOccurred'))
+      setIsGoogleLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Navbar */}
@@ -143,7 +172,7 @@ export function LoginClient() {
         </div>
 
         {/* Form Card */}
-        <div className="glass-effect rounded-2xl p-8 space-y-6 border-2 border-primary/10">
+        <div className="glass-effect rounded-2xl p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6 border-2 border-primary/10">
           <form onSubmit={handleLogin} className="space-y-5">
             {/* Email Field */}
             <div className="space-y-2">
@@ -214,6 +243,27 @@ export function LoginClient() {
               )}
             </Button>
           </form>
+
+          {/* Google Sign In Button */}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleGoogleSignIn}
+            disabled={isGoogleLoading || isLoading}
+            className="w-full h-11 border-2 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 font-medium"
+          >
+            {isGoogleLoading ? (
+              <div className="flex items-center">
+                <div className="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin mr-2"></div>
+                {t('signingIn')}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center">
+                <Chrome className="w-5 h-5 mr-2" />
+                {t('signInWithGoogle') || 'Sign in with Google'}
+              </div>
+            )}
+          </Button>
 
           {/* Divider */}
           <div className="relative">

@@ -185,7 +185,7 @@ export default async function InstructorEarningsPage() {
   }).sort((a, b) => b.earnings - a.earnings).slice(0, 5) || []
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 sm:space-y-6 md:space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -335,7 +335,7 @@ export default async function InstructorEarningsPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
         {/* Top Earning Courses Chart */}
         <Card>
           <CardHeader>

@@ -115,7 +115,7 @@ export default function StudentAssignmentsPage() {
   return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('title')}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{t('title')}</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-2">
             {t('myAssignments')}
           </p>
@@ -166,7 +166,7 @@ export default function StudentAssignmentsPage() {
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                       {assignment.description}
                     </p>
-                    <div className="flex items-center gap-6 text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    <div className="flex items-center gap-3 sm:gap-6 text-sm text-gray-500 dark:text-gray-400 mb-2 sm:mb-4">
                       <div className="flex items-center gap-2">
                         <Calendar className="w-4 h-4" />
                         <span>{formatDate(assignment.due_date)}</span>

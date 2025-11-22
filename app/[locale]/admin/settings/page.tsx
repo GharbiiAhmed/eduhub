@@ -543,7 +543,7 @@ export default function AdminSettingsPage() {
     const isSecretKey = (key: string) => key.includes('password') || key.includes('secret') || key.includes('key')
 
     return (
-      <div className="space-y-8">
+      <div className="space-y-4 sm:space-y-6 md:space-y-8">
         {Object.entries(categories).map(([category, keys]) => (
           <Card key={category}>
             <CardHeader>
@@ -606,11 +606,11 @@ export default function AdminSettingsPage() {
   }
 
   if (loading) {
-    return <div className="p-8">{tCommon('loading')}</div>
+    return <div className="p-4 sm:p-6 md:p-8">{tCommon('loading')}</div>
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 sm:space-y-6 md:space-y-8">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('title')}</h1>
@@ -624,7 +624,7 @@ export default function AdminSettingsPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
         <div className="lg:col-span-1">
           <Card>
             <CardContent className="p-0">

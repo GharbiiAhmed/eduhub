@@ -33,8 +33,8 @@ export default async function AdminCoursesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">{t('courseManagement')}</h1>
-        <p className="text-muted-foreground">{t('manageAllPlatformCourses')}</p>
+        <h1 className="text-2xl sm:text-3xl font-bold">{t('courseManagement')}</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">{t('manageAllPlatformCourses')}</p>
       </div>
 
       <Card>
@@ -46,13 +46,13 @@ export default async function AdminCoursesPage() {
           {courses && courses.length > 0 ? (
             <div className="space-y-4">
               {courses.map((course: any) => (
-                <div key={course.id} className="flex items-center justify-between border-b pb-4 last:border-b-0">
-                  <div>
-                    <p className="font-medium">{course.title}</p>
+                <div key={course.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b pb-4 last:border-b-0">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{course.title}</p>
                     <p className="text-sm text-muted-foreground">{tCommon('by')} {tCommon('instructors')}</p>
-                    <p className="text-xs text-muted-foreground">{course.description?.slice(0, 100)}...</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{course.description?.slice(0, 100)}...</p>
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 flex-shrink-0">
                     <div className="text-right">
                       <p className="text-sm font-medium">${course.price}</p>
                       <span className="text-xs font-medium capitalize px-2 py-1 rounded bg-muted">{course.status}</span>

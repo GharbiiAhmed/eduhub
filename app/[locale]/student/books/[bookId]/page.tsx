@@ -36,7 +36,7 @@ export default async function StudentBookDetailPage({
   const book = purchase.books
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 sm:space-y-6 md:space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -53,7 +53,7 @@ export default async function StudentBookDetailPage({
         </div>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-8">
+      <div className="grid md:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
         {/* Book Cover and Actions */}
         <div className="md:col-span-1">
           <Card>

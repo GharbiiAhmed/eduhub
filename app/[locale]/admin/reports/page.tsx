@@ -171,7 +171,7 @@ export default async function AdminReportsPage() {
     .slice(0, 10) || []
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 sm:space-y-6 md:space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -284,7 +284,7 @@ export default async function AdminReportsPage() {
       </div>
 
       {/* Report Summaries */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
         {/* Platform Summary Report */}
         <Card>
           <CardHeader>
@@ -481,7 +481,7 @@ export default async function AdminReportsPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-gray-500">
+                    <td colSpan={6} className="p-4 sm:p-6 md:p-8 text-center text-gray-500">
                       {t('noCoursesFound')}
                     </td>
                   </tr>
@@ -545,7 +545,7 @@ export default async function AdminReportsPage() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-gray-500">
+                    <td colSpan={5} className="p-4 sm:p-6 md:p-8 text-center text-gray-500">
                       {t('noBooksFound')}
                     </td>
                   </tr>

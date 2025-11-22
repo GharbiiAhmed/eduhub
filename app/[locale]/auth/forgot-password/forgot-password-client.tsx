@@ -73,7 +73,7 @@ export function ForgotPasswordClient() {
           </div>
 
           {/* Form Card */}
-          <div className="glass-effect rounded-2xl p-8 space-y-6 border-2 border-primary/10">
+          <div className="glass-effect rounded-2xl p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6 border-2 border-primary/10">
             {success ? (
               <div className="space-y-4 text-center">
                 <div className="flex justify-center">

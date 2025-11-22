@@ -49,7 +49,7 @@ export default function ContactPage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8">
+          <div className="grid md:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
             {/* Contact Information */}
             <div className="space-y-6">
               <Card className="border-2">

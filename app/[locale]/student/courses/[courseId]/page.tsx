@@ -112,7 +112,7 @@ export default async function StudentCourseDetailPage({
                 <CardDescription>You have successfully completed this course</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="border-2 border-primary p-8 rounded-lg text-center space-y-4">
+                <div className="border-2 border-primary p-4 sm:p-6 md:p-8 rounded-lg text-center space-y-3 sm:space-y-4">
                   <h2 className="text-2xl font-bold">Certificate of Completion</h2>
                   <p className="text-lg">This certifies that you have successfully completed</p>
                   <p className="text-xl font-bold">{course?.title}</p>

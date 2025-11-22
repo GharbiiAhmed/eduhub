@@ -120,12 +120,12 @@ export default async function AdminInstructorsPage() {
   )
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 sm:space-y-6 md:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('instructorManagement')}</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{t('instructorManagement')}</h1>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-2">
             {t('managePlatformInstructors')}
           </p>
         </div>
@@ -138,7 +138,7 @@ export default async function AdminInstructorsPage() {
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t('totalInstructors')}</CardTitle>
@@ -205,9 +205,9 @@ export default async function AdminInstructorsPage() {
                 />
               </div>
             </div>
-            <div className="flex space-x-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <Select>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-full sm:w-48">
                   <SelectValue placeholder={t('filterByStatus')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -218,7 +218,7 @@ export default async function AdminInstructorsPage() {
                 </SelectContent>
               </Select>
               <Select>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-full sm:w-48">
                   <SelectValue placeholder={t('sortBy')} />
                 </SelectTrigger>
                 <SelectContent>
@@ -232,17 +232,17 @@ export default async function AdminInstructorsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{tCommon('instructors')}</TableHead>
-                  <TableHead>{tCommon('status')}</TableHead>
-                  <TableHead>{tCommon('courses')}</TableHead>
-                  <TableHead>{tCommon('books')}</TableHead>
-                  <TableHead>{t('rating')}</TableHead>
-                  <TableHead>{t('joined')}</TableHead>
-                  <TableHead className="text-right">{tCommon('actions')}</TableHead>
+                  <TableHead className="min-w-[200px]">{tCommon('instructors')}</TableHead>
+                  <TableHead className="min-w-[100px]">{tCommon('status')}</TableHead>
+                  <TableHead className="min-w-[100px]">{tCommon('courses')}</TableHead>
+                  <TableHead className="min-w-[100px]">{tCommon('books')}</TableHead>
+                  <TableHead className="min-w-[100px]">{t('rating')}</TableHead>
+                  <TableHead className="min-w-[120px] hidden md:table-cell">{t('joined')}</TableHead>
+                  <TableHead className="text-right min-w-[100px]">{tCommon('actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -296,7 +296,7 @@ export default async function AdminInstructorsPage() {
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <div className="flex items-center space-x-1 text-sm text-gray-600 dark:text-gray-400">
                         <Calendar className="w-4 h-4" />
                         <span>
@@ -338,7 +338,7 @@ export default async function AdminInstructorsPage() {
               ?.sort((a, b) => ((b as any).rating || 0) - ((a as any).rating || 0))
               .slice(0, 5)
               .map((instructor, index) => (
-              <div key={instructor.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div key={instructor.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <div className="flex items-center space-x-4">
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-500 to-orange-600 flex items-center justify-center">
                     <span className="text-white font-semibold text-sm">{index + 1}</span>
