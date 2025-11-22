@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextRequest, NextResponse } from "next/server"
 import { createClient as createServiceClient } from "@supabase/supabase-js"
+import { sendMeetingReminderEmail } from "@/lib/email"
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,7 +50,6 @@ export async function POST(request: NextRequest) {
 
     // Create Daily.co room if API key is available
     let meetingUrl = `/meetings/${roomName}`
-    let meetingToken = `token-${Date.now()}-${Math.random().toString(36).substring(7)}`
     let dailyRoomUrl = null
 
     const dailyApiKey = process.env.DAILY_API_KEY
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
         title,
         description: description || null,
         meeting_url: meetingUrl,
-        meeting_token: meetingToken,
+        meeting_token: `token-${Date.now()}-${Math.random().toString(36).substring(7)}`,
         room_name: roomName,
         start_time: startTime,
         end_time: endTime || null,
@@ -153,9 +153,53 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Notify participants about the meeting
+    // Notify participants about the meeting and send reminder emails
     if (participantIds.length > 0) {
       try {
+        // Get instructor profile for meeting details
+        const { data: instructorProfile } = await supabaseAdmin
+          .from("profiles")
+          .select("full_name")
+          .eq("id", user.id)
+          .single()
+
+        // Get participant profiles for emails
+        const { data: participantProfiles } = await supabaseAdmin
+          .from("profiles")
+          .select("id, email, full_name")
+          .in("id", participantIds)
+
+        // Send meeting reminder emails
+        if (participantProfiles) {
+          const meetingDate = new Date(startTime).toLocaleDateString()
+          const meetingTime = new Date(startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          const fullMeetingUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://eduhub-tn.netlify.app'}${meetingUrl}`
+
+          for (const participant of participantProfiles) {
+            if (participant.email) {
+              try {
+                const emailResult = await sendMeetingReminderEmail(
+                  participant.email,
+                  participant.full_name || 'Student',
+                  title,
+                  startTime,
+                  meetingTime,
+                  fullMeetingUrl,
+                  meeting.id
+                )
+                if (emailResult.success) {
+                  console.log(`✅ Meeting reminder email sent to ${participant.email}`)
+                } else {
+                  console.error(`❌ Failed to send meeting reminder email:`, emailResult.error)
+                }
+              } catch (emailError: any) {
+                console.error('Error sending meeting reminder email:', emailError)
+              }
+            }
+          }
+        }
+
+        // Create in-app notifications
         await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/notifications/create`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

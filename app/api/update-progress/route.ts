@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
+import { sendCourseCompletionEmail, sendCertificateEmail, sendStudentCompletedCourseEmail } from "@/lib/email"
 
 export async function POST(request: NextRequest) {
   try {
@@ -139,12 +140,54 @@ export async function POST(request: NextRequest) {
             console.log("🎓 Certificate automatically generated:", certificate.certificate_number)
             certificateGenerated = true
 
-            // Get course details for notification
+            // Get course details and user profile for emails
             const { data: course } = await supabase
               .from("courses")
-              .select("title")
+              .select("title, instructor_id")
               .eq("id", courseId)
               .single()
+
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("email, full_name")
+              .eq("id", user.id)
+              .single()
+
+            // Send course completion email
+            if (profile?.email && course?.title) {
+              try {
+                const completionEmailResult = await sendCourseCompletionEmail(
+                  profile.email,
+                  profile.full_name || 'Student',
+                  course.title,
+                  `/certificates/${certificate.certificate_number}`
+                )
+                if (completionEmailResult.success) {
+                  console.log(`✅ Course completion email sent to ${profile.email}`)
+                } else {
+                  console.error(`❌ Failed to send completion email:`, completionEmailResult.error)
+                }
+              } catch (emailError: any) {
+                console.error('Error sending course completion email:', emailError)
+              }
+
+              // Send certificate email
+              try {
+                const certEmailResult = await sendCertificateEmail(
+                  profile.email,
+                  profile.full_name || 'Student',
+                  course.title,
+                  `/certificates/${certificate.certificate_number}`
+                )
+                if (certEmailResult.success) {
+                  console.log(`✅ Certificate email sent to ${profile.email}`)
+                } else {
+                  console.error(`❌ Failed to send certificate email:`, certEmailResult.error)
+                }
+              } catch (emailError: any) {
+                console.error('Error sending certificate email:', emailError)
+              }
+            }
 
             // Notify student about course completion and certificate
             try {
@@ -177,6 +220,38 @@ export async function POST(request: NextRequest) {
               }).catch(err => console.error('Failed to create certificate notification:', err))
             } catch (notifError) {
               console.error('Error creating notifications:', notifError)
+            }
+
+            // Send email to instructor about student completion
+            if (course?.instructor_id && profile?.full_name && course?.title) {
+              try {
+                const { data: instructorProfile } = await supabase
+                  .from("profiles")
+                  .select("email, full_name")
+                  .eq("id", course.instructor_id)
+                  .single()
+
+                if (instructorProfile?.email) {
+                  try {
+                    const emailResult = await sendStudentCompletedCourseEmail(
+                      instructorProfile.email,
+                      instructorProfile.full_name || 'Instructor',
+                      profile.full_name,
+                      course.title,
+                      courseId
+                    )
+                    if (emailResult.success) {
+                      console.log(`✅ Student completion email sent to instructor ${instructorProfile.email}`)
+                    } else {
+                      console.error(`❌ Failed to send instructor completion email:`, emailResult.error)
+                    }
+                  } catch (emailError: any) {
+                    console.error('Error sending instructor completion email:', emailError)
+                  }
+                }
+              } catch (instructorEmailError) {
+                console.error('Error sending instructor completion email:', instructorEmailError)
+              }
             }
           }
         } else {

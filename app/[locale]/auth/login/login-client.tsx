@@ -65,6 +65,38 @@ export function LoginClient() {
           return
         }
 
+        // Check for new device login
+        try {
+          const deviceKey = `device_${data.user.id}`
+          const knownDevices = JSON.parse(localStorage.getItem(deviceKey) || '[]')
+          const deviceInfo = navigator.userAgent
+          const deviceFingerprint = `${deviceInfo}_${navigator.language}_${screen.width}x${screen.height}`
+          
+          const isNewDevice = !knownDevices.includes(deviceFingerprint)
+          
+          if (isNewDevice) {
+            // Add to known devices
+            knownDevices.push(deviceFingerprint)
+            localStorage.setItem(deviceKey, JSON.stringify(knownDevices))
+            
+            // Get location (simplified - in production use IP geolocation)
+            const location = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Unknown'
+            
+            // Send new device login email
+            await fetch('/api/auth/new-device-login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                deviceInfo: `${navigator.platform} - ${navigator.userAgent.substring(0, 100)}`,
+                location: location
+              })
+            }).catch(err => console.error('Failed to send new device login email:', err))
+          }
+        } catch (deviceError) {
+          console.error('Error checking for new device:', deviceError)
+          // Don't fail login if device detection fails
+        }
+
         // Redirect based on role - router from @/i18n/routing handles locale automatically
         if (profile.role === 'admin') {
           router.push('/admin/dashboard')

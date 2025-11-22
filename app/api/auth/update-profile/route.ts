@@ -1,5 +1,6 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js"
 import { NextRequest, NextResponse } from "next/server"
+import { sendWelcomeEmail } from "@/lib/email"
 
 // POST - Update user profile after signup (bypasses RLS using service role)
 export async function POST(request: NextRequest) {
@@ -88,6 +89,28 @@ export async function POST(request: NextRequest) {
         },
         { status: 500 }
       )
+    }
+
+    // Send welcome email if this is a new profile (didn't exist before)
+    const isNewProfile = !existingProfile || fetchError
+    if (isNewProfile && userEmail && upsertedProfile) {
+      try {
+        console.log(`[UPDATE PROFILE] Sending welcome email to ${userEmail}`)
+        const emailResult = await sendWelcomeEmail(
+          userEmail,
+          finalFullName || 'User',
+          userRole
+        )
+        
+        if (emailResult.success) {
+          console.log(`✅ Welcome email sent successfully to ${userEmail}`)
+        } else {
+          console.error(`❌ Failed to send welcome email:`, emailResult.error)
+        }
+      } catch (emailError: any) {
+        console.error("❌ Exception sending welcome email:", emailError)
+        // Don't fail the request if email fails
+      }
     }
 
     return NextResponse.json({ 

@@ -1,0 +1,20 @@
+name: Weekly Progress Emails
+
+on:
+  schedule:
+    # Every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  send-emails:
+    name: Send Weekly Progress Emails
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Weekly Progress Emails
+        run: |
+          curl -X GET "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/cron/weekly-progress" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -f || exit 1
+

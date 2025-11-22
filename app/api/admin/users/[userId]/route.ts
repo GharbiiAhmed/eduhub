@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { createClient as createServiceClient } from "@supabase/supabase-js"
 import { type NextRequest, NextResponse } from "next/server"
-import { sendBanEmail } from "@/lib/email"
+import { sendBanEmail, sendUnbanEmail } from "@/lib/email"
 
 interface RouteContext {
   params: Promise<{
@@ -77,8 +77,10 @@ export async function PATCH(
   request: NextRequest,
   context: RouteContext
 ) {
+  console.log(`[PATCH USER] ========== PATCH USER ENDPOINT CALLED ==========`)
   try {
     const { userId } = await context.params
+    console.log(`[PATCH USER] Received userId from params: ${userId}`)
     const supabase = await createClient()
 
     const {
@@ -110,12 +112,30 @@ export async function PATCH(
 
     // Use service role client if available to bypass RLS
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    const supabaseAdmin = serviceRoleKey
-      ? createServiceClient(
+    let supabaseAdmin = supabase
+    
+    if (serviceRoleKey) {
+      try {
+        console.log(`[PATCH USER] Attempting to create service role client...`)
+        supabaseAdmin = createServiceClient(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          serviceRoleKey
+          serviceRoleKey,
+          {
+            auth: {
+              autoRefreshToken: false,
+              persistSession: false,
+            },
+          }
         )
-      : supabase
+        console.log(`[PATCH USER] Service role client created successfully`)
+      } catch (error: any) {
+        console.error(`[PATCH USER] Failed to create service role client:`, error)
+        console.log(`[PATCH USER] Falling back to regular client`)
+        supabaseAdmin = supabase
+      }
+    } else {
+      console.log(`[PATCH USER] No service role key found, using regular client`)
+    }
 
     // Build update object - only include fields that are provided and valid
     const updateData: any = {}
@@ -141,21 +161,65 @@ export async function PATCH(
     }
 
     // Get user profile before update to check if status is changing to banned
-    const { data: currentProfile } = await supabaseAdmin
+    let { data: currentProfile, error: profileFetchError } = await supabaseAdmin
       .from("profiles")
       .select("email, full_name, status")
       .eq("id", userId)
       .single()
 
+    // If service client failed with invalid API key, try with regular client
+    if (profileFetchError && serviceRoleKey && (
+      profileFetchError.message?.includes('Invalid API key') || 
+      profileFetchError.message?.includes('invalid API key') ||
+      profileFetchError.message?.toLowerCase().includes('api key')
+    )) {
+      console.log(`[PATCH USER] Service role client failed with invalid API key, falling back to regular client`)
+      const { data: fallbackProfile, error: fallbackError } = await supabase
+        .from("profiles")
+        .select("email, full_name, status")
+        .eq("id", userId)
+        .single()
+      
+      currentProfile = fallbackProfile
+      profileFetchError = fallbackError
+      supabaseAdmin = supabase // Use regular client for updates too
+      console.log(`[PATCH USER] Fallback to regular client ${fallbackError ? 'failed' : 'succeeded'}`)
+    }
+
+    if (profileFetchError) {
+      console.error(`[PATCH USER] Error fetching user profile:`, profileFetchError)
+      console.error(`[PATCH USER] Error details:`, {
+        message: profileFetchError.message,
+        code: profileFetchError.code,
+        details: profileFetchError.details,
+        hint: profileFetchError.hint
+      })
+      return NextResponse.json(
+        { 
+          error: "User not found",
+          details: profileFetchError.message 
+        },
+        { status: 404 }
+      )
+    }
+
     if (!currentProfile) {
+      console.error(`[PATCH USER] User profile is null for userId: ${userId}`)
       return NextResponse.json(
         { error: "User not found" },
         { status: 404 }
       )
     }
 
+    console.log(`[PATCH USER] Found user profile:`, {
+      userId,
+      email: currentProfile.email,
+      status: currentProfile.status
+    })
+
     const wasBanned = currentProfile.status === 'banned'
     const willBeBanned = updateData.status === 'banned'
+    const willBeUnbanned = wasBanned && updateData.status && updateData.status !== 'banned'
 
     console.log(`[UPDATE USER] Status change check:`, {
       userId,
@@ -163,7 +227,9 @@ export async function PATCH(
       newStatus: updateData.status,
       wasBanned,
       willBeBanned,
-      shouldSendEmail: willBeBanned && !wasBanned
+      willBeUnbanned,
+      shouldSendBanEmail: willBeBanned && !wasBanned,
+      shouldSendUnbanEmail: willBeUnbanned
     })
 
     // Update user profile
@@ -207,6 +273,30 @@ export async function PATCH(
       }
     } else if (willBeBanned && wasBanned) {
       console.log(`[UPDATE USER] User was already banned, skipping email`)
+    }
+    
+    // Send email if user was unbanned (status changed from banned to active/approved)
+    if (willBeUnbanned) {
+      console.log(`[UPDATE USER] User was unbanned. Sending unban email to ${currentProfile.email}`)
+      try {
+        const emailResult = await sendUnbanEmail(
+          currentProfile.email, 
+          currentProfile.full_name || 'User'
+        )
+        
+        if (emailResult.success) {
+          console.log(`✅ Unban email sent successfully to ${currentProfile.email}`)
+        } else {
+          console.error(`❌ Failed to send unban email to ${currentProfile.email}:`, emailResult.error)
+        }
+      } catch (emailError: any) {
+        console.error("❌ Exception sending unban email:", emailError)
+        console.error("Error details:", {
+          message: emailError.message,
+          stack: emailError.stack
+        })
+        // Don't fail the request if email fails
+      }
     }
 
     return NextResponse.json({ 
@@ -277,42 +367,129 @@ export async function DELETE(
       return NextResponse.json(
         { 
           error: "Service role key not configured. Cannot delete auth user.",
-          details: "SUPABASE_SERVICE_ROLE_KEY environment variable is missing. Please configure it in your deployment environment (Netlify)."
+          details: "SUPABASE_SERVICE_ROLE_KEY environment variable is missing. Please configure it in your .env.local file or deployment environment."
         },
         { status: 500 }
       )
     }
     
-    console.log(`[DELETE USER] Service role key found: ${serviceRoleKey.substring(0, 10)}...`)
-
-    const supabaseAdmin = createServiceClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      serviceRoleKey,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
+    // Validate service role key format (should start with 'eyJ' for JWT tokens)
+    const trimmedKey = serviceRoleKey.trim()
+    if (!trimmedKey.startsWith('eyJ')) {
+      console.error("[DELETE USER] ❌ Service role key format appears invalid (should be a JWT token starting with 'eyJ')")
+      return NextResponse.json(
+        { 
+          error: "Invalid service role key format.",
+          details: "The SUPABASE_SERVICE_ROLE_KEY should be a JWT token starting with 'eyJ'. Please check your Supabase project settings > API > service_role key."
         },
-      }
-    )
+        { status: 500 }
+      )
+    }
     
-    // Verify service role client is working
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    console.log(`[DELETE USER] Service role key found: ${trimmedKey.substring(0, 10)}... (length: ${trimmedKey.length})`)
+    console.log(`[DELETE USER] Supabase URL: ${supabaseUrl}`)
+    
+    // Verify URL format
+    if (!supabaseUrl || !supabaseUrl.startsWith('https://')) {
+      console.error("[DELETE USER] ❌ Invalid Supabase URL format")
+      return NextResponse.json(
+        { 
+          error: "Invalid Supabase URL.",
+          details: "NEXT_PUBLIC_SUPABASE_URL must be a valid HTTPS URL (e.g., https://xxxxx.supabase.co)"
+        },
+        { status: 500 }
+      )
+    }
+
+    let supabaseAdmin: ReturnType<typeof createServiceClient>
+    try {
+      supabaseAdmin = createServiceClient(
+        supabaseUrl,
+        trimmedKey,
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+          },
+        }
+      )
+    } catch (createError: any) {
+      console.error("[DELETE USER] ❌ Failed to create service role client:", createError)
+      return NextResponse.json(
+        { 
+          error: "Failed to initialize service role client.",
+          details: createError.message || "Check that SUPABASE_SERVICE_ROLE_KEY and NEXT_PUBLIC_SUPABASE_URL are correctly set and match the same Supabase project."
+        },
+        { status: 500 }
+      )
+    }
+    
+    // Verify service role client is working by testing a simple query first
     console.log(`[DELETE USER] Service role client created. Testing connection...`)
     try {
+      // First, test with a simple query that doesn't require a specific user
+      // This will fail fast if the key is invalid
+      const { error: connectionTestError } = await supabaseAdmin
+        .from("profiles")
+        .select("id")
+        .limit(1)
+      
+      if (connectionTestError) {
+        if (connectionTestError.message?.includes('Invalid API key') || 
+            connectionTestError.message?.includes('invalid API key') || 
+            connectionTestError.message?.toLowerCase().includes('api key')) {
+          console.error("[DELETE USER] ❌ Service role key is invalid (connection test failed)")
+          console.error("[DELETE USER] Error details:", {
+            message: connectionTestError.message,
+            code: connectionTestError.code,
+            details: connectionTestError.details,
+            hint: connectionTestError.hint
+          })
+          return NextResponse.json(
+            { 
+              error: "Invalid service role key.",
+              details: `The SUPABASE_SERVICE_ROLE_KEY does not match your Supabase project. Please verify:
+1. The service_role key is from the same project as NEXT_PUBLIC_SUPABASE_URL
+2. You're using the 'service_role' key (not 'anon' key) from Settings > API
+3. The key hasn't been rotated/regenerated
+4. There's no extra whitespace in your .env.local file
+5. The key matches the project URL: ${supabaseUrl}`
+            },
+            { status: 500 }
+          )
+        }
+      }
+      
+      console.log(`[DELETE USER] Connection test passed. Testing user lookup...`)
+      
+      // Now test with the actual user
       const { data: testUser, error: testError } = await supabaseAdmin.auth.admin.getUserById(userId)
-      if (testError && testError.status !== 404) {
-        console.error("[DELETE USER] Service role client test failed:", testError)
-        return NextResponse.json(
-          { 
-            error: `Service role client error: ${testError.message}`,
-            details: "Cannot proceed with deletion. Service role key may be invalid."
-          },
-          { status: 500 }
-        )
+      if (testError) {
+        // 404 is OK (user might not exist), but other errors are not
+        if (testError.status !== 404) {
+          console.error("[DELETE USER] Service role client test failed:", testError)
+          return NextResponse.json(
+            { 
+              error: `Service role client error: ${testError.message}`,
+              details: "Cannot proceed with deletion. Service role key may be invalid or have insufficient permissions."
+            },
+            { status: 500 }
+          )
+        }
       }
       console.log(`[DELETE USER] Service role client verified. User exists: ${!!testUser?.user}`)
     } catch (testErr: any) {
       console.error("[DELETE USER] Service role client test exception:", testErr)
+      if (testErr.message?.includes('Invalid API key') || testErr.message?.includes('invalid API key')) {
+        return NextResponse.json(
+          { 
+            error: "Invalid service role key.",
+            details: "The SUPABASE_SERVICE_ROLE_KEY is invalid. Please verify it in your Supabase project settings > API > service_role key."
+          },
+          { status: 500 }
+        )
+      }
       return NextResponse.json(
         { 
           error: `Service role client error: ${testErr.message}`,

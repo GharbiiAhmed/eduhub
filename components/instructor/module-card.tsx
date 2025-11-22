@@ -89,7 +89,23 @@ export default function ModuleCard({ module, courseId }: { module: Module; cours
 
         if (enrollments && enrollments.length > 0) {
           const studentIds = enrollments.map(e => e.student_id)
-          // Create notifications for enrolled students
+          
+          // Send email notifications to enrolled students
+          try {
+            await fetch('/api/lessons/notify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                lessonId: data.id,
+                courseId: moduleData.course_id,
+                lessonTitle: newLessonTitle
+              })
+            }).catch(err => console.error('Failed to send lesson notification emails:', err))
+          } catch (emailError) {
+            console.error('Error sending lesson notification emails:', emailError)
+          }
+
+          // Create in-app notifications for enrolled students
           await fetch('/api/notifications/create', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

@@ -73,7 +73,9 @@ export default function UserActions({ userId, userRole, userStatus, userEmail, v
     try {
       setLoading(true)
       
-      const response = await fetch(`/api/admin/users/${userId}`, {
+      // Use absolute URL to avoid locale routing issues
+      const apiUrl = `${window.location.origin}/api/admin/users/${userId}`
+      const response = await fetch(apiUrl, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -113,7 +115,9 @@ export default function UserActions({ userId, userRole, userStatus, userEmail, v
       setLoading(true)
       const newStatus = userStatus === 'banned' ? 'active' : 'banned'
       
-      const response = await fetch(`/api/admin/users/${userId}`, {
+      // Use absolute URL to avoid locale routing issues
+      const apiUrl = `${window.location.origin}/api/admin/users/${userId}`
+      const response = await fetch(apiUrl, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -151,7 +155,9 @@ export default function UserActions({ userId, userRole, userStatus, userEmail, v
     try {
       setLoading(true)
       
-      const response = await fetch(`/api/admin/users/${userId}/approve`, {
+      // Use absolute URL to avoid locale routing issues
+      const apiUrl = `${window.location.origin}/api/admin/users/${userId}/approve`
+      const response = await fetch(apiUrl, {
         method: 'POST',
       })
 
@@ -183,7 +189,9 @@ export default function UserActions({ userId, userRole, userStatus, userEmail, v
     try {
       setLoading(true)
       
-      const response = await fetch(`/api/admin/users/${userId}/reject`, {
+      // Use absolute URL to avoid locale routing issues
+      const apiUrl = `${window.location.origin}/api/admin/users/${userId}/reject`
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -225,7 +233,9 @@ export default function UserActions({ userId, userRole, userStatus, userEmail, v
     try {
       setLoading(true)
       
-      const response = await fetch(`/api/admin/users/${userId}`, {
+      // Use absolute URL to avoid locale routing issues
+      const apiUrl = `${window.location.origin}/api/admin/users/${userId}`
+      const response = await fetch(apiUrl, {
         method: 'DELETE',
       })
 

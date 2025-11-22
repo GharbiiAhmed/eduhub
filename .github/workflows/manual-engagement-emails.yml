@@ -1,0 +1,44 @@
+name: Manual Engagement Emails
+
+on:
+  workflow_dispatch:
+    inputs:
+      email_type:
+        description: 'Type of email to send'
+        required: true
+        type: choice
+        options:
+          - weekly-progress
+          - course-reminders
+          - course-recommendations
+          - all
+
+jobs:
+  send-emails:
+    name: Send Engagement Emails
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Weekly Progress Emails
+        if: github.event.inputs.email_type == 'weekly-progress' || github.event.inputs.email_type == 'all'
+        run: |
+          curl -X GET "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/cron/weekly-progress" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -f || exit 1
+
+      - name: Send Course Reminder Emails
+        if: github.event.inputs.email_type == 'course-reminders' || github.event.inputs.email_type == 'all'
+        run: |
+          curl -X GET "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/cron/course-reminders" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -f || exit 1
+
+      - name: Send Course Recommendation Emails
+        if: github.event.inputs.email_type == 'course-recommendations' || github.event.inputs.email_type == 'all'
+        run: |
+          curl -X GET "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/cron/course-recommendations" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -f || exit 1
+

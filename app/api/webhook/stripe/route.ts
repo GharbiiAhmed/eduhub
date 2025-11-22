@@ -3,6 +3,14 @@ import { createClient as createServiceClient } from "@supabase/supabase-js"
 import { stripe } from "@/lib/stripe"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
+import { 
+  sendEnrollmentEmail,
+  sendPaymentReceiptEmail,
+  sendSubscriptionRenewalEmail,
+  sendPaymentFailedEmail,
+  sendSubscriptionCancelledEmail,
+  sendPaymentReceivedEmail
+} from "@/lib/email"
 
 export async function POST(request: Request) {
   const body = await request.text()
@@ -147,6 +155,33 @@ export async function POST(request: Request) {
             .eq("id", courseId)
             .single()
 
+          // Get user profile for email
+          const { data: profile } = await supabaseAdmin
+            .from("profiles")
+            .select("email, full_name")
+            .eq("id", userId)
+            .single()
+
+          // Send enrollment email
+          if (profile?.email && course?.title) {
+            try {
+              const emailResult = await sendEnrollmentEmail(
+                profile.email,
+                profile.full_name || 'Student',
+                course.title,
+                courseId
+              )
+              if (emailResult.success) {
+                console.log(`✅ Enrollment email sent to ${profile.email}`)
+              } else {
+                console.error(`❌ Failed to send enrollment email:`, emailResult.error)
+              }
+            } catch (emailError: any) {
+              console.error('Error sending enrollment email:', emailError)
+            }
+          }
+
+          // Create in-app notification
           await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/notifications/create`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -200,12 +235,73 @@ export async function POST(request: Request) {
         }
       }
 
-      // Notify user about payment received
+      // Send payment receipt email and notify user
       try {
         const productName = courseId 
           ? (await supabaseAdmin.from("courses").select("title").eq("id", courseId).single()).data?.title
           : (await supabaseAdmin.from("books").select("title").eq("id", bookId).single()).data?.title
 
+        // Get user profile for email
+        const { data: profile } = await supabaseAdmin
+          .from("profiles")
+          .select("email, full_name")
+          .eq("id", userId)
+          .single()
+
+        // Send payment receipt email
+        if (profile?.email && productName) {
+          try {
+            const emailResult = await sendPaymentReceiptEmail(
+              profile.email,
+              profile.full_name || 'Customer',
+              totalAmount,
+              session.currency || 'usd',
+              productName,
+              courseId ? 'course' : 'book',
+              courseId || bookId,
+              session.id
+            )
+            if (emailResult.success) {
+              console.log(`✅ Payment receipt email sent to ${profile.email}`)
+            } else {
+              console.error(`❌ Failed to send payment receipt email:`, emailResult.error)
+            }
+          } catch (emailError: any) {
+            console.error('Error sending payment receipt email:', emailError)
+          }
+        }
+
+        // Send payment received email to instructor/creator
+        if (creatorId && productName) {
+          try {
+            const { data: creatorProfile } = await supabaseAdmin
+              .from("profiles")
+              .select("email, full_name")
+              .eq("id", creatorId)
+              .single()
+
+            if (creatorProfile?.email) {
+              const emailResult = await sendPaymentReceivedEmail(
+                creatorProfile.email,
+                creatorProfile.full_name || 'Creator',
+                totalAmount,
+                session.currency || 'usd',
+                productName,
+                courseId ? 'course' : 'book',
+                creatorEarnings
+              )
+              if (emailResult.success) {
+                console.log(`✅ Payment received email sent to instructor ${creatorProfile.email}`)
+              } else {
+                console.error(`❌ Failed to send payment received email:`, emailResult.error)
+              }
+            }
+          } catch (emailError: any) {
+            console.error('Error sending payment received email to instructor:', emailError)
+          }
+        }
+
+        // Create in-app notification
         await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/notifications/create`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -363,13 +459,47 @@ export async function POST(request: Request) {
         })
         .eq("stripe_subscription_id", subscription.id)
 
-      // Notify user about subscription cancellation
+      // Send subscription cancelled email and notify user
       if (subData?.user_id) {
         try {
           const productName = subData.course_id
             ? (await supabaseAdmin.from("courses").select("title").eq("id", subData.course_id).single()).data?.title
             : (await supabaseAdmin.from("books").select("title").eq("id", subData.book_id).single()).data?.title
 
+          // Get subscription end date
+          const { data: subscriptionData } = await supabaseAdmin
+            .from("subscriptions")
+            .select("current_period_end")
+            .eq("stripe_subscription_id", subscription.id)
+            .single()
+
+          // Get user profile for email
+          const { data: profile } = await supabaseAdmin
+            .from("profiles")
+            .select("email, full_name")
+            .eq("id", subData.user_id)
+            .single()
+
+          // Send subscription cancelled email
+          if (profile?.email && productName) {
+            try {
+              const emailResult = await sendSubscriptionCancelledEmail(
+                profile.email,
+                profile.full_name || 'User',
+                productName,
+                subscriptionData?.current_period_end || new Date().toISOString()
+              )
+              if (emailResult.success) {
+                console.log(`✅ Subscription cancelled email sent to ${profile.email}`)
+              } else {
+                console.error(`❌ Failed to send cancellation email:`, emailResult.error)
+              }
+            } catch (emailError: any) {
+              console.error('Error sending subscription cancelled email:', emailError)
+            }
+          }
+
+          // Create in-app notification
           await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/notifications/create`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -440,13 +570,42 @@ export async function POST(request: Request) {
           })
           .eq("stripe_subscription_id", subscription.id)
 
-        // Notify user about subscription renewal
+        // Send subscription renewal email and notify user
         if (subData?.user_id) {
           try {
             const productName = subData.course_id
               ? (await supabaseAdmin.from("courses").select("title").eq("id", subData.course_id).single()).data?.title
               : (await supabaseAdmin.from("books").select("title").eq("id", subData.book_id).single()).data?.title
 
+            // Get user profile for email
+            const { data: profile } = await supabaseAdmin
+              .from("profiles")
+              .select("email, full_name")
+              .eq("id", subData.user_id)
+              .single()
+
+            // Send subscription renewal email
+            if (profile?.email && productName) {
+              try {
+                const emailResult = await sendSubscriptionRenewalEmail(
+                  profile.email,
+                  profile.full_name || 'User',
+                  productName,
+                  renewalAmount,
+                  invoice.currency || 'usd',
+                  new Date(subscription.current_period_end * 1000).toISOString()
+                )
+                if (emailResult.success) {
+                  console.log(`✅ Subscription renewal email sent to ${profile.email}`)
+                } else {
+                  console.error(`❌ Failed to send renewal email:`, emailResult.error)
+                }
+              } catch (emailError: any) {
+                console.error('Error sending subscription renewal email:', emailError)
+              }
+            }
+
+            // Create in-app notification
             await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/notifications/create`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -489,13 +648,42 @@ export async function POST(request: Request) {
           })
           .eq("stripe_subscription_id", invoice.subscription)
 
-        // Notify user about payment failure
+        // Send payment failed email and notify user
         if (subData?.user_id) {
           try {
             const productName = subData.course_id
               ? (await supabaseAdmin.from("courses").select("title").eq("id", subData.course_id).single()).data?.title
               : (await supabaseAdmin.from("books").select("title").eq("id", subData.book_id).single()).data?.title
 
+            // Get user profile for email
+            const { data: profile } = await supabaseAdmin
+              .from("profiles")
+              .select("email, full_name")
+              .eq("id", subData.user_id)
+              .single()
+
+            // Send payment failed email
+            if (profile?.email && productName) {
+              try {
+                const emailResult = await sendPaymentFailedEmail(
+                  profile.email,
+                  profile.full_name || 'User',
+                  productName,
+                  (invoice.amount_due || 0) / 100,
+                  invoice.currency || 'usd',
+                  invoice.last_payment_error?.message
+                )
+                if (emailResult.success) {
+                  console.log(`✅ Payment failed email sent to ${profile.email}`)
+                } else {
+                  console.error(`❌ Failed to send payment failed email:`, emailResult.error)
+                }
+              } catch (emailError: any) {
+                console.error('Error sending payment failed email:', emailError)
+              }
+            }
+
+            // Create in-app notification
             await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/notifications/create`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },

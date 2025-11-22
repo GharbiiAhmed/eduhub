@@ -108,6 +108,22 @@ export default function CourseSettingsSection({ course }: { course: Course }) {
 
           if (enrollments && enrollments.length > 0) {
             const studentIds = enrollments.map(e => e.student_id)
+            
+            // Send email notifications to enrolled students
+            try {
+              await fetch('/api/courses/publish', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  courseId: course.id,
+                  courseTitle: title
+                })
+              }).catch(err => console.error('Failed to send course published emails:', err))
+            } catch (emailError) {
+              console.error('Error sending course published emails:', emailError)
+            }
+
+            // Create in-app notifications
             await fetch('/api/notifications/create', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },

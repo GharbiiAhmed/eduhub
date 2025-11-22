@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+import { sendCertificateEmail } from "@/lib/email"
 
 export async function POST(request: Request) {
   try {
@@ -54,12 +55,37 @@ export async function POST(request: Request) {
 
     if (error) throw error
 
-    // Get course details for notification
+    // Get course details and user profile for email
     const { data: course } = await supabase
       .from("courses")
       .select("title")
       .eq("id", courseId)
       .single()
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("email, full_name")
+      .eq("id", user.id)
+      .single()
+
+    // Send certificate email
+    if (profile?.email && course?.title) {
+      try {
+        const emailResult = await sendCertificateEmail(
+          profile.email,
+          profile.full_name || 'Student',
+          course.title,
+          certificate.certificate_number
+        )
+        if (emailResult.success) {
+          console.log(`✅ Certificate email sent to ${profile.email}`)
+        } else {
+          console.error(`❌ Failed to send certificate email:`, emailResult.error)
+        }
+      } catch (emailError: any) {
+        console.error('Error sending certificate email:', emailError)
+      }
+    }
 
     // Notify student about certificate
     try {

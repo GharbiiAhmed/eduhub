@@ -135,6 +135,17 @@ function ResetPasswordForm() {
 
       if (error) throw error
 
+      // Send password changed email notification
+      try {
+        await fetch('/api/auth/password-changed', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        }).catch(err => console.error('Failed to send password changed email:', err))
+      } catch (emailError) {
+        console.error('Error sending password changed email:', emailError)
+        // Don't fail the password reset if email fails
+      }
+
       setSuccess(true)
       
       // Redirect to login after 2 seconds

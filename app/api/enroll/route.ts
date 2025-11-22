@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
+import { sendEnrollmentEmail, sendNewStudentEnrolledEmail } from "@/lib/email"
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,6 +53,71 @@ export async function POST(request: NextRequest) {
         .eq("id", courseId)
         .single()
 
+      // Get user profile for email
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("email, full_name")
+        .eq("id", user.id)
+        .single()
+
+      // Send enrollment email to student
+      if (profile?.email && course?.title) {
+        try {
+          const emailResult = await sendEnrollmentEmail(
+            profile.email,
+            profile.full_name || 'Student',
+            course.title,
+            `/student/courses/${courseId}`
+          )
+          if (emailResult.success) {
+            console.log(`✅ Enrollment email sent to ${profile.email}`)
+          } else {
+            console.error(`❌ Failed to send enrollment email:`, emailResult.error)
+          }
+        } catch (emailError: any) {
+          console.error('Error sending enrollment email:', emailError)
+        }
+      }
+
+      // Send email to instructor about new student enrollment
+      try {
+        const { data: courseData } = await supabase
+          .from("courses")
+          .select("instructor_id, title")
+          .eq("id", courseId)
+          .single()
+
+        if (courseData?.instructor_id) {
+          const { data: instructorProfile } = await supabase
+            .from("profiles")
+            .select("email, full_name")
+            .eq("id", courseData.instructor_id)
+            .single()
+
+          if (instructorProfile?.email) {
+            try {
+              const emailResult = await sendNewStudentEnrolledEmail(
+                instructorProfile.email,
+                instructorProfile.full_name || 'Instructor',
+                profile?.full_name || 'A new student',
+                courseData.title,
+                courseId
+              )
+              if (emailResult.success) {
+                console.log(`✅ New student enrollment email sent to instructor ${instructorProfile.email}`)
+              } else {
+                console.error(`❌ Failed to send instructor email:`, emailResult.error)
+              }
+            } catch (emailError: any) {
+              console.error('Error sending instructor email:', emailError)
+            }
+          }
+        }
+      } catch (instructorEmailError) {
+        console.error('Error sending instructor enrollment email:', instructorEmailError)
+      }
+
+      // Create in-app notification
       await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/notifications/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
