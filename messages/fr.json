@@ -230,6 +230,8 @@
     "passwordTooShort": "Le mot de passe doit contenir au moins 6 caractères",
     "pleaseAgreeToTerms": "Veuillez accepter les Conditions d'utilisation et la Politique de confidentialité",
     "anErrorOccurred": "Une erreur s'est produite",
+    "signInWithGoogle": "Se connecter avec Google",
+    "signUpWithGoogle": "S'inscrire avec Google",
     "accountPendingApproval": "Compte en attente d'approbation",
     "accountBeingVerified": "Votre compte est en cours de vérification par notre équipe d'administration",
     "registrationReceived": "Nous avons reçu votre demande d'inscription",

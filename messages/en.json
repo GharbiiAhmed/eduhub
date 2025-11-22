@@ -231,6 +231,8 @@
     "passwordTooShort": "Password must be at least 6 characters long",
     "pleaseAgreeToTerms": "Please agree to the Terms of Service and Privacy Policy",
     "anErrorOccurred": "An error occurred",
+    "signInWithGoogle": "Sign in with Google",
+    "signUpWithGoogle": "Sign up with Google",
     "accountPendingApproval": "Account Pending Approval",
     "accountBeingVerified": "Your account is being verified by our admin team",
     "registrationReceived": "We've received your registration request",

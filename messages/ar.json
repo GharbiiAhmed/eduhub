@@ -229,7 +229,9 @@
     "passwordsDoNotMatch": "كلمات المرور غير متطابقة",
     "passwordTooShort": "يجب أن تكون كلمة المرور 6 أحرف على الأقل",
     "pleaseAgreeToTerms": "يرجى الموافقة على شروط الخدمة وسياسة الخصوصية",
-    "anErrorOccurred": "حدث خطأ"
+    "anErrorOccurred": "حدث خطأ",
+    "signInWithGoogle": "تسجيل الدخول باستخدام Google",
+    "signUpWithGoogle": "إنشاء حساب باستخدام Google"
   },
   "dashboard": {
     "title": "لوحة التحكم",
