@@ -17,6 +17,22 @@ export async function GET(request: NextRequest) {
   console.log('Auth callback - next param:', next)
   console.log('Auth callback - pathname:', requestUrl.pathname)
   
+  // Safety check: if pathname contains undefined, redirect to a safe URL
+  if (requestUrl.pathname.includes('undefined')) {
+    console.error('Invalid pathname contains undefined:', requestUrl.pathname)
+    // Try to extract locale from next parameter for safe redirect
+    let safeLocale = 'en'
+    if (next && typeof next === 'string') {
+      const localeMatch = next.match(/^\/(en|es|fr|ar|de|it|pt|ru|zh|ja|ko)(\/|$)/)
+      if (localeMatch && ['en', 'es', 'fr', 'ar', 'de', 'it', 'pt', 'ru', 'zh', 'ja', 'ko'].includes(localeMatch[1])) {
+        safeLocale = localeMatch[1]
+      }
+    }
+    const localePrefix = safeLocale !== 'en' ? `/${safeLocale}` : ''
+    const safeRedirect = `${localePrefix}/auth/login?error=invalid_callback`
+    return NextResponse.redirect(new URL(safeRedirect, request.url))
+  }
+  
   // Handle OAuth errors from Supabase
   if (error) {
     console.error('OAuth error received:', { error, errorCode, errorDescription })
@@ -73,34 +89,43 @@ export async function GET(request: NextRequest) {
   
   // Helper function to remove locale prefix from a path (handles multiple prefixes)
   const removeLocalePrefix = (path: string): string => {
-    if (!path || typeof path !== 'string') return path
+    if (!path || typeof path !== 'string') return '/'
     let cleanedPath = path
     // Keep removing locale prefixes until none are found
     let changed = true
-    while (changed) {
+    let iterations = 0
+    const maxIterations = 10 // Safety limit
+    while (changed && iterations < maxIterations) {
+      iterations++
       const localeMatch = cleanedPath.match(/^\/(en|es|fr|ar|de|it|pt|ru|zh|ja|ko)(\/.*|$)/)
       if (localeMatch) {
         const rest = localeMatch[2]
-        cleanedPath = rest || '/'
-        // If rest is empty or just '/', we're done
-        if (!rest || rest === '/') {
+        // Handle empty string or undefined rest
+        if (!rest || rest === '' || rest === '/') {
+          cleanedPath = '/'
           changed = false
+        } else {
+          cleanedPath = rest
         }
       } else {
         changed = false
       }
     }
-    return cleanedPath
+    // Ensure we return a valid path
+    return cleanedPath || '/'
   }
   
   // Helper function to build locale-aware redirect URL
   const buildRedirectUrl = (path: string): URL => {
-    // Ensure path is a valid string
-    let cleanPath = path
-    if (!cleanPath || typeof cleanPath !== 'string' || cleanPath.includes('undefined')) {
-      console.warn('Invalid path provided to buildRedirectUrl:', path)
+    // Ensure path is a valid string - strict validation
+    let cleanPath: string = path
+    if (!cleanPath || typeof cleanPath !== 'string') {
+      console.warn('Invalid path provided to buildRedirectUrl:', path, typeof path)
       cleanPath = 'dashboard'
     }
+    
+    // Remove any undefined string literals
+    cleanPath = cleanPath.replace(/undefined/g, '')
     
     // Remove locale prefix if it exists (to avoid duplication)
     cleanPath = removeLocalePrefix(cleanPath)
@@ -109,8 +134,8 @@ export async function GET(request: NextRequest) {
     cleanPath = cleanPath.startsWith('/') ? cleanPath.slice(1) : cleanPath
     
     // Ensure cleanPath is not empty and doesn't contain undefined
-    if (!cleanPath || cleanPath.includes('undefined')) {
-      console.warn('Path is empty or contains undefined, using dashboard fallback')
+    if (!cleanPath || cleanPath === '' || cleanPath.includes('undefined')) {
+      console.warn('Path is empty or contains undefined, using dashboard fallback', { originalPath: path, cleanPath })
       cleanPath = 'dashboard'
     }
     
@@ -120,10 +145,16 @@ export async function GET(request: NextRequest) {
     // If locale is found and it's not 'en' (default), add locale prefix
     // Note: 'en' doesn't need a prefix based on routing config (mode: 'as-needed', en: false)
     if (safeLocale && safeLocale !== 'en') {
+      // Double-check that safeLocale is a valid string
+      if (typeof safeLocale !== 'string' || safeLocale.includes('undefined')) {
+        console.error('Invalid safeLocale:', safeLocale, { locale })
+        return new URL(`/${cleanPath}`, request.url)
+      }
+      
       const urlPath = `/${safeLocale}/${cleanPath}`
       // Final validation - ensure no undefined in the path
-      if (urlPath.includes('undefined')) {
-        console.error('URL path contains undefined:', urlPath, { locale, safeLocale, cleanPath })
+      if (urlPath.includes('undefined') || !urlPath || urlPath === '/') {
+        console.error('URL path contains undefined or is invalid:', urlPath, { locale, safeLocale, cleanPath })
         // Fallback to path without locale
         return new URL(`/${cleanPath}`, request.url)
       }

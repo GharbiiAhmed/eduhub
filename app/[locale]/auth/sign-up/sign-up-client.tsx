@@ -221,8 +221,13 @@ export function SignUpClient() {
     setError(null)
 
     try {
-      // Ensure locale is defined and valid
-      const validLocale = locale && typeof locale === 'string' ? locale : 'en'
+      // Ensure locale is defined and valid - check for string 'undefined' as well
+      const validLocales = ['en', 'ar', 'fr', 'es', 'de', 'it', 'pt', 'ru', 'zh', 'ja', 'ko']
+      let validLocale = 'en' // default
+      if (locale && typeof locale === 'string' && locale !== 'undefined' && validLocales.includes(locale)) {
+        validLocale = locale
+      }
+      
       const localePrefix = validLocale !== 'en' ? `/${validLocale}` : ''
       
       // Ensure window.location.origin is defined
@@ -231,8 +236,21 @@ export function SignUpClient() {
         throw new Error('Unable to determine application origin')
       }
       
+      // Validate that localePrefix doesn't contain undefined
+      if (localePrefix && (localePrefix.includes('undefined') || localePrefix === '/undefined')) {
+        console.error('Invalid localePrefix detected:', localePrefix, { locale, validLocale })
+        throw new Error('Invalid locale configuration')
+      }
+      
       // API routes should never have locale prefixes - pass locale via next parameter instead
       const nextPath = localePrefix ? `${localePrefix}/dashboard` : '/dashboard'
+      
+      // Final validation of nextPath
+      if (nextPath.includes('undefined')) {
+        console.error('Invalid nextPath contains undefined:', nextPath, { localePrefix, validLocale, locale })
+        throw new Error('Invalid redirect path')
+      }
+      
       const redirectUrl = `${origin}/api/auth/callback?next=${encodeURIComponent(nextPath)}`
       
       const { error } = await supabase.auth.signInWithOAuth({
