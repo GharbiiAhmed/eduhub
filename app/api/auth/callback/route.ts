@@ -12,10 +12,17 @@ export async function GET(request: NextRequest) {
   const errorCode = requestUrl.searchParams.get('error_code')
   const errorDescription = requestUrl.searchParams.get('error_description')
 
-  // Log for debugging
-  console.log('Auth callback - URL:', request.url)
-  console.log('Auth callback - next param:', next)
-  console.log('Auth callback - pathname:', requestUrl.pathname)
+  // Log for debugging - comprehensive logging
+  console.log('Auth callback received:', {
+    fullUrl: request.url,
+    pathname: requestUrl.pathname,
+    code: code ? code.substring(0, 10) + '...' : null,
+    next,
+    error,
+    errorCode,
+    errorDescription,
+    searchParams: Object.fromEntries(requestUrl.searchParams.entries())
+  })
   
   // Safety check: if pathname contains undefined, handle it appropriately
   if (requestUrl.pathname.includes('undefined')) {
@@ -179,12 +186,32 @@ export async function GET(request: NextRequest) {
   if (code) {
     const supabase = await createClient()
     
+    // Log the incoming request details for debugging
+    console.log('OAuth callback processing:', {
+      pathname: requestUrl.pathname,
+      code: code.substring(0, 10) + '...', // Log partial code for security
+      next,
+      locale,
+      fullUrl: request.url
+    })
+    
     // Exchange the code for a session
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
     
     if (error) {
-      console.error('OAuth callback error:', error)
-      return NextResponse.redirect(buildRedirectUrl('auth/login?error=oauth_error'))
+      console.error('OAuth callback error:', {
+        error: error.message,
+        errorCode: error.status,
+        errorDetails: error,
+        pathname: requestUrl.pathname,
+        next,
+        locale,
+        fullUrl: request.url
+      })
+      
+      // Build error redirect with more context
+      const errorPath = `auth/login?error=oauth_error&error_code=${encodeURIComponent(error.message || 'unknown')}`
+      return NextResponse.redirect(buildRedirectUrl(errorPath))
     }
 
     if (data.user) {
