@@ -206,8 +206,15 @@ export default function CourseDetailPage({
       const data = await response.json()
 
       if (!response.ok) {
-        const errorMsg = data.error || data.message || `Failed to process enrollment (${response.status})`
-        console.error("Checkout error:", { status: response.status, data })
+        const errorMsg = data.error || data.message || data.details || `Failed to process enrollment (${response.status})`
+        console.error("Checkout error - Full details:", {
+          status: response.status,
+          statusText: response.statusText,
+          error: data.error,
+          message: data.message,
+          details: data.details,
+          fullData: JSON.stringify(data, null, 2)
+        })
         throw new Error(errorMsg)
       }
 

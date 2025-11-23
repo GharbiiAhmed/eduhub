@@ -4,10 +4,19 @@ import { NextResponse } from "next/server"
 
 export async function POST(request: Request) {
   try {
-    const { courseId, bookId, type, paymentType } = await request.json()
+    const body = await request.json()
+    const { courseId, bookId, type, paymentType } = body
     // paymentType: 'one_time' | 'monthly' | 'yearly'
     // Note: Paymee primarily supports one-time payments
-    console.log("Paymee checkout request:", { courseId, bookId, type, paymentType })
+    console.log("Paymee checkout request received:", {
+      courseId,
+      bookId,
+      type,
+      paymentType,
+      hasCourseId: !!courseId,
+      hasBookId: !!bookId,
+      fullBody: body
+    })
 
     const supabase = await createClient()
     const {
@@ -72,11 +81,118 @@ export async function POST(request: Request) {
       description = `Book: ${book.title}`
       amount = book.price || 0
     } else {
-      return NextResponse.json({ error: "Course or book ID required" }, { status: 400 })
+      console.error("Missing courseId and bookId in request")
+      return NextResponse.json(
+        { 
+          error: "Course or book ID required",
+          received: { courseId: !!courseId, bookId: !!bookId }
+        },
+        { status: 400 }
+      )
     }
 
-    if (amount <= 0) {
-      return NextResponse.json({ error: "Invalid amount" }, { status: 400 })
+    // Free products - create enrollment/purchase directly (no payment needed)
+    if (amount === 0) {
+      console.log("Free product - creating enrollment/purchase directly")
+      
+      if (courseId) {
+        // Check if already enrolled
+        const { data: existingEnrollment } = await supabase
+          .from("enrollments")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("course_id", courseId)
+          .single()
+
+        if (!existingEnrollment) {
+          const { data: enrollmentData, error: enrollmentError } = await supabase
+            .from("enrollments")
+            .insert({
+              user_id: user.id,
+              course_id: courseId,
+              enrolled_at: new Date().toISOString(),
+              status: "active",
+            })
+            .select()
+            .single()
+
+          if (enrollmentError) {
+            console.error("Free enrollment creation error:", enrollmentError)
+            return NextResponse.json({ error: "Failed to create enrollment" }, { status: 500 })
+          }
+
+          // Notify user about free enrollment
+          try {
+            await supabase.from("notifications").insert({
+              user_id: user.id,
+              type: "enrollment",
+              title: "Enrollment Successful! 🎓",
+              message: `You've successfully enrolled in "${product?.title || 'the course'}". Start learning now!`,
+              link: `/student/courses/${courseId}`,
+              related_id: courseId,
+              related_type: "course"
+            }).catch(err => console.error('Failed to create enrollment notification:', err))
+          } catch (notifError) {
+            console.error('Error creating enrollment notification:', notifError)
+          }
+        }
+
+        return NextResponse.json({ success: true, free: true })
+      } else if (bookId) {
+        // Check if already purchased
+        const { data: existingPurchase } = await supabase
+          .from("book_purchases")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("book_id", bookId)
+          .single()
+
+        if (!existingPurchase) {
+          const { data: purchaseData, error: purchaseError } = await supabase
+            .from("book_purchases")
+            .insert({
+              user_id: user.id,
+              book_id: bookId,
+              purchased_at: new Date().toISOString(),
+            })
+            .select()
+            .single()
+
+          if (purchaseError) {
+            console.error("Free book purchase creation error:", purchaseError)
+            return NextResponse.json({ error: "Failed to create purchase" }, { status: 500 })
+          }
+
+          // Notify user about free book purchase
+          try {
+            await supabase.from("notifications").insert({
+              user_id: user.id,
+              type: "payment_received",
+              title: "Book Purchase Successful! 📚",
+              message: `You've successfully purchased "${product?.title || 'the book'}". Access it now!`,
+              link: `/books/${bookId}`,
+              related_id: bookId,
+              related_type: "book"
+            }).catch(err => console.error('Failed to create book purchase notification:', err))
+          } catch (notifError) {
+            console.error('Error creating book purchase notification:', notifError)
+          }
+        }
+
+        return NextResponse.json({ success: true, free: true })
+      }
+    }
+
+    if (amount < 0) {
+      console.error("Invalid amount:", amount, "for product:", product?.title)
+      return NextResponse.json(
+        { 
+          error: "Invalid amount",
+          amount: amount,
+          product: product?.title || "Unknown"
+        },
+        { status: 400 }
+      )
     }
 
     // Check if Paymee is configured
@@ -89,13 +205,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Payment gateway not configured" }, { status: 500 })
     }
 
-    console.log("Creating Paymee payment request...")
+    console.log("Creating Paymee payment request...", {
+      amount,
+      currency: "TND",
+      hasToken: !!paymeeToken,
+      hasAccount: !!paymeeAccount,
+      baseUrl: process.env.NEXT_PUBLIC_APP_URL
+    })
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const webhookUrl = `${baseUrl}/api/webhook/paymee`
 
     // Create Paymee payment
-    const paymentResponse = await paymee.createPayment({
+    try {
+      const paymentResponse = await paymee.createPayment({
       amount: amount, // Amount in TND
       success_url: `${baseUrl}/checkout/success?payment_id={payment_id}`,
       fail_url: `${baseUrl}/checkout/cancel`,
@@ -116,7 +239,7 @@ export async function POST(request: Request) {
       description: description,
     })
 
-    if (!paymentResponse.success) {
+      if (!paymentResponse.success) {
       console.error("Paymee payment creation failed:", paymentResponse)
       return NextResponse.json(
         { 
@@ -156,6 +279,15 @@ export async function POST(request: Request) {
       paymentUrl: paymentResponse.payment_url,
       qrCode: paymentResponse.qr_code,
     })
+    } catch (paymeeError: any) {
+      // This catches errors from Paymee API call
+      console.error("Paymee API call failed:", {
+        error: paymeeError.message,
+        stack: paymeeError.stack,
+        name: paymeeError.name
+      })
+      throw paymeeError // Re-throw to be caught by outer catch
+    }
   } catch (error: unknown) {
     console.error("Paymee checkout error:", error)
     
