@@ -129,7 +129,14 @@ export default function BookDetailPage({
 
       const data = await response.json()
 
+      if (!response.ok) {
+        const errorMsg = data.error || data.message || `Failed to process purchase (${response.status})`
+        console.error("Checkout error:", { status: response.status, data })
+        throw new Error(errorMsg)
+      }
+
       if (data.error) {
+        console.error("Checkout error in response:", data)
         throw new Error(data.error)
       }
 

@@ -158,9 +158,20 @@ export async function POST(request: Request) {
     })
   } catch (error: unknown) {
     console.error("Paymee checkout error:", error)
+    
+    // Return more detailed error information
+    const errorMessage = error instanceof Error ? error.message : "Internal server error"
+    const statusCode = errorMessage.includes("Unauthorized") || errorMessage.includes("401") ? 401 :
+                      errorMessage.includes("Not Found") || errorMessage.includes("404") ? 404 :
+                      errorMessage.includes("Bad Request") || errorMessage.includes("400") ? 400 : 500
+    
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
-      { status: 500 }
+      { 
+        error: errorMessage,
+        details: "Check Netlify function logs for full error details",
+        timestamp: new Date().toISOString()
+      },
+      { status: statusCode }
     )
   }
 }

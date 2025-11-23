@@ -65,33 +65,40 @@ export class PaymeeClient {
    */
   async createPayment(paymentData: PaymeePaymentRequest): Promise<PaymeePaymentResponse> {
     try {
+      // Log what we're sending for debugging
+      const requestBody = {
+        amount: paymentData.amount,
+        currency: 'TND',
+        success_url: paymentData.success_url,
+        fail_url: paymentData.fail_url,
+        cancel_url: paymentData.cancel_url || paymentData.fail_url,
+        webhook_url: paymentData.webhook_url,
+        customer: paymentData.customer,
+        metadata: paymentData.metadata,
+        description: paymentData.description,
+        account_number: this.accountNumber,
+        // Also try common alternative field names
+        merchant_id: this.accountNumber,
+      }
+      
+      console.log('Paymee API Request:', {
+        url: `${PAYMEE_API_BASE}/payments`,
+        method: 'POST',
+        hasToken: !!this.apiToken,
+        hasAccount: !!this.accountNumber,
+        body: requestBody
+      })
+
       // Paymee uses Token-based authentication
       // Check Swagger API in dashboard for exact endpoint and structure
       const response = await fetch(`${PAYMEE_API_BASE}/payments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Paymee authentication - try Token format first
-          // If this doesn't work, we'll see the error and adjust
+          // Try Token authentication first
           'Authorization': `Token ${this.apiToken}`,
-          // Alternative: 'X-API-Key': this.apiToken,
-          // Alternative: 'Authorization': `Bearer ${this.apiToken}`,
         },
-        body: JSON.stringify({
-          amount: paymentData.amount,
-          currency: 'TND',
-          success_url: paymentData.success_url,
-          fail_url: paymentData.fail_url,
-          cancel_url: paymentData.cancel_url || paymentData.fail_url,
-          webhook_url: paymentData.webhook_url,
-          customer: paymentData.customer,
-          metadata: paymentData.metadata,
-          description: paymentData.description,
-          account_number: this.accountNumber, // Paymee account number
-          // Alternative field names based on API:
-          // merchant_id: this.accountNumber,
-          // account_id: this.accountNumber,
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       const data = await response.json()
@@ -104,13 +111,21 @@ export class PaymeeClient {
       })
 
       if (!response.ok) {
-        const errorMessage = data.message || data.error || data.error_message || `HTTP ${response.status}: ${response.statusText}`
-        console.error('Paymee API Error:', {
+        const errorMessage = data.message || data.error || data.error_message || data.detail || `HTTP ${response.status}: ${response.statusText}`
+        const fullError = {
           status: response.status,
+          statusText: response.statusText,
           error: errorMessage,
-          fullResponse: data
-        })
-        throw new Error(errorMessage)
+          fullResponse: data,
+          requestUrl: `${PAYMEE_API_BASE}/payments`,
+          requestBody: {
+            amount: paymentData.amount,
+            currency: 'TND',
+            // Don't log full body for security, just structure
+          }
+        }
+        console.error('Paymee API Error:', JSON.stringify(fullError, null, 2))
+        throw new Error(`Paymee API Error (${response.status}): ${errorMessage}`)
       }
 
       // Handle different response structures
