@@ -17,10 +17,22 @@ export async function GET(request: NextRequest) {
   console.log('Auth callback - next param:', next)
   console.log('Auth callback - pathname:', requestUrl.pathname)
   
-  // Safety check: if pathname contains undefined, redirect to a safe URL
+  // Safety check: if pathname contains undefined, handle it appropriately
   if (requestUrl.pathname.includes('undefined')) {
     console.error('Invalid pathname contains undefined:', requestUrl.pathname)
-    // Try to extract locale from next parameter for safe redirect
+    
+    // If there's a code parameter, this is an OAuth callback - redirect to correct API endpoint
+    if (code) {
+      const newUrl = new URL('/api/auth/callback', request.url)
+      // Preserve all query parameters
+      requestUrl.searchParams.forEach((value, key) => {
+        newUrl.searchParams.set(key, value)
+      })
+      console.log('Redirecting malformed OAuth callback to correct endpoint:', newUrl.toString())
+      return NextResponse.redirect(newUrl)
+    }
+    
+    // Otherwise, redirect to login with error
     let safeLocale = 'en'
     if (next && typeof next === 'string') {
       const localeMatch = next.match(/^\/(en|es|fr|ar|de|it|pt|ru|zh|ja|ko)(\/|$)/)

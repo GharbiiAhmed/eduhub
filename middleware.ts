@@ -10,6 +10,33 @@ const intlMiddleware = createMiddleware(routing)
 export default async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   
+  // Handle paths with undefined in them (malformed URLs from OAuth redirects)
+  if (pathname.includes('undefined')) {
+    console.error('Middleware: Detected undefined in pathname:', pathname)
+    // Try to extract locale and redirect to login
+    const localeMatch = pathname.match(/^\/(en|es|fr|ar|de|it|pt|ru|zh|ja|ko)/)
+    const locale = localeMatch ? localeMatch[1] : 'en'
+    const localePrefix = locale !== 'en' ? `/${locale}` : ''
+    
+    // Check if there's a code parameter (OAuth callback)
+    const code = request.nextUrl.searchParams.get('code')
+    const next = request.nextUrl.searchParams.get('next')
+    
+    if (code) {
+      // This is an OAuth callback with malformed path - redirect to API callback
+      const newUrl = new URL('/api/auth/callback', request.url)
+      // Preserve all query parameters
+      request.nextUrl.searchParams.forEach((value, key) => {
+        newUrl.searchParams.set(key, value)
+      })
+      return NextResponse.redirect(newUrl)
+    }
+    
+    // Otherwise redirect to login
+    const redirectUrl = `${localePrefix}/auth/login?error=invalid_url`
+    return NextResponse.redirect(new URL(redirectUrl, request.url))
+  }
+  
   // Redirect locale-prefixed API routes to non-prefixed versions
   // API routes should never have locale prefixes
   const localePrefixedApiMatch = pathname.match(/^\/(ar|fr|es|de|it|pt|ru|zh|ja|ko)\/api\/(.+)$/)

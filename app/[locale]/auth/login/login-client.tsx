@@ -154,7 +154,23 @@ export function LoginClient() {
         throw new Error('Invalid redirect path')
       }
       
+      // Construct redirect URL with absolute validation
       const redirectUrl = `${origin}/api/auth/callback?next=${encodeURIComponent(nextPath)}`
+      
+      // Final validation of the complete redirect URL
+      if (!redirectUrl || redirectUrl.includes('undefined') || !redirectUrl.startsWith('http')) {
+        console.error('Invalid redirectUrl constructed:', redirectUrl, {
+          origin,
+          nextPath,
+          localePrefix,
+          validLocale,
+          locale
+        })
+        throw new Error('Invalid redirect URL constructed')
+      }
+      
+      // Log the redirect URL for debugging (remove in production if needed)
+      console.log('OAuth redirect URL:', redirectUrl, { locale, validLocale, nextPath })
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
