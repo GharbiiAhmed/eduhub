@@ -99,21 +99,34 @@ export default function CreateCoursePage() {
         throw new Error("Course description is required")
       }
 
+      // Build insert data - start with required fields only
       const insertData: any = {
         instructor_id: user.id,
         title: formData.title.trim(),
-        description: formData.description.trim(),
+        description: formData.description.trim() || null, // Allow empty description
         price: Number.parseFloat(formData.price) || 0,
-        category: formData.category,
-        difficulty: formData.difficulty,
-        estimated_duration: formData.estimatedDuration,
-        language: formData.language,
         status: "draft",
-        subscription_enabled: formData.subscriptionEnabled,
-        subscription_type: formData.subscriptionType,
       }
 
-      // Only include subscription prices if subscription is enabled
+      // Add optional fields only if they have values (to avoid constraint violations)
+      if (formData.category) {
+        insertData.category = formData.category
+      }
+      if (formData.difficulty) {
+        insertData.difficulty = formData.difficulty
+      }
+      if (formData.estimatedDuration) {
+        insertData.estimated_duration = formData.estimatedDuration
+      }
+      if (formData.language) {
+        insertData.language = formData.language
+      }
+
+      // Subscription fields - always include with defaults to avoid NULL issues
+      insertData.subscription_enabled = formData.subscriptionEnabled || false
+      insertData.subscription_type = formData.subscriptionType || "one_time"
+      
+      // Subscription prices
       if (formData.subscriptionEnabled) {
         insertData.monthly_price = Number.parseFloat(formData.monthlyPrice) || 0
         insertData.yearly_price = Number.parseFloat(formData.yearlyPrice) || 0
@@ -122,13 +135,25 @@ export default function CreateCoursePage() {
         insertData.yearly_price = 0
       }
 
+      console.log("Attempting to insert course:", insertData)
+
       const { data, error: insertError } = await supabase
         .from("courses")
         .insert(insertData)
         .select()
         .single()
 
-      if (insertError) throw insertError
+      if (insertError) {
+        console.error("Course creation error:", {
+          error: insertError,
+          message: insertError.message,
+          details: insertError.details,
+          hint: insertError.hint,
+          code: insertError.code,
+          insertData: insertData
+        })
+        throw new Error(insertError.message || insertError.details || "Failed to create course")
+      }
 
       setSuccess(true)
       setTimeout(() => {

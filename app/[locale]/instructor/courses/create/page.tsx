@@ -103,28 +103,60 @@ export default function CreateCoursePage() {
         throw new Error("Course description is required")
       }
 
+      // Build insert data - start with absolutely required fields only
+      // Based on schema: instructor_id (NOT NULL), title (NOT NULL), status (NOT NULL)
       const insertData: any = {
         instructor_id: user.id,
         title: formData.title.trim(),
-        description: formData.description.trim(),
-        price: Number.parseFloat(formData.price) || 0,
-        category: formData.category,
-        difficulty: formData.difficulty,
-        estimated_duration: formData.estimatedDuration,
-        language: formData.language,
         status: "draft",
-        subscription_enabled: formData.subscriptionEnabled,
-        subscription_type: formData.subscriptionType,
       }
 
-      // Only include subscription prices if subscription is enabled
-      if (formData.subscriptionEnabled) {
-        insertData.monthly_price = Number.parseFloat(formData.monthlyPrice) || 0
-        insertData.yearly_price = Number.parseFloat(formData.yearlyPrice) || 0
-      } else {
-        insertData.monthly_price = 0
-        insertData.yearly_price = 0
+      // Add description if provided (optional in schema)
+      if (formData.description.trim()) {
+        insertData.description = formData.description.trim()
       }
+
+      // Add price (has default 0, but include it)
+      insertData.price = Number.parseFloat(formData.price) || 0
+
+      // Try to add optional fields - if they don't exist in DB, Supabase will ignore them
+      // But if they have CHECK constraints, we need to be careful
+      try {
+        if (formData.category) {
+          insertData.category = formData.category
+        }
+        if (formData.difficulty) {
+          insertData.difficulty = formData.difficulty
+        }
+        if (formData.estimatedDuration) {
+          insertData.estimated_duration = formData.estimatedDuration
+        }
+        if (formData.language) {
+          insertData.language = formData.language
+        }
+
+        // Subscription fields - check if columns exist first
+        // If subscription_type has a CHECK constraint, make sure value is valid
+        const validSubscriptionTypes = ['one_time', 'subscription', 'both']
+        const subscriptionType = validSubscriptionTypes.includes(formData.subscriptionType) 
+          ? formData.subscriptionType 
+          : 'one_time'
+        
+        insertData.subscription_enabled = formData.subscriptionEnabled || false
+        insertData.subscription_type = subscriptionType
+        
+        // Subscription prices
+        insertData.monthly_price = formData.subscriptionEnabled 
+          ? (Number.parseFloat(formData.monthlyPrice) || 0)
+          : 0
+        insertData.yearly_price = formData.subscriptionEnabled
+          ? (Number.parseFloat(formData.yearlyPrice) || 0)
+          : 0
+      } catch (fieldError) {
+        console.warn("Error adding optional fields, continuing with required fields only:", fieldError)
+      }
+
+      console.log("Attempting to insert course:", insertData)
 
       const { data, error: insertError } = await supabase
         .from("courses")
@@ -132,7 +164,31 @@ export default function CreateCoursePage() {
         .select()
         .single()
 
-      if (insertError) throw insertError
+      if (insertError) {
+        // Build detailed error message
+        let errorMessage = insertError.message || "Failed to create course"
+        
+        if (insertError.details) {
+          errorMessage += `\nDetails: ${insertError.details}`
+        }
+        if (insertError.hint) {
+          errorMessage += `\nHint: ${insertError.hint}`
+        }
+        if (insertError.code) {
+          errorMessage += `\nCode: ${insertError.code}`
+        }
+        
+        console.error("Course creation error - Full details:", {
+          error: insertError,
+          message: insertError.message,
+          details: insertError.details,
+          hint: insertError.hint,
+          code: insertError.code,
+          insertData: JSON.stringify(insertData, null, 2)
+        })
+        
+        throw new Error(errorMessage)
+      }
 
       setSuccess(true)
       setTimeout(() => {

@@ -82,22 +82,42 @@ export default function CreateCoursePage() {
       const supabase = createClient()
       const price = Number.parseFloat(formData.price) || 0
 
+      const insertData = {
+        instructor_id: user.id,
+        title: formData.title.trim(),
+        status: "draft",
+        price: price,
+      }
+
+      // Add optional fields
+      if (formData.description.trim()) {
+        insertData.description = formData.description.trim()
+      }
+      if (formData.category) {
+        insertData.category = formData.category
+      }
+
+      console.log("Attempting to insert course:", insertData)
+
       const { data, error: insertError } = await supabase
         .from("courses")
-        .insert([
-          {
-            title: formData.title,
-            description: formData.description,
-            price: price,
-            category: formData.category,
-            instructor_id: user.id,
-            status: "draft",
-          },
-        ])
+        .insert([insertData])
         .select()
         .single()
 
-      if (insertError) throw insertError
+      if (insertError) {
+        let errorMessage = insertError.message || "Failed to create course"
+        if (insertError.details) errorMessage += `\nDetails: ${insertError.details}`
+        if (insertError.hint) errorMessage += `\nHint: ${insertError.hint}`
+        console.error("Course creation error:", {
+          error: insertError,
+          message: insertError.message,
+          details: insertError.details,
+          hint: insertError.hint,
+          code: insertError.code
+        })
+        throw new Error(errorMessage)
+      }
 
       setSuccess(true)
       setTimeout(() => {
