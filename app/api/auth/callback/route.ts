@@ -8,11 +8,33 @@ export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
   const next = requestUrl.searchParams.get('next') || '/dashboard'
+  const error = requestUrl.searchParams.get('error')
+  const errorCode = requestUrl.searchParams.get('error_code')
+  const errorDescription = requestUrl.searchParams.get('error_description')
 
   // Log for debugging
   console.log('Auth callback - URL:', request.url)
   console.log('Auth callback - next param:', next)
   console.log('Auth callback - pathname:', requestUrl.pathname)
+  
+  // Handle OAuth errors from Supabase
+  if (error) {
+    console.error('OAuth error received:', { error, errorCode, errorDescription })
+    // Extract locale from next parameter for error redirect
+    let locale: string | null = null
+    const validLocales = ['en', 'es', 'fr', 'ar', 'de', 'it', 'pt', 'ru', 'zh', 'ja', 'ko']
+    if (next && typeof next === 'string') {
+      const localeMatch = next.match(/^\/(en|es|fr|ar|de|it|pt|ru|zh|ja|ko)(\/|$)/)
+      if (localeMatch && validLocales.includes(localeMatch[1])) {
+        locale = localeMatch[1]
+      }
+    }
+    
+    // Build error redirect URL
+    const localePrefix = locale && locale !== 'en' ? `/${locale}` : ''
+    const errorRedirect = `${localePrefix}/auth/login?error=oauth_error&error_code=${encodeURIComponent(errorCode || 'unknown')}`
+    return NextResponse.redirect(new URL(errorRedirect, request.url))
+  }
   
   // Extract locale from multiple sources to ensure we preserve it correctly
   let locale: string | null = null
@@ -49,6 +71,28 @@ export async function GET(request: NextRequest) {
     }
   }
   
+  // Helper function to remove locale prefix from a path (handles multiple prefixes)
+  const removeLocalePrefix = (path: string): string => {
+    if (!path || typeof path !== 'string') return path
+    let cleanedPath = path
+    // Keep removing locale prefixes until none are found
+    let changed = true
+    while (changed) {
+      const localeMatch = cleanedPath.match(/^\/(en|es|fr|ar|de|it|pt|ru|zh|ja|ko)(\/.*|$)/)
+      if (localeMatch) {
+        const rest = localeMatch[2]
+        cleanedPath = rest || '/'
+        // If rest is empty or just '/', we're done
+        if (!rest || rest === '/') {
+          changed = false
+        }
+      } else {
+        changed = false
+      }
+    }
+    return cleanedPath
+  }
+  
   // Helper function to build locale-aware redirect URL
   const buildRedirectUrl = (path: string): URL => {
     // Ensure path is a valid string
@@ -57,6 +101,9 @@ export async function GET(request: NextRequest) {
       console.warn('Invalid path provided to buildRedirectUrl:', path)
       cleanPath = 'dashboard'
     }
+    
+    // Remove locale prefix if it exists (to avoid duplication)
+    cleanPath = removeLocalePrefix(cleanPath)
     
     // Remove leading slash if present
     cleanPath = cleanPath.startsWith('/') ? cleanPath.slice(1) : cleanPath
