@@ -124,8 +124,17 @@ export function LoginClient() {
     setError(null)
 
     try {
-      const localePrefix = locale !== 'en' ? `/${locale}` : ''
-      const redirectUrl = `${window.location.origin}${localePrefix}/api/auth/callback?next=${encodeURIComponent('/dashboard')}`
+      // Ensure locale is defined and valid
+      const validLocale = locale && typeof locale === 'string' ? locale : 'en'
+      const localePrefix = validLocale !== 'en' ? `/${validLocale}` : ''
+      
+      // Ensure window.location.origin is defined
+      const origin = window.location?.origin || (typeof window !== 'undefined' ? window.location.href.split('/').slice(0, 3).join('/') : '')
+      if (!origin) {
+        throw new Error('Unable to determine application origin')
+      }
+      
+      const redirectUrl = `${origin}${localePrefix}/api/auth/callback?next=${encodeURIComponent('/dashboard')}`
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',

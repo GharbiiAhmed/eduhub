@@ -6,8 +6,8 @@ export async function POST(request: Request) {
   try {
     const { courseId, bookId, type, paymentType } = await request.json()
     // paymentType: 'one_time' | 'monthly' | 'yearly'
-    // Note: Flouci primarily supports one-time payments
-    console.log("Checkout request:", { courseId, bookId, type, paymentType })
+    // Note: Flouci typically supports one-time payments. Subscriptions may need manual handling.
+    console.log("Flouci checkout request:", { courseId, bookId, type, paymentType })
 
     const supabase = await createClient()
     const {
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
       description = `Course: ${course.title}`
 
       // For Flouci, we'll use one-time payment only
-      // Amount is in TND (not multiplied by 100 like Stripe)
+      // Subscriptions would need to be handled differently
       amount = course.price || 0
 
       console.log("Course found:", { title: course.title, amount })
@@ -75,10 +75,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Course or book ID required" }, { status: 400 })
     }
 
-    // Free products - create enrollment/purchase directly
+    // Check if Flouci is configured
+    if (!process.env.FLOUCI_APP_TOKEN || !process.env.FLOUCI_APP_SECRET) {
+      console.log("Flouci not configured")
+      return NextResponse.json({ error: "Payment gateway not configured" }, { status: 500 })
+    }
+
+    // Free products
     if (amount === 0) {
       console.log("Free product - creating enrollment/purchase directly")
-      
       if (courseId) {
         const { data: enrollmentData, error: enrollmentError } = await supabase
           .from("enrollments")
@@ -92,31 +97,6 @@ export async function POST(request: Request) {
         if (enrollmentError) {
           console.error("Free enrollment creation error:", enrollmentError)
           return NextResponse.json({ error: "Failed to create enrollment" }, { status: 500 })
-        }
-
-        // Notify user about free enrollment
-        try {
-          const { data: course } = await supabase
-            .from("courses")
-            .select("title")
-            .eq("id", courseId)
-            .single()
-
-          await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/notifications/create`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: user.id,
-              type: 'course_added',
-              title: 'Enrollment Successful! 🎓',
-              message: `You've successfully enrolled in "${course?.title || 'the course'}". Start learning now!`,
-              link: `/student/courses/${courseId}`,
-              relatedId: courseId,
-              relatedType: 'course'
-            })
-          }).catch(err => console.error('Failed to create enrollment notification:', err))
-        } catch (notifError) {
-          console.error('Error creating enrollment notification:', notifError)
         }
 
         return NextResponse.json({ success: true, free: true })
@@ -137,39 +117,8 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: "Failed to create purchase" }, { status: 500 })
         }
 
-        // Notify user about free book purchase
-        try {
-          const { data: book } = await supabase
-            .from("books")
-            .select("title")
-            .eq("id", bookId)
-            .single()
-
-          await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/notifications/create`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: user.id,
-              type: 'payment_received',
-              title: 'Book Purchase Successful! 📚',
-              message: `You've successfully purchased "${book?.title || 'the book'}". Access it now!`,
-              link: `/books/${bookId}`,
-              relatedId: bookId,
-              relatedType: 'book'
-            })
-          }).catch(err => console.error('Failed to create book purchase notification:', err))
-        } catch (notifError) {
-          console.error('Error creating book purchase notification:', notifError)
-        }
-
         return NextResponse.json({ success: true, free: true })
       }
-    }
-
-    // Check if Flouci is configured
-    if (!process.env.FLOUCI_APP_TOKEN || !process.env.FLOUCI_APP_SECRET) {
-      console.log("Flouci not configured")
-      return NextResponse.json({ error: "Payment gateway not configured" }, { status: 500 })
     }
 
     console.log("Creating Flouci payment request...")
@@ -231,10 +180,12 @@ export async function POST(request: Request) {
       qrCode: paymentResponse.qr_code,
     })
   } catch (error: unknown) {
-    console.error("Checkout error:", error)
+    console.error("Flouci checkout error:", error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Internal server error" },
       { status: 500 }
     )
   }
 }
+
+

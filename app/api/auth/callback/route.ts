@@ -8,6 +8,66 @@ export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
   const next = requestUrl.searchParams.get('next') || '/dashboard'
+  
+  // Extract locale from multiple sources to ensure we preserve it correctly
+  let locale: string | null = null
+  const validLocales = ['en', 'es', 'fr', 'ar', 'de', 'it', 'pt', 'ru', 'zh', 'ja', 'ko']
+  
+  // First, try to extract from the request URL pathname (in case Supabase redirects with locale)
+  const pathname = requestUrl.pathname
+  const pathnameLocaleMatch = pathname.match(/^\/(en|es|fr|ar|de|it|pt|ru|zh|ja|ko)(\/|$)/)
+  if (pathnameLocaleMatch && validLocales.includes(pathnameLocaleMatch[1])) {
+    locale = pathnameLocaleMatch[1]
+  }
+  
+  // If not found in pathname, check next parameter
+  if (!locale && next && typeof next === 'string') {
+    const localeMatch = next.match(/^\/(en|es|fr|ar|de|it|pt|ru|zh|ja|ko)(\/|$)/)
+    if (localeMatch && validLocales.includes(localeMatch[1])) {
+      locale = localeMatch[1]
+    }
+  }
+  
+  // If still not found, try to extract from referer header
+  if (!locale) {
+    const referer = request.headers.get('referer')
+    if (referer) {
+      try {
+        const refererUrl = new URL(referer)
+        const refererLocaleMatch = refererUrl.pathname.match(/^\/(en|es|fr|ar|de|it|pt|ru|zh|ja|ko)(\/|$)/)
+        if (refererLocaleMatch && validLocales.includes(refererLocaleMatch[1])) {
+          locale = refererLocaleMatch[1]
+        }
+      } catch (e) {
+        // Invalid referer URL, ignore
+      }
+    }
+  }
+  
+  // Helper function to build locale-aware redirect URL
+  const buildRedirectUrl = (path: string): URL => {
+    // Ensure path is a valid string
+    let cleanPath = path
+    if (!cleanPath || typeof cleanPath !== 'string') {
+      cleanPath = 'dashboard'
+    }
+    
+    // Remove leading slash if present
+    cleanPath = cleanPath.startsWith('/') ? cleanPath.slice(1) : cleanPath
+    
+    // Ensure cleanPath is not empty
+    if (!cleanPath) {
+      cleanPath = 'dashboard'
+    }
+    
+    // If locale is found and it's not 'en' (default), add locale prefix
+    // Note: 'en' doesn't need a prefix based on routing config (mode: 'as-needed', en: false)
+    if (locale && validLocales.includes(locale) && locale !== 'en') {
+      return new URL(`/${locale}/${cleanPath}`, request.url)
+    }
+    // Otherwise, use path without locale prefix (for English or when locale is not found)
+    return new URL(`/${cleanPath}`, request.url)
+  }
 
   if (code) {
     const supabase = await createClient()
@@ -17,7 +77,7 @@ export async function GET(request: NextRequest) {
     
     if (error) {
       console.error('OAuth callback error:', error)
-      return NextResponse.redirect(new URL('/auth/login?error=oauth_error', request.url))
+      return NextResponse.redirect(buildRedirectUrl('auth/login?error=oauth_error'))
     }
 
     if (data.user) {
@@ -88,26 +148,26 @@ export async function GET(request: NextRequest) {
 
       if (finalProfile) {
         if (finalProfile.status === 'pending') {
-          return NextResponse.redirect(new URL('/auth/pending-approval', request.url))
+          return NextResponse.redirect(buildRedirectUrl('auth/pending-approval'))
         }
         
         if (finalProfile.status === 'banned' || finalProfile.status === 'inactive') {
           await supabase.auth.signOut()
-          return NextResponse.redirect(new URL('/auth/login?error=account_deactivated', request.url))
+          return NextResponse.redirect(buildRedirectUrl('auth/login?error=account_deactivated'))
         }
 
         if (finalProfile.role === 'admin') {
-          return NextResponse.redirect(new URL('/admin/dashboard', request.url))
+          return NextResponse.redirect(buildRedirectUrl('admin/dashboard'))
         } else if (finalProfile.role === 'instructor') {
-          return NextResponse.redirect(new URL('/instructor/dashboard', request.url))
+          return NextResponse.redirect(buildRedirectUrl('instructor/dashboard'))
         } else {
-          return NextResponse.redirect(new URL('/student/courses', request.url))
+          return NextResponse.redirect(buildRedirectUrl('student/courses'))
         }
       }
     }
   }
 
-  // Default redirect
-  return NextResponse.redirect(new URL(next, request.url))
+  // Default redirect - preserve locale if found
+  return NextResponse.redirect(buildRedirectUrl(next))
 }
 

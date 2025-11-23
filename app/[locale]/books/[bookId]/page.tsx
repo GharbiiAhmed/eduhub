@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useEffect, useState, use } from "react"
 import { useRouter } from '@/i18n/routing'
-import { loadStripe } from "@stripe/stripe-js"
 import { 
   BookOpen, 
   User, 
@@ -139,12 +138,12 @@ export default function BookDetailPage({
         return
       }
 
-      const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
-      if (!stripe) {
-        throw new Error("Stripe failed to load")
+      // Redirect to Flouci payment page
+      if (data.paymentUrl) {
+        window.location.href = data.paymentUrl
+      } else {
+        throw new Error("Payment URL not received")
       }
-      
-      await stripe.redirectToCheckout({ sessionId: data.sessionId })
     } catch (err) {
       console.error("Purchase error:", err)
       setError(err instanceof Error ? err : new Error("Purchase failed"))

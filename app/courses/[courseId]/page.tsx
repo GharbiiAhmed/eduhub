@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { useEffect, useState, use } from "react"
 import { useRouter } from "next/navigation"
-import { loadStripe } from "@stripe/stripe-js"
 import { 
   BookOpen, 
   Users, 
@@ -204,14 +203,20 @@ export default function CourseDetailPage({ params }: { params: Promise<{ courseI
 
       const data = await response.json()
 
+      if (data.error) {
+        throw new Error(data.error)
+      }
+
       if (data.free) {
         router.push(`/student/courses/${courseId}`)
         return
       }
 
-      const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
-      if (stripe) {
-        await stripe.redirectToCheckout({ sessionId: data.sessionId })
+      // Redirect to Flouci payment page
+      if (data.paymentUrl) {
+        window.location.href = data.paymentUrl
+      } else {
+        throw new Error("Payment URL not received")
       }
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Enrollment failed"))

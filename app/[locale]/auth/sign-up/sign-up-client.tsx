@@ -61,13 +61,22 @@ export function SignUpClient() {
     try {
       // Get the current URL to construct the redirect URL for email verification
       // Preserve locale in redirect URL
-      const localePrefix = locale !== 'en' ? `/${locale}` : ''
+      // Ensure locale is defined and valid
+      const validLocale = locale && typeof locale === 'string' ? locale : 'en'
+      const localePrefix = validLocale !== 'en' ? `/${validLocale}` : ''
       // Students are auto-approved, so redirect to success page after email verification
       // Instructors need approval, so redirect to pending-approval page
       const redirectPath = formData.role === 'instructor' 
         ? '/auth/pending-approval' 
         : '/auth/sign-up-success'
-      const redirectUrl = `${window.location.origin}${localePrefix}${redirectPath}`
+      
+      // Ensure window.location.origin is defined
+      const origin = window.location?.origin || (typeof window !== 'undefined' ? window.location.href.split('/').slice(0, 3).join('/') : '')
+      if (!origin) {
+        throw new Error('Unable to determine application origin')
+      }
+      
+      const redirectUrl = `${origin}${localePrefix}${redirectPath}`
       
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
@@ -182,8 +191,17 @@ export function SignUpClient() {
     setError(null)
 
     try {
-      const localePrefix = locale !== 'en' ? `/${locale}` : ''
-      const redirectUrl = `${window.location.origin}${localePrefix}/api/auth/callback?next=${encodeURIComponent('/dashboard')}`
+      // Ensure locale is defined and valid
+      const validLocale = locale && typeof locale === 'string' ? locale : 'en'
+      const localePrefix = validLocale !== 'en' ? `/${validLocale}` : ''
+      
+      // Ensure window.location.origin is defined
+      const origin = window.location?.origin || (typeof window !== 'undefined' ? window.location.href.split('/').slice(0, 3).join('/') : '')
+      if (!origin) {
+        throw new Error('Unable to determine application origin')
+      }
+      
+      const redirectUrl = `${origin}${localePrefix}/api/auth/callback?next=${encodeURIComponent('/dashboard')}`
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
