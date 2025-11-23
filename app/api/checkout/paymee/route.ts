@@ -1,13 +1,13 @@
 import { createClient } from "@/lib/supabase/server"
-import { flouci } from "@/lib/flouci"
+import { paymee } from "@/lib/paymee"
 import { NextResponse } from "next/server"
 
 export async function POST(request: Request) {
   try {
     const { courseId, bookId, type, paymentType } = await request.json()
     // paymentType: 'one_time' | 'monthly' | 'yearly'
-    // Note: Flouci typically supports one-time payments. Subscriptions may need manual handling.
-    console.log("Flouci checkout request:", { courseId, bookId, type, paymentType })
+    // Note: Paymee primarily supports one-time payments
+    console.log("Paymee checkout request:", { courseId, bookId, type, paymentType })
 
     const supabase = await createClient()
     const {
@@ -47,12 +47,14 @@ export async function POST(request: Request) {
 
       product = course
       description = `Course: ${course.title}`
-
-      // For Flouci, we'll use one-time payment only
-      // Subscriptions would need to be handled differently
+      
+      // For Paymee, we'll use one-time payment only
+      if (paymentType === 'monthly' || paymentType === 'yearly') {
+        // Paymee may support subscriptions, but we'll handle as one-time for now
+        console.log("Paymee: Using one-time payment for subscription type")
+      }
+      
       amount = course.price || 0
-
-      console.log("Course found:", { title: course.title, amount })
     } else if (bookId) {
       console.log("Processing book purchase for:", bookId)
       const { data: book, error: bookError } = await supabase
@@ -67,71 +69,37 @@ export async function POST(request: Request) {
       }
 
       product = book
-      description = `Book: ${book.title} (${type || 'digital'})`
+      description = `Book: ${book.title}`
       amount = book.price || 0
-
-      console.log("Book found:", { title: book.title, amount })
     } else {
       return NextResponse.json({ error: "Course or book ID required" }, { status: 400 })
     }
 
-    // Check if Flouci is configured
-    if (!process.env.FLOUCI_APP_TOKEN || !process.env.FLOUCI_APP_SECRET) {
-      console.log("Flouci not configured")
+    if (amount <= 0) {
+      return NextResponse.json({ error: "Invalid amount" }, { status: 400 })
+    }
+
+    // Check if Paymee is configured
+    // Paymee uses API Token (Key) and Account Number
+    const paymeeToken = process.env.PAYMEE_API_KEY || process.env.PAYMEE_TOKEN
+    const paymeeAccount = process.env.PAYMEE_ACCOUNT_NUMBER || process.env.PAYMEE_MERCHANT_ID
+    
+    if (!paymeeToken || !paymeeAccount) {
+      console.log("Paymee not configured - missing API Token or Account Number")
       return NextResponse.json({ error: "Payment gateway not configured" }, { status: 500 })
     }
 
-    // Free products
-    if (amount === 0) {
-      console.log("Free product - creating enrollment/purchase directly")
-      if (courseId) {
-        const { data: enrollmentData, error: enrollmentError } = await supabase
-          .from("enrollments")
-          .insert({
-            student_id: user.id,
-            course_id: courseId,
-          })
-          .select()
-          .single()
-
-        if (enrollmentError) {
-          console.error("Free enrollment creation error:", enrollmentError)
-          return NextResponse.json({ error: "Failed to create enrollment" }, { status: 500 })
-        }
-
-        return NextResponse.json({ success: true, free: true })
-      } else if (bookId) {
-        const { data: purchaseData, error: purchaseError } = await supabase
-          .from("book_purchases")
-          .insert({
-            student_id: user.id,
-            book_id: bookId,
-            purchase_type: type || "digital",
-            price_paid: 0,
-          })
-          .select()
-          .single()
-
-        if (purchaseError) {
-          console.error("Free book purchase creation error:", purchaseError)
-          return NextResponse.json({ error: "Failed to create purchase" }, { status: 500 })
-        }
-
-        return NextResponse.json({ success: true, free: true })
-      }
-    }
-
-    console.log("Creating Flouci payment request...")
+    console.log("Creating Paymee payment request...")
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-    const webhookUrl = `${baseUrl}/api/webhook/flouci`
+    const webhookUrl = `${baseUrl}/api/webhook/paymee`
 
-    // Create Flouci payment
-    const paymentResponse = await flouci.createPayment({
+    // Create Paymee payment
+    const paymentResponse = await paymee.createPayment({
       amount: amount, // Amount in TND
       success_url: `${baseUrl}/checkout/success?payment_id={payment_id}`,
       fail_url: `${baseUrl}/checkout/cancel`,
-      app_token: process.env.FLOUCI_APP_TOKEN!,
+      cancel_url: `${baseUrl}/checkout/cancel`,
       webhook_url: webhookUrl,
       customer: {
         name: profile?.full_name || undefined,
@@ -145,22 +113,31 @@ export async function POST(request: Request) {
         paymentType: paymentType || "one_time",
         description: description,
       },
+      description: description,
     })
 
     if (!paymentResponse.success) {
+      console.error("Paymee payment creation failed:", paymentResponse)
       return NextResponse.json(
-        { error: paymentResponse.message || "Failed to create payment" },
+        { 
+          error: paymentResponse.message || "Failed to create payment",
+          details: "Check server logs for more information"
+        },
         { status: 500 }
       )
     }
 
-    console.log("Flouci payment created:", paymentResponse.payment_request_id)
+    console.log("Paymee payment created successfully:", {
+      paymentId: paymentResponse.payment_id,
+      paymentUrl: paymentResponse.payment_url,
+      hasQrCode: !!paymentResponse.qr_code
+    })
 
     // Store pending payment in database
     try {
       await supabase.from("payments").insert({
         user_id: user.id,
-        flouci_payment_id: paymentResponse.payment_request_id,
+        paymee_payment_id: paymentResponse.payment_id,
         amount: amount,
         currency: "TND",
         status: "pending",
@@ -175,19 +152,16 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      paymentId: paymentResponse.payment_request_id,
+      paymentId: paymentResponse.payment_id,
       paymentUrl: paymentResponse.payment_url,
       qrCode: paymentResponse.qr_code,
     })
   } catch (error: unknown) {
-    console.error("Flouci checkout error:", error)
+    console.error("Paymee checkout error:", error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Internal server error" },
       { status: 500 }
     )
   }
 }
-
-
-
 

@@ -117,13 +117,13 @@ export default function BookDetailPage({
     setIsPurchasing(true)
 
     try {
-      const response = await fetch("/api/checkout", {
+      const response = await fetch("/api/checkout/paymee", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           bookId: bookId,
-          type: purchaseType,
-          paymentType: paymentType,
+          type: purchaseType || "digital",
+          paymentType: paymentType || "one_time",
         }),
       })
 
@@ -138,7 +138,7 @@ export default function BookDetailPage({
         return
       }
 
-      // Redirect to Flouci payment page
+      // Redirect to Paymee payment page
       if (data.paymentUrl) {
         window.location.href = data.paymentUrl
       } else {

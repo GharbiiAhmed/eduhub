@@ -1,6 +1,6 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js"
 import { NextRequest, NextResponse } from "next/server"
-import { flouci } from "@/lib/flouci"
+import { paymee } from "@/lib/paymee"
 import {
   sendPaymentReceiptEmail,
   sendPaymentFailedEmail,
@@ -10,7 +10,7 @@ import {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    console.log("Flouci webhook received:", body)
+    console.log("Paymee webhook received:", body)
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -27,29 +27,44 @@ export async function POST(request: NextRequest) {
     })
 
     // Extract payment information from webhook
-    const paymentRequestId = body.id || body.payment_request_id || body.paymentId
-    const status = body.status || body.state
+    const paymentId = body.payment_id || body.id || body.paymentId
+    const status = body.status || body.payment_status || body.state
     const amount = body.amount || body.total
-    const transactionId = body.transaction_id || body.id
+    const transactionId = body.transaction_id || body.transactionId || body.id
 
-    if (!paymentRequestId) {
-      console.error("Missing payment_request_id in webhook")
+    if (!paymentId) {
+      console.error("Missing payment_id in webhook")
       return NextResponse.json({ error: "Missing payment ID" }, { status: 400 })
     }
 
-    // Verify payment status with Flouci
+    // Verify webhook signature if Paymee provides it
+    const signature = request.headers.get('x-paymee-signature') || request.headers.get('x-signature')
+    if (signature && process.env.PAYMEE_API_SECRET) {
+      const isValid = paymee.verifyWebhookSignature(body, signature)
+      if (!isValid) {
+        console.error("Invalid webhook signature")
+        return NextResponse.json({ error: "Invalid signature" }, { status: 401 })
+      }
+    }
+
+    // Verify payment status with Paymee
     let paymentStatus
     try {
-      paymentStatus = await flouci.verifyPayment(paymentRequestId)
+      paymentStatus = await paymee.verifyPayment(paymentId)
     } catch (verifyError) {
       console.error("Error verifying payment:", verifyError)
       // Continue with webhook data if verification fails
+      const paymeeStatus = status?.toLowerCase()
       paymentStatus = {
-        success: status === 'SUCCESS' || status === 'paid',
-        status: status === 'SUCCESS' || status === 'paid' ? 'paid' : 'failed',
+        success: paymeeStatus === 'success' || paymeeStatus === 'paid' || paymeeStatus === 'completed',
+        status: paymeeStatus === 'success' || paymeeStatus === 'paid' || paymeeStatus === 'completed' 
+          ? 'paid' 
+          : paymeeStatus === 'failed' || paymeeStatus === 'rejected' 
+          ? 'failed' 
+          : 'pending',
         amount: amount || 0,
         currency: 'TND',
-        payment_request_id: paymentRequestId,
+        payment_id: paymentId,
         transaction_id: transactionId,
         metadata: body.metadata || {},
       }
@@ -57,11 +72,11 @@ export async function POST(request: NextRequest) {
 
     console.log("Payment status:", paymentStatus)
 
-    // Find payment record
+    // Find payment record - check both paymee_payment_id and flouci_payment_id for compatibility
     const { data: payment, error: paymentError } = await supabaseAdmin
       .from("payments")
       .select("*")
-      .eq("flouci_payment_id", paymentRequestId)
+      .or(`paymee_payment_id.eq.${paymentId},flouci_payment_id.eq.${paymentId}`)
       .single()
 
     if (paymentError && paymentError.code !== 'PGRST116') {
@@ -84,6 +99,7 @@ export async function POST(request: NextRequest) {
 
       // Get creator ID
       let creatorId = null
+      let productName = ""
       if (courseId) {
         const { data: course } = await supabaseAdmin
           .from("courses")
@@ -91,6 +107,7 @@ export async function POST(request: NextRequest) {
           .eq("id", courseId)
           .single()
         creatorId = course?.instructor_id || null
+        productName = course?.title || ""
       } else if (bookId) {
         const { data: book } = await supabaseAdmin
           .from("books")
@@ -98,6 +115,7 @@ export async function POST(request: NextRequest) {
           .eq("id", bookId)
           .single()
         creatorId = book?.author_id || null
+        productName = book?.title || ""
       }
 
       // Update or create payment record
@@ -108,39 +126,55 @@ export async function POST(request: NextRequest) {
             status: "completed",
             amount: totalAmount,
             currency: paymentStatus.currency || "TND",
+            paymee_payment_id: paymentId,
+            transaction_id: paymentStatus.transaction_id,
             platform_commission: platformCommission,
             creator_earnings: creatorEarnings,
+            completed_at: new Date().toISOString(),
           })
           .eq("id", payment.id)
       } else {
         await supabaseAdmin.from("payments").insert({
           user_id: userId,
-          flouci_payment_id: paymentRequestId,
+          paymee_payment_id: paymentId,
           amount: totalAmount,
           currency: paymentStatus.currency || "TND",
           status: "completed",
           payment_type: courseId ? "course" : "book",
           course_id: courseId || null,
           book_id: bookId || null,
+          transaction_id: paymentStatus.transaction_id,
           platform_commission: platformCommission,
           creator_earnings: creatorEarnings,
+          completed_at: new Date().toISOString(),
         })
       }
 
       // Handle course enrollment
       if (courseId) {
+        // Check if enrollment already exists
         const { data: existingEnrollment } = await supabaseAdmin
           .from("enrollments")
           .select("id")
-          .eq("student_id", userId)
+          .eq("user_id", userId)
           .eq("course_id", courseId)
           .single()
 
         if (!existingEnrollment) {
           await supabaseAdmin.from("enrollments").insert({
-            student_id: userId,
+            user_id: userId,
             course_id: courseId,
+            enrolled_at: new Date().toISOString(),
+            status: "active",
           })
+
+          // Send enrollment notification
+          await supabaseAdmin.from("notifications").insert({
+            user_id: userId,
+            type: "enrollment",
+            title: "Course Enrolled! 🎉",
+            message: `You have successfully enrolled in "${productName}"`,
+          }).catch(err => console.error('Failed to create enrollment notification:', err))
         }
       }
 
@@ -149,39 +183,20 @@ export async function POST(request: NextRequest) {
         const { data: existingPurchase } = await supabaseAdmin
           .from("book_purchases")
           .select("id")
-          .eq("student_id", userId)
+          .eq("user_id", userId)
           .eq("book_id", bookId)
           .single()
 
         if (!existingPurchase) {
           await supabaseAdmin.from("book_purchases").insert({
-            student_id: userId,
+            user_id: userId,
             book_id: bookId,
-            purchase_type: type || "digital",
-            price_paid: totalAmount,
+            purchased_at: new Date().toISOString(),
           })
         }
       }
 
-      // Get product name for emails
-      let productName = ""
-      if (courseId) {
-        const { data: course } = await supabaseAdmin
-          .from("courses")
-          .select("title")
-          .eq("id", courseId)
-          .single()
-        productName = course?.title || ""
-      } else if (bookId) {
-        const { data: book } = await supabaseAdmin
-          .from("books")
-          .select("title")
-          .eq("id", bookId)
-          .single()
-        productName = book?.title || ""
-      }
-
-      // Send emails
+      // Send emails and notifications
       try {
         const { data: profile } = await supabaseAdmin
           .from("profiles")
@@ -194,9 +209,9 @@ export async function POST(request: NextRequest) {
           await sendPaymentReceiptEmail(
             profile.email,
             profile.full_name || "User",
-            productName || "your purchase",
             totalAmount,
-            "TND"
+            "TND",
+            productName || "your purchase"
           )
 
           // Send payment received email to creator
@@ -211,30 +226,25 @@ export async function POST(request: NextRequest) {
               await sendPaymentReceivedEmail(
                 creatorProfile.email,
                 creatorProfile.full_name || "Creator",
-                productName || "product",
                 creatorEarnings,
-                "TND"
+                "TND",
+                productName || "product",
+                courseId ? "course" : "book"
               )
             }
           }
         }
-      } catch (emailError) {
-        console.error("Error sending payment emails:", emailError)
-      }
 
-      // Create notification
-      try {
+        // Create payment notification
         await supabaseAdmin.from("notifications").insert({
           user_id: userId,
           type: "payment_received",
           title: "Payment Successful! ✅",
           message: `Your payment of ${totalAmount.toFixed(3)} TND for "${productName || 'your purchase'}" has been received.`,
-          link: courseId ? `/student/courses/${courseId}` : `/books/${bookId}`,
-          related_id: courseId || bookId,
-          related_type: courseId ? "course" : "book",
-        })
-      } catch (notifError) {
-        console.error("Error creating notification:", notifError)
+        }).catch(err => console.error('Failed to create payment notification:', err))
+      } catch (emailError) {
+        console.error("Error sending payment emails:", emailError)
+        // Don't fail the webhook if email fails
       }
 
       return NextResponse.json({ success: true, message: "Payment processed" })
@@ -245,7 +255,9 @@ export async function POST(request: NextRequest) {
       if (payment) {
         await supabaseAdmin
           .from("payments")
-          .update({ status: "failed" })
+          .update({
+            status: "failed",
+          })
           .eq("id", payment.id)
       }
 
@@ -265,7 +277,7 @@ export async function POST(request: NextRequest) {
               profile.email,
               profile.full_name || "User",
               "Payment failed",
-              body.error || "Payment could not be processed"
+              body.error || body.message || "Payment could not be processed"
             )
           }
         } catch (emailError) {
@@ -276,16 +288,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, message: "Payment failure recorded" })
     }
 
+    // Handle other statuses (pending, cancelled, etc.)
     return NextResponse.json({ success: true, message: "Webhook received" })
-  } catch (error: any) {
-    console.error("Flouci webhook error:", error)
+  } catch (error: unknown) {
+    console.error("Paymee webhook error:", error)
     return NextResponse.json(
-      { error: error.message || "Internal server error" },
+      { error: error instanceof Error ? error.message : "Internal server error" },
       { status: 500 }
     )
   }
 }
-
-
-
 
