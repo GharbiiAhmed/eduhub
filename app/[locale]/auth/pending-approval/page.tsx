@@ -7,12 +7,12 @@ export const runtime = 'nodejs'
 
 export default async function PendingApprovalPage() {
   try {
-    const supabase = await createClient()
-    
-    const {
-      data: { user },
+  const supabase = await createClient()
+  
+  const {
+    data: { user },
       error: userError
-    } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser()
 
     // Handle refresh token errors gracefully - these are common and can be ignored
     // if the user is just viewing the page (they'll be redirected if needed)
@@ -39,16 +39,16 @@ export default async function PendingApprovalPage() {
       }
     }
 
-    if (!user) {
-      redirect("/auth/login")
-    }
+  if (!user) {
+    redirect("/auth/login")
+  }
 
-    // Check user profile - only instructors should see this page
+  // Check user profile - only instructors should see this page
     const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role, status")
-      .eq("id", user.id)
-      .single()
+    .from("profiles")
+    .select("role, status")
+    .eq("id", user.id)
+    .single()
 
     // If profile doesn't exist yet (during signup), show the page anyway
     // This allows users to see the pending approval message immediately after signup
@@ -58,24 +58,24 @@ export default async function PendingApprovalPage() {
       console.warn('Error fetching profile:', profileError)
     }
 
-    // If user is a student or already approved, redirect them away
-    if (profile) {
-      if (profile.role === 'student') {
-        // Students are auto-approved, redirect to dashboard
-        redirect("/dashboard")
-      }
-      if (profile.status !== 'pending') {
-        // User is already approved, redirect to dashboard
-        redirect("/dashboard")
-      }
-      if (profile.role !== 'instructor') {
-        // Only instructors should see pending approval page
-        redirect("/dashboard")
-      }
+  // If user is a student or already approved, redirect them away
+  if (profile) {
+    if (profile.role === 'student') {
+      // Students are auto-approved, redirect to dashboard
+      redirect("/dashboard")
     }
+    if (profile.status !== 'pending') {
+      // User is already approved, redirect to dashboard
+      redirect("/dashboard")
+    }
+    if (profile.role !== 'instructor') {
+      // Only instructors should see pending approval page
+      redirect("/dashboard")
+    }
+  }
 
     // Show the page even if profile doesn't exist yet (during signup)
-    return <PendingApprovalClient />
+  return <PendingApprovalClient />
   } catch (error: any) {
     // Handle any unexpected errors
     const isRefreshTokenError = error?.message?.includes('Refresh Token') || 

@@ -20,3 +20,4 @@ ALTER TABLE public.payments
 -- ALTER TABLE public.payments ALTER COLUMN currency SET DEFAULT 'TND';
 
 
+
