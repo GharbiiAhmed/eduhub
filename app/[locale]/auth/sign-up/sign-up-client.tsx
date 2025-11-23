@@ -231,7 +231,9 @@ export function SignUpClient() {
         throw new Error('Unable to determine application origin')
       }
       
-      const redirectUrl = `${origin}${localePrefix}/api/auth/callback?next=${encodeURIComponent('/dashboard')}`
+      // API routes should never have locale prefixes - pass locale via next parameter instead
+      const nextPath = localePrefix ? `${localePrefix}/dashboard` : '/dashboard'
+      const redirectUrl = `${origin}/api/auth/callback?next=${encodeURIComponent(nextPath)}`
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',

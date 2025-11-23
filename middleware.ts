@@ -10,6 +10,16 @@ const intlMiddleware = createMiddleware(routing)
 export default async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   
+  // Redirect locale-prefixed API routes to non-prefixed versions
+  // API routes should never have locale prefixes
+  const localePrefixedApiMatch = pathname.match(/^\/(ar|fr|es|de|it|pt|ru|zh|ja|ko)\/api\/(.+)$/)
+  if (localePrefixedApiMatch) {
+    const apiPath = localePrefixedApiMatch[2]
+    const newUrl = new URL(`/api/${apiPath}`, request.url)
+    newUrl.search = request.nextUrl.search // Preserve query parameters
+    return NextResponse.redirect(newUrl)
+  }
+  
   // Skip locale processing for API routes - they should always be accessed without locale prefix
   if (pathname.startsWith('/api/')) {
     // Just handle Supabase session for API routes
