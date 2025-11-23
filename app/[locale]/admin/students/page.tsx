@@ -259,7 +259,10 @@ export default async function AdminStudentsPage() {
                           'destructive'
                         }
                       >
-                        {student.status || 'active'}
+                        {student.status === 'pending' ? (t('pendingApproval') || tCommon('pending')) :
+                         student.status === 'active' ? (t('active') || tCommon('active')) :
+                         student.status === 'inactive' ? (t('inactive') || tCommon('inactive')) :
+                         student.status || (t('active') || tCommon('active'))}
                       </Badge>
                     </TableCell>
                     <TableCell>

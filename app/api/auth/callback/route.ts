@@ -9,6 +9,11 @@ export async function GET(request: NextRequest) {
   const code = requestUrl.searchParams.get('code')
   const next = requestUrl.searchParams.get('next') || '/dashboard'
   
+  // Log for debugging
+  console.log('Auth callback - URL:', request.url)
+  console.log('Auth callback - next param:', next)
+  console.log('Auth callback - pathname:', requestUrl.pathname)
+  
   // Extract locale from multiple sources to ensure we preserve it correctly
   let locale: string | null = null
   const validLocales = ['en', 'es', 'fr', 'ar', 'de', 'it', 'pt', 'ru', 'zh', 'ja', 'ko']
@@ -48,22 +53,34 @@ export async function GET(request: NextRequest) {
   const buildRedirectUrl = (path: string): URL => {
     // Ensure path is a valid string
     let cleanPath = path
-    if (!cleanPath || typeof cleanPath !== 'string') {
+    if (!cleanPath || typeof cleanPath !== 'string' || cleanPath.includes('undefined')) {
+      console.warn('Invalid path provided to buildRedirectUrl:', path)
       cleanPath = 'dashboard'
     }
     
     // Remove leading slash if present
     cleanPath = cleanPath.startsWith('/') ? cleanPath.slice(1) : cleanPath
     
-    // Ensure cleanPath is not empty
-    if (!cleanPath) {
+    // Ensure cleanPath is not empty and doesn't contain undefined
+    if (!cleanPath || cleanPath.includes('undefined')) {
+      console.warn('Path is empty or contains undefined, using dashboard fallback')
       cleanPath = 'dashboard'
     }
     
+    // Validate locale before using it - ensure it's not undefined
+    const safeLocale = locale && typeof locale === 'string' && locale !== 'undefined' && validLocales.includes(locale) ? locale : null
+    
     // If locale is found and it's not 'en' (default), add locale prefix
     // Note: 'en' doesn't need a prefix based on routing config (mode: 'as-needed', en: false)
-    if (locale && validLocales.includes(locale) && locale !== 'en') {
-      return new URL(`/${locale}/${cleanPath}`, request.url)
+    if (safeLocale && safeLocale !== 'en') {
+      const urlPath = `/${safeLocale}/${cleanPath}`
+      // Final validation - ensure no undefined in the path
+      if (urlPath.includes('undefined')) {
+        console.error('URL path contains undefined:', urlPath, { locale, safeLocale, cleanPath })
+        // Fallback to path without locale
+        return new URL(`/${cleanPath}`, request.url)
+      }
+      return new URL(urlPath, request.url)
     }
     // Otherwise, use path without locale prefix (for English or when locale is not found)
     return new URL(`/${cleanPath}`, request.url)

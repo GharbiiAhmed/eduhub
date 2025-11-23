@@ -62,7 +62,7 @@ export function SignUpClient() {
       // Get the current URL to construct the redirect URL for email verification
       // Preserve locale in redirect URL
       // Ensure locale is defined and valid
-      const validLocale = locale && typeof locale === 'string' ? locale : 'en'
+      const validLocale = locale && typeof locale === 'string' && locale.trim() !== '' ? locale : 'en'
       const localePrefix = validLocale !== 'en' ? `/${validLocale}` : ''
       // Students are auto-approved, so redirect to success page after email verification
       // Instructors need approval, so redirect to pending-approval page
@@ -71,12 +71,38 @@ export function SignUpClient() {
         : '/auth/sign-up-success'
       
       // Ensure window.location.origin is defined
-      const origin = window.location?.origin || (typeof window !== 'undefined' ? window.location.href.split('/').slice(0, 3).join('/') : '')
-      if (!origin) {
+      const origin = window.location?.origin || (typeof window !== 'undefined' && window.location?.href ? window.location.href.split('/').slice(0, 3).join('/') : '')
+      if (!origin || origin === 'undefined' || origin.includes('undefined')) {
+        console.error('Invalid origin detected:', origin)
         throw new Error('Unable to determine application origin')
       }
       
+      // Validate all parts before constructing URL
+      if (localePrefix && (localePrefix.includes('undefined') || localePrefix === '/undefined')) {
+        console.error('Invalid locale prefix:', localePrefix, 'locale:', locale)
+        throw new Error('Invalid locale in URL construction')
+      }
+      
+      if (redirectPath.includes('undefined')) {
+        console.error('Invalid redirect path:', redirectPath)
+        throw new Error('Invalid redirect path')
+      }
+      
       const redirectUrl = `${origin}${localePrefix}${redirectPath}`
+      
+      // Final validation - ensure URL doesn't contain undefined
+      if (redirectUrl.includes('undefined')) {
+        console.error('Constructed URL contains undefined:', redirectUrl, {
+          origin,
+          localePrefix,
+          redirectPath,
+          locale,
+          validLocale
+        })
+        throw new Error('Invalid URL constructed - contains undefined values')
+      }
+      
+      console.log('Email redirect URL:', redirectUrl)
       
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
@@ -169,7 +195,11 @@ export function SignUpClient() {
       }
 
       // Redirect based on status
+      // Use router from i18n/routing which automatically handles locale
+      // The router should preserve the current locale automatically
       if (userStatus === 'pending') {
+        // Use router.push which handles locale automatically via next-intl
+        // The path should be relative and the router will add the locale prefix if needed
         router.push("/auth/pending-approval")
       } else {
         // Students are auto-approved, redirect to success page

@@ -273,7 +273,10 @@ export default async function AdminInstructorsPage() {
                           'destructive'
                         }
                       >
-                        {instructor.status || 'active'}
+                        {instructor.status === 'pending' ? (t('pendingApproval') || tCommon('pending')) :
+                         instructor.status === 'active' ? (t('active') || tCommon('active')) :
+                         instructor.status === 'inactive' ? (t('inactive') || tCommon('inactive')) :
+                         instructor.status || (t('active') || tCommon('active'))}
                       </Badge>
                     </TableCell>
                     <TableCell>
