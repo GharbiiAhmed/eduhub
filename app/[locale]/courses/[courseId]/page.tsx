@@ -203,7 +203,23 @@ export default function CourseDetailPage({
         }),
       })
 
-      const data = await response.json()
+      // Check if response is JSON before parsing
+      const contentType = response.headers.get('content-type') || ''
+      let data: any
+
+      if (contentType.includes('application/json')) {
+        data = await response.json()
+      } else {
+        // Response is not JSON (probably HTML error page)
+        const textResponse = await response.text()
+        console.error("Checkout error - Non-JSON response:", {
+          status: response.status,
+          statusText: response.statusText,
+          contentType: contentType,
+          responsePreview: textResponse.substring(0, 500)
+        })
+        throw new Error(`Server returned invalid response (${response.status}). Please check Netlify function logs.`)
+      }
 
       if (!response.ok) {
         const errorMsg = data.error || data.message || data.details || `Failed to process enrollment (${response.status})`

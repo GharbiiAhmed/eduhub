@@ -278,12 +278,27 @@ export async function POST(request: Request) {
     })
     } catch (paymeeError: any) {
       // This catches errors from Paymee API call
-      console.error("Paymee API call failed:", {
+      const errorDetails = {
         error: paymeeError.message,
         stack: paymeeError.stack,
-        name: paymeeError.name
-      })
-      throw paymeeError // Re-throw to be caught by outer catch
+        name: paymeeError.name,
+        apiBase: process.env.PAYMEE_API_BASE,
+        hasToken: !!paymeeToken,
+        hasAccount: !!paymeeAccount
+      }
+      console.error("Paymee API call failed:", errorDetails)
+      
+      // Provide user-friendly error message
+      let userMessage = "Failed to create payment"
+      if (paymeeError.message.includes("invalid response") || paymeeError.message.includes("HTML")) {
+        userMessage = "Payment gateway configuration error. Please check API settings."
+      } else if (paymeeError.message.includes("401") || paymeeError.message.includes("Unauthorized")) {
+        userMessage = "Payment gateway authentication failed. Please check API credentials."
+      } else if (paymeeError.message.includes("404") || paymeeError.message.includes("Not Found")) {
+        userMessage = "Payment gateway endpoint not found. Please check API configuration."
+      }
+      
+      throw new Error(userMessage + ": " + paymeeError.message)
     }
   } catch (error: unknown) {
     console.error("Paymee checkout error:", error)
@@ -297,7 +312,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { 
         error: errorMessage,
-        details: "Check Netlify function logs for full error details",
+        details: "Check Netlify function logs for full error details. The Paymee API may be misconfigured or unavailable.",
         timestamp: new Date().toISOString()
       },
       { status: statusCode }

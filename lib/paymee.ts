@@ -101,12 +101,29 @@ export class PaymeeClient {
         body: JSON.stringify(requestBody),
       })
 
-      const data = await response.json()
+      // Check if response is JSON before parsing
+      const contentType = response.headers.get('content-type') || ''
+      let data: any
+
+      if (contentType.includes('application/json')) {
+        data = await response.json()
+      } else {
+        // Response is not JSON (probably HTML error page)
+        const textResponse = await response.text()
+        console.error('Paymee API returned non-JSON response:', {
+          status: response.status,
+          statusText: response.statusText,
+          contentType: contentType,
+          responsePreview: textResponse.substring(0, 500) // First 500 chars
+        })
+        throw new Error(`Paymee API returned invalid response (${response.status}): Expected JSON but got ${contentType}`)
+      }
 
       // Log full response for debugging
       console.log('Paymee API Response:', {
         status: response.status,
         statusText: response.statusText,
+        contentType: contentType,
         data: data
       })
 
