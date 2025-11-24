@@ -9,28 +9,29 @@
  * 3. Copy your "Clé API (Token)" and "Numéro du compte"
  */
 
-const PAYMEE_API_BASE = process.env.PAYMEE_API_BASE || 'https://paymee.tn/api/v2'
+// Paymee API endpoints
+const PAYMEE_API_BASE_SANDBOX = 'https://sandbox.paymee.tn/api/v2'
+const PAYMEE_API_BASE_LIVE = 'https://app.paymee.tn/api/v2'
+const PAYMEE_API_BASE = process.env.PAYMEE_API_BASE || (process.env.NODE_ENV === 'production' ? PAYMEE_API_BASE_LIVE : PAYMEE_API_BASE_SANDBOX)
 
 export interface PaymeePaymentRequest {
   amount: number // Amount in TND (Tunisian Dinar)
-  success_url: string
-  fail_url: string
-  cancel_url?: string
-  webhook_url?: string
-  customer?: {
-    name?: string
-    email?: string
-    phone?: string
-  }
-  metadata?: Record<string, any>
-  description?: string
+  note: string // Note about the payment (required)
+  first_name: string // Buyer's first name (required)
+  last_name: string // Buyer's last name (required)
+  email: string // Buyer's email (required)
+  phone: string // Buyer's phone number (required)
+  return_url: string // URL to redirect after payment (required)
+  cancel_url: string // URL to redirect after cancel (required)
+  webhook_url: string // URL for webhook notifications (required)
+  order_id?: string // Optional order ID
 }
 
 export interface PaymeePaymentResponse {
   success: boolean
-  payment_id: string
-  payment_url: string
-  qr_code?: string
+  payment_id?: string // Token from Paymee
+  payment_url?: string // URL to redirect user
+  order_id?: string
   message?: string
 }
 
@@ -63,35 +64,32 @@ export class PaymeeClient {
    * Create a payment request
    * Based on Paymee API structure - adjust based on Swagger documentation
    */
-  async createPayment(paymentData: PaymeePaymentRequest): Promise<PaymeePaymentResponse> {
+  async createPayment(request: PaymeePaymentRequest): Promise<PaymeePaymentResponse> {
     try {
-      // Log what we're sending for debugging
+      // Build request body according to Paymee API documentation
       const requestBody = {
-        amount: paymentData.amount,
-        currency: 'TND',
-        success_url: paymentData.success_url,
-        fail_url: paymentData.fail_url,
-        cancel_url: paymentData.cancel_url || paymentData.fail_url,
-        webhook_url: paymentData.webhook_url,
-        customer: paymentData.customer,
-        metadata: paymentData.metadata,
-        description: paymentData.description,
-        account_number: this.accountNumber,
-        // Also try common alternative field names
-        merchant_id: this.accountNumber,
+        amount: request.amount,
+        note: request.note,
+        first_name: request.first_name,
+        last_name: request.last_name,
+        email: request.email,
+        phone: request.phone,
+        return_url: request.return_url,
+        cancel_url: request.cancel_url,
+        webhook_url: request.webhook_url,
+        ...(request.order_id && { order_id: request.order_id }),
       }
       
+      const apiUrl = `${PAYMEE_API_BASE}/payments/create`
       console.log('Paymee API Request:', {
-        url: `${PAYMEE_API_BASE}/payments`,
+        url: apiUrl,
         method: 'POST',
         hasToken: !!this.apiToken,
-        hasAccount: !!this.accountNumber,
         body: requestBody
       })
 
       // Paymee uses Token-based authentication
-      // Check Swagger API in dashboard for exact endpoint and structure
-      const response = await fetch(`${PAYMEE_API_BASE}/payments`, {
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -114,9 +112,17 @@ export class PaymeeClient {
           status: response.status,
           statusText: response.statusText,
           contentType: contentType,
+          apiUrl: apiUrl,
+          apiBase: PAYMEE_API_BASE,
           responsePreview: textResponse.substring(0, 500) // First 500 chars
         })
-        throw new Error(`Paymee API returned invalid response (${response.status}): Expected JSON but got ${contentType}`)
+        
+        // Provide helpful error message based on status code
+        if (response.status === 404) {
+          throw new Error(`Paymee API endpoint not found (404). The URL "${apiUrl}" does not exist. Please check your Paymee dashboard Swagger API documentation for the correct endpoint. Current API base: ${PAYMEE_API_BASE}`)
+        } else {
+          throw new Error(`Paymee API returned invalid response (${response.status}): Expected JSON but got ${contentType}. URL: ${apiUrl}`)
+        }
       }
 
       // Log full response for debugging
@@ -134,9 +140,9 @@ export class PaymeeClient {
           statusText: response.statusText,
           error: errorMessage,
           fullResponse: data,
-          requestUrl: `${PAYMEE_API_BASE}/payments`,
+          requestUrl: apiUrl,
           requestBody: {
-            amount: paymentData.amount,
+            amount: request.amount,
             currency: 'TND',
             // Don't log full body for security, just structure
           }
@@ -145,18 +151,20 @@ export class PaymeeClient {
         throw new Error(`Paymee API Error (${response.status}): ${errorMessage}`)
       }
 
-      // Handle different response structures
-      // Paymee might return success in different ways
-      if (data.success === false || (data.status && data.status !== 'success' && data.status !== 'ok')) {
-        const errorMessage = data.message || data.error || 'Payment creation failed'
+      // Paymee response structure: { status, message, code, data: { token, payment_url, ... } }
+      if (!data.status || data.status !== true) {
+        const errorMessage = data.message || 'Payment creation failed'
         throw new Error(errorMessage)
       }
 
+      // Extract data from response
+      const paymentData = data.data || {}
+      
       return {
         success: true,
-        payment_id: data.payment_id || data.id || data.paymentId || data.payment_id,
-        payment_url: data.payment_url || data.url || data.link || data.paymentUrl || data.checkout_url,
-        qr_code: data.qr_code || data.qrCode || data.qr_code_url,
+        payment_id: paymentData.token, // Paymee uses 'token' as payment ID
+        payment_url: paymentData.payment_url,
+        order_id: paymentData.order_id,
         message: data.message,
       }
     } catch (error: any) {

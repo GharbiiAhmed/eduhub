@@ -26,15 +26,49 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Extract payment information from webhook
-    const paymentId = body.payment_id || body.id || body.paymentId
-    const status = body.status || body.payment_status || body.state
-    const amount = body.amount || body.total
-    const transactionId = body.transaction_id || body.transactionId || body.id
+    // Extract payment information from Paymee webhook
+    // Paymee sends: token, check_sum, payment_status (boolean), order_id, amount, etc.
+    const token = body.token // Paymee payment token
+    const paymentStatus = body.payment_status // boolean: true = success, false = failed
+    const checkSum = body.check_sum // For verification
+    const orderId = body.order_id
+    const amount = body.amount
+    const transactionId = body.transaction_id // Only present if payment successful
+    const receivedAmount = body.received_amount // Amount after fees
+    const cost = body.cost // Paymee fee
 
-    if (!paymentId) {
-      console.error("Missing payment_id in webhook")
-      return NextResponse.json({ error: "Missing payment ID" }, { status: 400 })
+    if (!token) {
+      console.error("Missing token in webhook")
+      return NextResponse.json({ error: "Missing token" }, { status: 400 })
+    }
+
+    // Verify check_sum: md5(token + payment_status(1 or 0) + API Token)
+    if (checkSum && process.env.PAYMEE_API_KEY) {
+      const crypto = await import('crypto')
+      const expectedCheckSum = crypto
+        .createHash('md5')
+        .update(token + (paymentStatus ? '1' : '0') + process.env.PAYMEE_API_KEY)
+        .digest('hex')
+      
+      if (checkSum !== expectedCheckSum) {
+        console.error("Invalid check_sum in webhook")
+        return NextResponse.json({ error: "Invalid check_sum" }, { status: 401 })
+      }
+    }
+
+    // Extract userId from order_id (format: courseId-timestamp-userIdPrefix)
+    let userId: string | null = null
+    if (orderId) {
+      const orderParts = orderId.split('-')
+      if (orderParts.length >= 3) {
+        // Try to find payment record by order_id to get userId
+        const { data: paymentRecord } = await supabaseAdmin
+          .from("payments")
+          .select("user_id")
+          .eq("paymee_payment_id", token)
+          .single()
+        userId = paymentRecord?.user_id || null
+      }
     }
 
     // Verify webhook signature if Paymee provides it
@@ -47,53 +81,78 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Verify payment status with Paymee
-    let paymentStatus
-    try {
-      paymentStatus = await paymee.verifyPayment(paymentId)
-    } catch (verifyError) {
-      console.error("Error verifying payment:", verifyError)
-      // Continue with webhook data if verification fails
-      const paymeeStatus = status?.toLowerCase()
-      paymentStatus = {
-        success: paymeeStatus === 'success' || paymeeStatus === 'paid' || paymeeStatus === 'completed',
-        status: paymeeStatus === 'success' || paymeeStatus === 'paid' || paymeeStatus === 'completed' 
-          ? 'paid' 
-          : paymeeStatus === 'failed' || paymeeStatus === 'rejected' 
-          ? 'failed' 
-          : 'pending',
-        amount: amount || 0,
-        currency: 'TND',
-        payment_id: paymentId,
-        transaction_id: transactionId,
-        metadata: body.metadata || {},
-      }
-    }
+    // Payment status from Paymee webhook
+    const isPaymentSuccessful = paymentStatus === true
 
-    console.log("Payment status:", paymentStatus)
+    console.log("Paymee webhook payment status:", {
+      token,
+      paymentStatus: isPaymentSuccessful,
+      orderId,
+      amount,
+      transactionId,
+      receivedAmount,
+      cost
+    })
 
-    // Find payment record - check both paymee_payment_id and flouci_payment_id for compatibility
+    // Find payment record by token (Paymee uses token as payment ID)
     const { data: payment, error: paymentError } = await supabaseAdmin
       .from("payments")
       .select("*")
-      .or(`paymee_payment_id.eq.${paymentId},flouci_payment_id.eq.${paymentId}`)
+      .eq("paymee_payment_id", token)
       .single()
 
     if (paymentError && paymentError.code !== 'PGRST116') {
       console.error("Error fetching payment:", paymentError)
     }
 
-    // Handle successful payment
-    if (paymentStatus.status === 'paid' && paymentStatus.success) {
-      const metadata = paymentStatus.metadata || body.metadata || {}
-      const { userId, courseId, bookId, type } = metadata
+    // Get userId from payment record if not extracted from orderId
+    if (!userId && payment) {
+      userId = payment.user_id
+    }
 
+    // Extract courseId/bookId from orderId or payment record
+    let courseId: string | null = null
+    let bookId: string | null = null
+    
+    if (orderId) {
+      const orderParts = orderId.split('-')
+      if (orderParts.length >= 1) {
+        const productId = orderParts[0]
+        // Check if it's a course or book ID
+        const { data: course } = await supabaseAdmin
+          .from("courses")
+          .select("id")
+          .eq("id", productId)
+          .single()
+        if (course) {
+          courseId = productId
+        } else {
+          const { data: book } = await supabaseAdmin
+            .from("books")
+            .select("id")
+            .eq("id", productId)
+            .single()
+          if (book) {
+            bookId = productId
+          }
+        }
+      }
+    }
+    
+    if (payment) {
+      courseId = payment.course_id || courseId
+      bookId = payment.book_id || bookId
+      if (!userId) userId = payment.user_id
+    }
+
+    // Handle successful payment
+    if (isPaymentSuccessful) {
       if (!userId) {
-        console.error("Missing userId in payment metadata")
+        console.error("Missing userId in payment record")
         return NextResponse.json({ error: "Missing user ID" }, { status: 400 })
       }
 
-      const totalAmount = paymentStatus.amount
+      const totalAmount = receivedAmount || amount || 0 // Use received_amount (after fees) if available
       const platformCommission = totalAmount * 0.20 // 20% platform commission
       const creatorEarnings = totalAmount * 0.80 // 80% creator earnings
 
@@ -125,9 +184,9 @@ export async function POST(request: NextRequest) {
           .update({
             status: "completed",
             amount: totalAmount,
-            currency: paymentStatus.currency || "TND",
-            paymee_payment_id: paymentId,
-            transaction_id: paymentStatus.transaction_id,
+            currency: "TND",
+            paymee_payment_id: token,
+            transaction_id: transactionId,
             platform_commission: platformCommission,
             creator_earnings: creatorEarnings,
             completed_at: new Date().toISOString(),
@@ -136,14 +195,14 @@ export async function POST(request: NextRequest) {
       } else {
         await supabaseAdmin.from("payments").insert({
           user_id: userId,
-          paymee_payment_id: paymentId,
+          paymee_payment_id: token,
           amount: totalAmount,
-          currency: paymentStatus.currency || "TND",
+          currency: "TND",
           status: "completed",
           payment_type: courseId ? "course" : "book",
           course_id: courseId || null,
           book_id: bookId || null,
-          transaction_id: paymentStatus.transaction_id,
+          transaction_id: transactionId,
           platform_commission: platformCommission,
           creator_earnings: creatorEarnings,
           completed_at: new Date().toISOString(),
@@ -257,7 +316,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Handle failed payment
-    if (paymentStatus.status === 'failed') {
+    if (!isPaymentSuccessful) {
       if (payment) {
         await supabaseAdmin
           .from("payments")

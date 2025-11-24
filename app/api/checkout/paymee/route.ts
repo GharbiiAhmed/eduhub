@@ -33,9 +33,15 @@ export async function POST(request: Request) {
     // Get user profile for customer info
     const { data: profile } = await supabase
       .from("profiles")
-      .select("email, full_name")
+      .select("email, full_name, phone")
       .eq("id", user.id)
       .single()
+
+    // Extract first name and last name from full_name
+    const fullName = profile?.full_name || "User"
+    const nameParts = fullName.trim().split(/\s+/)
+    const firstName = nameParts[0] || "User"
+    const lastName = nameParts.slice(1).join(" ") || "Name"
 
     let product: any = null
     let amount = 0
@@ -215,26 +221,21 @@ export async function POST(request: Request) {
 
     // Create Paymee payment
     try {
+      // Generate order ID
+      const orderId = `${courseId || bookId}-${Date.now()}-${user.id.slice(0, 8)}`
+      
       const paymentResponse = await paymee.createPayment({
-      amount: amount, // Amount in TND
-      success_url: `${baseUrl}/checkout/success?payment_id={payment_id}`,
-      fail_url: `${baseUrl}/checkout/cancel`,
-      cancel_url: `${baseUrl}/checkout/cancel`,
-      webhook_url: webhookUrl,
-      customer: {
-        name: profile?.full_name || undefined,
-        email: profile?.email || undefined,
-      },
-      metadata: {
-        userId: user.id,
-        courseId: courseId || "",
-        bookId: bookId || "",
-        type: type || "digital",
-        paymentType: paymentType || "one_time",
-        description: description,
-      },
-      description: description,
-    })
+        amount: amount, // Amount in TND
+        note: description,
+        first_name: firstName,
+        last_name: lastName,
+        email: profile?.email || user.email || "",
+        phone: profile?.phone || user.phone || "+21600000000", // Default phone if not provided (required by Paymee)
+        return_url: `${baseUrl}/checkout/success?payment_id={payment_id}`,
+        cancel_url: `${baseUrl}/checkout/cancel`,
+        webhook_url: webhookUrl,
+        order_id: orderId,
+      })
 
       if (!paymentResponse.success) {
       console.error("Paymee payment creation failed:", paymentResponse)
