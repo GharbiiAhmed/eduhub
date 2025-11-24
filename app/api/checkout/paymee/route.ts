@@ -203,16 +203,29 @@ export async function POST(request: Request) {
     const paymeeToken = process.env.PAYMEE_API_KEY || process.env.PAYMEE_TOKEN
     const paymeeAccount = process.env.PAYMEE_ACCOUNT_NUMBER || process.env.PAYMEE_MERCHANT_ID
     
-    if (!paymeeToken || !paymeeAccount) {
-      console.log("Paymee not configured - missing API Token or Account Number")
-      return NextResponse.json({ error: "Payment gateway not configured" }, { status: 500 })
+    if (!paymeeToken) {
+      console.error("Paymee API Token not configured - check PAYMEE_API_KEY or PAYMEE_TOKEN environment variable")
+      return NextResponse.json({ 
+        error: "Payment gateway not configured",
+        details: "PAYMEE_API_KEY environment variable is missing. Please add it in Netlify environment variables."
+      }, { status: 500 })
+    }
+    
+    // Account number is not required for API calls (not used in request body)
+    // But we log it for reference
+    if (!paymeeAccount) {
+      console.warn("Paymee Account Number not configured - this is optional for API calls")
     }
 
     console.log("Creating Paymee payment request...", {
       amount,
       currency: "TND",
       hasToken: !!paymeeToken,
+      tokenLength: paymeeToken?.length || 0,
+      tokenPreview: paymeeToken ? `${paymeeToken.substring(0, 8)}...` : 'missing',
       hasAccount: !!paymeeAccount,
+      accountNumber: paymeeAccount,
+      apiBase: process.env.PAYMEE_API_BASE,
       baseUrl: process.env.NEXT_PUBLIC_APP_URL
     })
 

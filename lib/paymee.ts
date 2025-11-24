@@ -80,12 +80,19 @@ export class PaymeeClient {
         ...(request.order_id && { order_id: request.order_id }),
       }
       
+      if (!this.apiToken) {
+        throw new Error('Paymee API token is missing. Please set PAYMEE_API_KEY environment variable.')
+      }
+
       const apiUrl = `${PAYMEE_API_BASE}/payments/create`
       console.log('Paymee API Request:', {
         url: apiUrl,
         method: 'POST',
         hasToken: !!this.apiToken,
-        body: requestBody
+        tokenLength: this.apiToken.length,
+        tokenPreview: `${this.apiToken.substring(0, 8)}...`,
+        apiBase: PAYMEE_API_BASE,
+        body: { ...requestBody, phone: requestBody.phone ? '***' : 'missing' } // Don't log full phone
       })
 
       // Paymee uses Token-based authentication
