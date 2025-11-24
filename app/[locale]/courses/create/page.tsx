@@ -89,13 +89,12 @@ export default function CreateCoursePage() {
         price: price,
       }
 
-      // Add optional fields
+      // Add description if provided (optional in schema)
       if (formData.description.trim()) {
         insertData.description = formData.description.trim()
       }
-      if (formData.category) {
-        insertData.category = formData.category
-      }
+
+      // DO NOT include 'category' - it doesn't exist in the database schema
 
       console.log("Attempting to insert course:", insertData)
 

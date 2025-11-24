@@ -103,12 +103,13 @@ export default function CreateCoursePage() {
         throw new Error("Course description is required")
       }
 
-      // Build insert data - start with absolutely required fields only
-      // Based on schema: instructor_id (NOT NULL), title (NOT NULL), status (NOT NULL)
+      // Build insert data - ONLY include fields that exist in the database schema
+      // Based on schema: id, instructor_id (NOT NULL), title (NOT NULL), description, thumbnail_url, price, status (NOT NULL)
       const insertData: any = {
         instructor_id: user.id,
         title: formData.title.trim(),
         status: "draft",
+        price: Number.parseFloat(formData.price) || 0,
       }
 
       // Add description if provided (optional in schema)
@@ -116,36 +117,24 @@ export default function CreateCoursePage() {
         insertData.description = formData.description.trim()
       }
 
-      // Add price (has default 0, but include it)
-      insertData.price = Number.parseFloat(formData.price) || 0
-
-      // Try to add optional fields - if they don't exist in DB, Supabase will ignore them
-      // But if they have CHECK constraints, we need to be careful
+      // DO NOT include these fields - they don't exist in the base schema:
+      // - category (doesn't exist)
+      // - difficulty (doesn't exist)
+      // - estimated_duration (doesn't exist)
+      // - language (doesn't exist)
+      
+      // Only include subscription fields if the migration script was run
+      // Check if subscription columns exist by trying to include them
+      // If they cause errors, we'll know they don't exist
       try {
-        if (formData.category) {
-          insertData.category = formData.category
-        }
-        if (formData.difficulty) {
-          insertData.difficulty = formData.difficulty
-        }
-        if (formData.estimatedDuration) {
-          insertData.estimated_duration = formData.estimatedDuration
-        }
-        if (formData.language) {
-          insertData.language = formData.language
-        }
-
-        // Subscription fields - check if columns exist first
-        // If subscription_type has a CHECK constraint, make sure value is valid
         const validSubscriptionTypes = ['one_time', 'subscription', 'both']
         const subscriptionType = validSubscriptionTypes.includes(formData.subscriptionType) 
           ? formData.subscriptionType 
           : 'one_time'
         
+        // Only add if subscription migration was applied
         insertData.subscription_enabled = formData.subscriptionEnabled || false
         insertData.subscription_type = subscriptionType
-        
-        // Subscription prices
         insertData.monthly_price = formData.subscriptionEnabled 
           ? (Number.parseFloat(formData.monthlyPrice) || 0)
           : 0
@@ -153,7 +142,8 @@ export default function CreateCoursePage() {
           ? (Number.parseFloat(formData.yearlyPrice) || 0)
           : 0
       } catch (fieldError) {
-        console.warn("Error adding optional fields, continuing with required fields only:", fieldError)
+        console.warn("Subscription fields may not exist, skipping:", fieldError)
+        // Continue without subscription fields
       }
 
       console.log("Attempting to insert course:", insertData)

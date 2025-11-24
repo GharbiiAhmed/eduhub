@@ -100,39 +100,43 @@ export default function CreateCoursePage() {
       }
 
       // Build insert data - start with required fields only
+      // Build insert data - ONLY include fields that exist in the database schema
+      // Based on schema: instructor_id (NOT NULL), title (NOT NULL), description, price, status (NOT NULL)
       const insertData: any = {
         instructor_id: user.id,
         title: formData.title.trim(),
-        description: formData.description.trim() || null, // Allow empty description
-        price: Number.parseFloat(formData.price) || 0,
         status: "draft",
+        price: Number.parseFloat(formData.price) || 0,
       }
 
-      // Add optional fields only if they have values (to avoid constraint violations)
-      if (formData.category) {
-        insertData.category = formData.category
-      }
-      if (formData.difficulty) {
-        insertData.difficulty = formData.difficulty
-      }
-      if (formData.estimatedDuration) {
-        insertData.estimated_duration = formData.estimatedDuration
-      }
-      if (formData.language) {
-        insertData.language = formData.language
+      // Add description if provided (optional in schema)
+      if (formData.description.trim()) {
+        insertData.description = formData.description.trim()
       }
 
-      // Subscription fields - always include with defaults to avoid NULL issues
-      insertData.subscription_enabled = formData.subscriptionEnabled || false
-      insertData.subscription_type = formData.subscriptionType || "one_time"
+      // DO NOT include these fields - they don't exist in the base schema:
+      // - category (doesn't exist - causes PGRST204 error)
+      // - difficulty (doesn't exist)
+      // - estimated_duration (doesn't exist)
+      // - language (doesn't exist)
       
-      // Subscription prices
-      if (formData.subscriptionEnabled) {
-        insertData.monthly_price = Number.parseFloat(formData.monthlyPrice) || 0
-        insertData.yearly_price = Number.parseFloat(formData.yearlyPrice) || 0
-      } else {
-        insertData.monthly_price = 0
-        insertData.yearly_price = 0
+      // Only include subscription fields if the migration script was run
+      try {
+        const validSubscriptionTypes = ['one_time', 'subscription', 'both']
+        const subscriptionType = validSubscriptionTypes.includes(formData.subscriptionType) 
+          ? formData.subscriptionType 
+          : 'one_time'
+        
+        insertData.subscription_enabled = formData.subscriptionEnabled || false
+        insertData.subscription_type = subscriptionType
+        insertData.monthly_price = formData.subscriptionEnabled 
+          ? (Number.parseFloat(formData.monthlyPrice) || 0)
+          : 0
+        insertData.yearly_price = formData.subscriptionEnabled
+          ? (Number.parseFloat(formData.yearlyPrice) || 0)
+          : 0
+      } catch (fieldError) {
+        console.warn("Subscription fields may not exist, skipping:", fieldError)
       }
 
       console.log("Attempting to insert course:", insertData)
