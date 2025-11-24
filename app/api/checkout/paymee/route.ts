@@ -100,7 +100,7 @@ export async function POST(request: Request) {
         const { data: existingEnrollment } = await supabase
           .from("enrollments")
           .select("id")
-          .eq("user_id", user.id)
+          .eq("student_id", user.id)
           .eq("course_id", courseId)
           .single()
 
@@ -108,10 +108,8 @@ export async function POST(request: Request) {
           const { data: enrollmentData, error: enrollmentError } = await supabase
             .from("enrollments")
             .insert({
-              user_id: user.id,
+              student_id: user.id,
               course_id: courseId,
-              enrolled_at: new Date().toISOString(),
-              status: "active",
             })
             .select()
             .single()
@@ -143,7 +141,7 @@ export async function POST(request: Request) {
         const { data: existingPurchase } = await supabase
           .from("book_purchases")
           .select("id")
-          .eq("user_id", user.id)
+          .eq("student_id", user.id)
           .eq("book_id", bookId)
           .single()
 
@@ -151,9 +149,8 @@ export async function POST(request: Request) {
           const { data: purchaseData, error: purchaseError } = await supabase
             .from("book_purchases")
             .insert({
-              user_id: user.id,
+              student_id: user.id,
               book_id: bookId,
-              purchased_at: new Date().toISOString(),
             })
             .select()
             .single()

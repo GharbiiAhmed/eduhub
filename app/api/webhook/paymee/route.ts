@@ -156,16 +156,14 @@ export async function POST(request: NextRequest) {
         const { data: existingEnrollment } = await supabaseAdmin
           .from("enrollments")
           .select("id")
-          .eq("user_id", userId)
+          .eq("student_id", userId)
           .eq("course_id", courseId)
           .single()
 
         if (!existingEnrollment) {
           await supabaseAdmin.from("enrollments").insert({
-            user_id: userId,
+            student_id: userId,
             course_id: courseId,
-            enrolled_at: new Date().toISOString(),
-            status: "active",
           })
 
           // Send enrollment notification
@@ -183,15 +181,23 @@ export async function POST(request: NextRequest) {
         const { data: existingPurchase } = await supabaseAdmin
           .from("book_purchases")
           .select("id")
-          .eq("user_id", userId)
+          .eq("student_id", userId)
           .eq("book_id", bookId)
           .single()
 
         if (!existingPurchase) {
+          // Get book to determine purchase type and price
+          const { data: book } = await supabaseAdmin
+            .from("books")
+            .select("price")
+            .eq("id", bookId)
+            .single()
+
           await supabaseAdmin.from("book_purchases").insert({
-            user_id: userId,
+            student_id: userId,
             book_id: bookId,
-            purchased_at: new Date().toISOString(),
+            purchase_type: metadata?.type || "digital",
+            price_paid: totalAmount || book?.price || 0,
           })
         }
       }
