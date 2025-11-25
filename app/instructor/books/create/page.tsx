@@ -127,11 +127,8 @@ export default function CreateBookPage() {
         description: formData.description.trim(),
         isbn: formData.isbn.trim() || null,
         price: Number.parseFloat(formData.price) || 0,
-        category: formData.category,
-        language: formData.language,
-        pages: formData.pages ? parseInt(formData.pages) : null,
-        publication_year: formData.publicationYear ? parseInt(formData.publicationYear) : null,
-        publisher: formData.publisher.trim() || null,
+        // Note: category, language, pages, publication_year, and publisher 
+        // are not in the database schema, so they are excluded
         physical_available: formData.physicalAvailable,
         digital_available: formData.digitalAvailable,
         cover_url: formData.coverUrl.trim() || null,
