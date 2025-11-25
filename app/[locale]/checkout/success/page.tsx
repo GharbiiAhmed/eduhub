@@ -13,6 +13,8 @@ function CheckoutSuccessContent() {
   const [isChecking, setIsChecking] = useState(true)
   const paymentId = searchParams.get('payment_id')
   const source = searchParams.get('source')
+  const bookId = searchParams.get('book_id')
+  const courseId = searchParams.get('course_id')
 
   useEffect(() => {
     async function checkAuthAndRedirect() {
@@ -34,13 +36,18 @@ function CheckoutSuccessContent() {
         if (profile) {
           // Small delay to ensure payment webhook has processed
           setTimeout(() => {
-            // Redirect based on role
+            // Redirect based on role and purchase type
             if (profile.role === "admin") {
               router.push("/admin/dashboard")
             } else if (profile.role === "instructor") {
               router.push("/instructor/dashboard")
             } else {
-              router.push("/student/courses")
+              // For students, redirect to books if it was a book purchase, otherwise courses
+              if (bookId) {
+                router.push("/student/books")
+              } else {
+                router.push("/student/courses")
+              }
             }
           }, 2000)
           return
@@ -51,7 +58,7 @@ function CheckoutSuccessContent() {
     }
 
     checkAuthAndRedirect()
-  }, [router])
+  }, [router, bookId, courseId])
 
   if (isChecking) {
     return (

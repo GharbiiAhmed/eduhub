@@ -235,7 +235,13 @@ export async function POST(request: Request) {
     // Create Paymee payment
     try {
       // Generate order ID
-      const orderId = `${courseId || bookId}-${Date.now()}-${user.id.slice(0, 8)}`
+      // For books, include purchase type: bookId-type-timestamp-userIdPrefix
+      // For courses: courseId-timestamp-userIdPrefix
+      const orderId = courseId 
+        ? `${courseId}-${Date.now()}-${user.id.slice(0, 8)}`
+        : bookId && type
+        ? `${bookId}-${type}-${Date.now()}-${user.id.slice(0, 8)}`
+        : `${bookId}-${Date.now()}-${user.id.slice(0, 8)}`
       
       // Ensure return URL is absolute and doesn't conflict with Supabase OAuth
       // Use a dedicated payment success endpoint that won't be intercepted
@@ -243,6 +249,12 @@ export async function POST(request: Request) {
       returnUrl.searchParams.set('payment_id', '{payment_id}')
       returnUrl.searchParams.set('source', 'paymee')
       returnUrl.searchParams.set('order_id', orderId)
+      if (bookId) {
+        returnUrl.searchParams.set('book_id', bookId)
+      }
+      if (courseId) {
+        returnUrl.searchParams.set('course_id', courseId)
+      }
       
       const cancelUrl = new URL('/checkout/cancel', baseUrl)
       cancelUrl.searchParams.set('source', 'paymee')

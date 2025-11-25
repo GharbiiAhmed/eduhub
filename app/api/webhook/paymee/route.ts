@@ -110,9 +110,10 @@ export async function POST(request: NextRequest) {
       userId = payment.user_id
     }
 
-    // Extract courseId/bookId from orderId or payment record
+    // Extract courseId/bookId and purchase type from orderId or payment record
     let courseId: string | null = null
     let bookId: string | null = null
+    let purchaseType: string | null = null // For books: 'digital', 'physical', or 'both'
     
     if (orderId) {
       const orderParts = orderId.split('-')
@@ -134,6 +135,15 @@ export async function POST(request: NextRequest) {
             .single()
           if (book) {
             bookId = productId
+            // Extract purchase type from orderId if present (format: bookId-type-timestamp-userId)
+            // Order parts: [bookId, type?, timestamp, userId]
+            if (orderParts.length >= 2) {
+              // Check if second part is a valid purchase type
+              const possibleType = orderParts[1]
+              if (['digital', 'physical', 'both'].includes(possibleType)) {
+                purchaseType = possibleType
+              }
+            }
           }
         }
       }
@@ -170,10 +180,10 @@ export async function POST(request: NextRequest) {
       } else if (bookId) {
         const { data: book } = await supabaseAdmin
           .from("books")
-          .select("author_id, title")
+          .select("instructor_id, title")
           .eq("id", bookId)
           .single()
-        creatorId = book?.author_id || null
+        creatorId = book?.instructor_id || null
         productName = book?.title || ""
       }
 
@@ -252,11 +262,21 @@ export async function POST(request: NextRequest) {
             .eq("id", bookId)
             .single()
 
+          // Use purchase type from orderId, default to "digital" if not specified
+          const finalPurchaseType = purchaseType || "digital"
+
           await supabaseAdmin.from("book_purchases").insert({
             student_id: userId,
             book_id: bookId,
-            purchase_type: metadata?.type || "digital",
+            purchase_type: finalPurchaseType,
             price_paid: totalAmount || book?.price || 0,
+          })
+          
+          console.log("Book purchase created:", {
+            student_id: userId,
+            book_id: bookId,
+            purchase_type: finalPurchaseType,
+            price_paid: totalAmount || book?.price || 0
           })
         }
       }
