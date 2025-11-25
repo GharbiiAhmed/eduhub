@@ -58,26 +58,30 @@ function CheckoutSuccessContent() {
       // If we have a book purchase, verify it exists and create if missing
       if (bookId) {
         // Check if book purchase already exists
-        const { data: existingPurchase } = await supabase
+        const { data: existingPurchases, error: purchaseCheckError } = await supabase
           .from("book_purchases")
           .select("id")
           .eq("student_id", user.id)
           .eq("book_id", bookId)
-          .single()
+          .limit(1)
 
-        if (!existingPurchase) {
+        const existingPurchase = existingPurchases && existingPurchases.length > 0 ? existingPurchases[0] : null
+
+        if (!existingPurchase && !purchaseCheckError) {
           // Check if payment exists and is completed
           let paymentVerified = false
           if (paymentToken) {
-            const { data: payment } = await supabase
+            const { data: payments, error: paymentError } = await supabase
               .from("payments")
               .select("*")
               .eq("paymee_payment_id", paymentToken)
               .eq("user_id", user.id)
               .eq("status", "completed")
-              .single()
+              .limit(1)
 
-            if (payment && payment.book_id === bookId) {
+            const payment = payments && payments.length > 0 ? payments[0] : null
+
+            if (payment && payment.book_id === bookId && !paymentError) {
               paymentVerified = true
               
               // Extract purchase type from orderId if available
