@@ -15,9 +15,19 @@ function CheckoutSuccessContent() {
   const paymentId = searchParams.get('payment_id')
   const paymentToken = searchParams.get('payment_token') || searchParams.get('token')
   const source = searchParams.get('source')
-  const bookId = searchParams.get('book_id')
-  const courseId = searchParams.get('course_id')
+  
+  // Extract book_id and course_id, handling cases where Paymee adds extra query params
+  let bookId = searchParams.get('book_id')
+  let courseId = searchParams.get('course_id')
   const orderId = searchParams.get('order_id')
+  
+  // Clean up book_id if it contains query parameters (Paymee sometimes appends them)
+  if (bookId && bookId.includes('?')) {
+    bookId = bookId.split('?')[0]
+  }
+  if (courseId && courseId.includes('?')) {
+    courseId = courseId.split('?')[0]
+  }
 
   useEffect(() => {
     async function checkAuthAndVerifyPayment() {
