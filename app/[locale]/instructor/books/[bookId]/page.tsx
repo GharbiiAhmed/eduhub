@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useEffect, useState, use } from "react"
 import { useRouter } from '@/i18n/routing'
 import { useTranslations } from 'next-intl'
+import { FileUpload } from "@/components/instructor/file-upload"
 
 export default function BookDetailPage({ params }: { params: Promise<{ bookId: string }> }) {
   const t = useTranslations('books')
@@ -170,7 +171,20 @@ export default function BookDetailPage({ params }: { params: Promise<{ bookId: s
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="coverUrl">{t('coverImageUrl')}</Label>
+              <Label>{t('coverImage')}</Label>
+              <FileUpload
+                bucket="book-covers"
+                folder={`book-${bookId}`}
+                type="image"
+                label={t('uploadCoverImage')}
+                description={t('uploadBookCoverImage')}
+                maxSize={10}
+                currentUrl={coverUrl}
+                onUploadComplete={(url) => setCoverUrl(url)}
+              />
+              <div className="text-sm text-muted-foreground">
+                {t('orEnterImageUrl')}
+              </div>
               <Input
                 id="coverUrl"
                 placeholder={t('urlToBookCoverImage')}
@@ -179,15 +193,30 @@ export default function BookDetailPage({ params }: { params: Promise<{ bookId: s
               />
             </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="pdfUrl">{t('pdfDownloadUrl')}</Label>
-              <Input
-                id="pdfUrl"
-                placeholder={t('urlToPdfFile')}
-                value={pdfUrl}
-                onChange={(e) => setPdfUrl(e.target.value)}
-              />
-            </div>
+            {digitalAvailable && (
+              <div className="grid gap-2">
+                <Label>{t('pdfFile')}</Label>
+                <FileUpload
+                  bucket="book-pdfs"
+                  folder={`book-${bookId}`}
+                  type="pdf"
+                  label={t('uploadPdfFile')}
+                  description={t('uploadBookPdfFile')}
+                  maxSize={100}
+                  currentUrl={pdfUrl}
+                  onUploadComplete={(url) => setPdfUrl(url)}
+                />
+                <div className="text-sm text-muted-foreground">
+                  {t('orEnterPdfUrl')}
+                </div>
+                <Input
+                  id="pdfUrl"
+                  placeholder={t('urlToPdfFile')}
+                  value={pdfUrl}
+                  onChange={(e) => setPdfUrl(e.target.value)}
+                />
+              </div>
+            )}
 
             <div className="space-y-3">
               <Label>{t('availability')}</Label>

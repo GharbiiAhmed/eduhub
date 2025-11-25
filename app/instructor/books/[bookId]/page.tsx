@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { useEffect, useState, use } from "react"
 import { useRouter } from "next/navigation"
+import { FileUpload } from "@/components/instructor/file-upload"
 
 export default function BookDetailPage({ params }: { params: Promise<{ bookId: string }> }) {
   const { bookId } = use(params)
@@ -167,7 +168,20 @@ export default function BookDetailPage({ params }: { params: Promise<{ bookId: s
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="coverUrl">Cover Image URL</Label>
+              <Label>Cover Image</Label>
+              <FileUpload
+                bucket="book-covers"
+                folder={`book-${bookId}`}
+                type="image"
+                label="Upload Cover Image"
+                description="Upload a book cover image (JPG, PNG, max 10MB)"
+                maxSize={10}
+                currentUrl={coverUrl}
+                onUploadComplete={(url) => setCoverUrl(url)}
+              />
+              <div className="text-sm text-muted-foreground">
+                Or enter image URL
+              </div>
               <Input
                 id="coverUrl"
                 placeholder="https://example.com/cover.jpg"
@@ -176,15 +190,30 @@ export default function BookDetailPage({ params }: { params: Promise<{ bookId: s
               />
             </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="pdfUrl">PDF URL</Label>
-              <Input
-                id="pdfUrl"
-                placeholder="https://example.com/book.pdf"
-                value={pdfUrl}
-                onChange={(e) => setPdfUrl(e.target.value)}
-              />
-            </div>
+            {digitalAvailable && (
+              <div className="grid gap-2">
+                <Label>PDF File</Label>
+                <FileUpload
+                  bucket="book-pdfs"
+                  folder={`book-${bookId}`}
+                  type="pdf"
+                  label="Upload PDF File"
+                  description="Upload the book PDF file (max 100MB)"
+                  maxSize={100}
+                  currentUrl={pdfUrl}
+                  onUploadComplete={(url) => setPdfUrl(url)}
+                />
+                <div className="text-sm text-muted-foreground">
+                  Or enter PDF URL
+                </div>
+                <Input
+                  id="pdfUrl"
+                  placeholder="https://example.com/book.pdf"
+                  value={pdfUrl}
+                  onChange={(e) => setPdfUrl(e.target.value)}
+                />
+              </div>
+            )}
 
             <div className="space-y-3">
               <Label>Availability</Label>

@@ -3,8 +3,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Link } from '@/i18n/routing'
 import { redirect } from '@/i18n/routing'
-import { BookOpen, Download, Eye, ArrowLeft, Calendar, DollarSign, Package } from "lucide-react"
+import { BookOpen, ArrowLeft, Calendar, DollarSign, Package } from "lucide-react"
 import { getTranslations } from 'next-intl/server'
+import { BookPDFViewer } from "@/components/books/book-pdf-viewer"
+import { DeliveryTracking } from "@/components/books/delivery-tracking"
 
 export default async function StudentBookDetailPage({
   params }: { params: Promise<{ bookId: string }> }) {
@@ -75,40 +77,18 @@ export default async function StudentBookDetailPage({
 
               <div className="space-y-3">
                 {(purchase.purchase_type === 'digital' || purchase.purchase_type === 'both') && book?.pdf_url && (
-                  <Link href={book.pdf_url} target="_blank" rel="noopener noreferrer">
-                    <Button className="w-full bg-gradient-to-r from-primary to-secondary hover:shadow-lg hover:shadow-primary/30 text-primary-foreground">
-                      <Eye className="w-4 h-4 mr-2" />
-                      Read PDF Online
-                    </Button>
-                  </Link>
-                )}
-                
-                {(purchase.purchase_type === 'digital' || purchase.purchase_type === 'both') && book?.pdf_url && (
-                  <Button 
-                    className="w-full" 
-                    variant="outline"
-                    onClick={() => {
-                      const link = document.createElement('a')
-                      link.href = book.pdf_url
-                      link.download = `${book.title}.pdf`
-                      link.click()
-                    }}
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download PDF
-                  </Button>
+                  <BookPDFViewer pdfUrl={book.pdf_url} title={book.title} />
                 )}
 
-                {purchase.purchase_type === 'physical' && (
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Package className="w-5 h-5 text-blue-600" />
-                      <span className="font-semibold text-blue-800">Physical Book</span>
-                    </div>
-                    <p className="text-sm text-blue-700">
-                      Your physical book will be shipped to your registered address.
-                    </p>
-                  </div>
+                {(purchase.purchase_type === 'physical' || purchase.purchase_type === 'both') && (
+                  <DeliveryTracking
+                    deliveryStatus={purchase.delivery_status}
+                    trackingNumber={purchase.tracking_number}
+                    shippingAddress={purchase.shipping_address}
+                    shippedAt={purchase.shipped_at}
+                    deliveredAt={purchase.delivered_at}
+                    carrierName={purchase.carrier_name}
+                  />
                 )}
               </div>
             </CardContent>
@@ -194,6 +174,18 @@ export default async function StudentBookDetailPage({
               </div>
             </CardContent>
           </Card>
+
+          {/* Delivery Tracking for Physical Books */}
+          {(purchase.purchase_type === 'physical' || purchase.purchase_type === 'both') && (
+            <DeliveryTracking
+              deliveryStatus={purchase.delivery_status}
+              trackingNumber={purchase.tracking_number}
+              shippingAddress={purchase.shipping_address}
+              shippedAt={purchase.shipped_at}
+              deliveredAt={purchase.delivered_at}
+              carrierName={purchase.carrier_name}
+            />
+          )}
         </div>
       </div>
     </div>

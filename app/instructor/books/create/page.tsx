@@ -37,6 +37,7 @@ import {
   CreditCard
 } from "lucide-react"
 import Link from "next/link"
+import { FileUpload } from "@/components/instructor/file-upload"
 
 export default function CreateBookPage() {
   const [formData, setFormData] = useState({
@@ -541,16 +542,29 @@ export default function CreateBookPage() {
                     </div>
                   </div>
 
-                  {/* Media URLs */}
+                  {/* Media Uploads */}
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Media & Resources</h3>
                     
-                    <div className="space-y-4">
+                    <div className="space-y-6">
+                      {/* Cover Image Upload */}
                       <div className="space-y-2">
-                        <Label htmlFor="coverUrl" className="text-sm font-semibold flex items-center">
+                        <Label className="text-sm font-semibold flex items-center">
                           <Image className="w-4 h-4 mr-1" />
-                          Cover Image URL
+                          Cover Image
                         </Label>
+                        <FileUpload
+                          bucket="book-covers"
+                          type="image"
+                          label="Upload Cover Image"
+                          description="Upload a book cover image (JPG, PNG, max 10MB)"
+                          maxSize={10}
+                          currentUrl={formData.coverUrl}
+                          onUploadComplete={(url) => handleInputChange('coverUrl', url)}
+                        />
+                        <div className="text-sm text-muted-foreground">
+                          Or enter image URL
+                        </div>
                         <Input
                           id="coverUrl"
                           placeholder="https://example.com/book-cover.jpg"
@@ -559,28 +573,37 @@ export default function CreateBookPage() {
                           disabled={isLoading}
                           className="h-11"
                         />
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          URL to the book cover image
-                        </p>
                       </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="pdfUrl" className="text-sm font-semibold flex items-center">
-                          <LinkIcon className="w-4 h-4 mr-1" />
-                          PDF Download URL
-                        </Label>
-                        <Input
-                          id="pdfUrl"
-                          placeholder="https://example.com/book.pdf"
-                          value={formData.pdfUrl}
-                          onChange={(e) => handleInputChange('pdfUrl', e.target.value)}
-                          disabled={isLoading}
-                          className="h-11"
-                        />
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          URL to the PDF file (if digital version available)
-                        </p>
-                      </div>
+                      {/* PDF Upload */}
+                      {formData.digitalAvailable && (
+                        <div className="space-y-2">
+                          <Label className="text-sm font-semibold flex items-center">
+                            <FileText className="w-4 h-4 mr-1" />
+                            PDF File
+                          </Label>
+                          <FileUpload
+                            bucket="book-pdfs"
+                            type="pdf"
+                            label="Upload PDF File"
+                            description="Upload the book PDF file (max 100MB)"
+                            maxSize={100}
+                            currentUrl={formData.pdfUrl}
+                            onUploadComplete={(url) => handleInputChange('pdfUrl', url)}
+                          />
+                          <div className="text-sm text-muted-foreground">
+                            Or enter PDF URL
+                          </div>
+                          <Input
+                            id="pdfUrl"
+                            placeholder="https://example.com/book.pdf"
+                            value={formData.pdfUrl}
+                            onChange={(e) => handleInputChange('pdfUrl', e.target.value)}
+                            disabled={isLoading}
+                            className="h-11"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
 

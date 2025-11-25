@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Link } from '@/i18n/routing'
 import { redirect } from '@/i18n/routing'
-import { BookOpen, Download, Eye, ArrowRight, Trophy, Zap } from "lucide-react"
+import { BookOpen, Download, Eye, ArrowRight, Trophy, Zap, Package } from "lucide-react"
 import { getTranslations } from 'next-intl/server'
 
 export default async function StudentBooksPage() {
@@ -150,11 +150,25 @@ export default async function StudentBooksPage() {
                         )}
                       </div>
 
-                      {purchase.purchase_type === 'physical' && (
-                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                          <p className="text-sm text-blue-800">
-                            📦 {t('physicalBookWillBeShipped')}
-                          </p>
+                      {(purchase.purchase_type === 'physical' || purchase.purchase_type === 'both') && (
+                        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Package className="w-4 h-4 text-blue-600" />
+                            <span className="text-sm font-semibold text-blue-800 dark:text-blue-300">
+                              {purchase.delivery_status === 'delivered' 
+                                ? '✓ Delivered' 
+                                : purchase.delivery_status === 'shipped' || purchase.delivery_status === 'in_transit'
+                                ? '🚚 In Transit'
+                                : purchase.delivery_status === 'processing'
+                                ? '⏳ Processing'
+                                : '📦 Pending Shipment'}
+                            </span>
+                          </div>
+                          {purchase.tracking_number && (
+                            <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
+                              Tracking: {purchase.tracking_number}
+                            </p>
+                          )}
                         </div>
                       )}
                     </CardContent>
