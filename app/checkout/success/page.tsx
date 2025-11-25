@@ -4,23 +4,18 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
-import { useEffect, useState, Suspense } from "react"
+import { useEffect, useState, Suspense, useRef } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 
 function CheckoutSuccessContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isChecking, setIsChecking] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [retryCount, setRetryCount] = useState(0)
-  const paymentId = searchParams.get('payment_id')
-  const paymentToken = searchParams.get('payment_token') || searchParams.get('token')
-  const source = searchParams.get('source')
+  const hasRedirectedRef = useRef(false)
   
   // Extract book_id and course_id, handling cases where Paymee adds extra query params
   let bookId = searchParams.get('book_id')
   let courseId = searchParams.get('course_id')
-  const orderId = searchParams.get('order_id')
   
   // Clean up book_id if it contains query parameters (Paymee sometimes appends them)
   if (bookId && bookId.includes('?')) {
@@ -30,10 +25,13 @@ function CheckoutSuccessContent() {
     courseId = courseId.split('?')[0]
   }
 
-  const MAX_RETRIES = 5 // Maximum number of retries before giving up
-
   useEffect(() => {
-    async function checkAuthAndVerifyPayment() {
+    // Prevent multiple effect runs
+    if (hasRedirectedRef.current) {
+      return
+    }
+
+    async function checkAuthAndRedirect() {
       const supabase = createClient()
       
       // Check if user is authenticated
@@ -58,96 +56,14 @@ function CheckoutSuccessContent() {
         return
       }
 
-      // If we have a book purchase, verify it exists and create if missing
-      if (bookId) {
-        // Check if book purchase already exists
-        const { data: existingPurchases, error: purchaseCheckError } = await supabase
-          .from("book_purchases")
-          .select("id")
-          .eq("student_id", user.id)
-          .eq("book_id", bookId)
-          .limit(1)
-
-        const existingPurchase = existingPurchases && existingPurchases.length > 0 ? existingPurchases[0] : null
-
-        if (!existingPurchase && !purchaseCheckError) {
-          // Check if payment exists and is completed
-          let paymentVerified = false
-          if (paymentToken) {
-            const { data: payments, error: paymentError } = await supabase
-              .from("payments")
-              .select("*")
-              .eq("paymee_payment_id", paymentToken)
-              .eq("user_id", user.id)
-              .eq("status", "completed")
-              .limit(1)
-
-            const payment = payments && payments.length > 0 ? payments[0] : null
-
-            if (payment && payment.book_id === bookId && !paymentError) {
-              paymentVerified = true
-              
-              // Extract purchase type from orderId if available
-              let purchaseType = "digital"
-              if (orderId) {
-                const parts = orderId.split('-')
-                if (parts.length >= 2 && ['digital', 'physical', 'both'].includes(parts[1])) {
-                  purchaseType = parts[1]
-                }
-              }
-
-              // Create book purchase
-              const { error: purchaseError } = await supabase
-                .from("book_purchases")
-                .insert({
-                  student_id: user.id,
-                  book_id: bookId,
-                  purchase_type: purchaseType,
-                  price_paid: payment.amount || 0,
-                })
-
-              if (purchaseError) {
-                console.error("Error creating book purchase:", purchaseError)
-                setError("Payment verified but failed to create purchase. Please contact support.")
-              } else {
-                console.log("Book purchase created successfully")
-              }
-            } else {
-              // Payment not found or not completed, wait a bit more for webhook
-              if (retryCount < MAX_RETRIES) {
-                console.log(`Payment not yet verified, waiting for webhook... (attempt ${retryCount + 1}/${MAX_RETRIES})`)
-                setRetryCount(prev => prev + 1)
-                setTimeout(() => {
-                  checkAuthAndVerifyPayment()
-                }, 3000)
-                return
-              } else {
-                console.log("Max retries reached, proceeding with redirect")
-                // Even if payment not verified, proceed with redirect
-                // The webhook will eventually process it
-              }
-            }
-          } else {
-            // No payment token, wait for webhook
-            if (retryCount < MAX_RETRIES) {
-              console.log(`No payment token, waiting for webhook... (attempt ${retryCount + 1}/${MAX_RETRIES})`)
-              setRetryCount(prev => prev + 1)
-              setTimeout(() => {
-                checkAuthAndVerifyPayment()
-              }, 3000)
-              return
-            } else {
-              console.log("Max retries reached, proceeding with redirect")
-              // Proceed with redirect even if payment not verified
-            }
-          }
-        } else {
-          // Purchase already exists, proceed with redirect
-          console.log("Book purchase already exists")
-        }
+      // Prevent multiple redirects
+      if (hasRedirectedRef.current) {
+        return
       }
+      hasRedirectedRef.current = true
 
-      // Small delay to ensure everything is processed, then redirect
+      // Wait a bit for webhook to process (same as courses)
+      // The webhook will handle creating the enrollment/purchase
       setIsChecking(false)
       setTimeout(() => {
         // Redirect based on role and purchase type
@@ -163,11 +79,11 @@ function CheckoutSuccessContent() {
             router.push("/student/courses")
           }
         }
-      }, 500)
+      }, 2000) // 2 second delay to let webhook process (same as courses)
     }
 
-    checkAuthAndVerifyPayment()
-  }, [router, bookId, courseId, paymentToken, orderId, retryCount])
+    checkAuthAndRedirect()
+  }, [router, bookId, courseId])
 
   if (isChecking) {
     return (
@@ -175,40 +91,11 @@ function CheckoutSuccessContent() {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Processing Payment...</CardTitle>
-            <CardDescription>Please wait while we verify your payment and set up your purchase</CardDescription>
+            <CardDescription>Please wait while we verify your payment</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-center py-4">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-            {bookId && (
-              <p className="text-sm text-muted-foreground text-center mt-4">
-                Setting up your book access...
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex min-h-screen items-center justify-center p-6">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Payment Issue</CardTitle>
-            <CardDescription>There was an issue processing your purchase</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-destructive">{error}</p>
-            <div className="flex gap-2">
-              <Link href="/student/books">
-                <Button variant="outline" className="flex-1">Go to My Books</Button>
-              </Link>
-              <Link href="/books">
-                <Button className="flex-1">Browse Books</Button>
-              </Link>
             </div>
           </CardContent>
         </Card>
@@ -225,11 +112,6 @@ function CheckoutSuccessContent() {
           <CardDescription>Thank you for your purchase</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {paymentId && (
-            <p className="text-sm text-muted-foreground">
-              Payment ID: {paymentId}
-            </p>
-          )}
           <p className="text-muted-foreground">
             Your purchase has been completed successfully. You can now access your course or book.
           </p>
