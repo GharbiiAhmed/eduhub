@@ -1,34 +1,74 @@
+"use client"
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Link, redirect } from '@/i18n/routing'
-import { createClient } from "@/lib/supabase/server"
+import { Link, useRouter } from '@/i18n/routing'
+import { createClient } from "@/lib/supabase/client"
+import { useEffect, useState, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 
-export default async function CheckoutSuccessPage() {
-  const supabase = await createClient()
-  
-  // Check if user is authenticated
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+function CheckoutSuccessContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [isChecking, setIsChecking] = useState(true)
+  const paymentId = searchParams.get('payment_id')
+  const source = searchParams.get('source')
 
-  if (user) {
-    // Get user profile to determine redirect
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role, status")
-      .eq("id", user.id)
-      .single()
+  useEffect(() => {
+    async function checkAuthAndRedirect() {
+      const supabase = createClient()
+      
+      // Check if user is authenticated
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
 
-    if (profile) {
-      // Redirect based on role
-      if (profile.role === "admin") {
-        redirect("/admin/dashboard")
-      } else if (profile.role === "instructor") {
-        redirect("/instructor/dashboard")
-      } else {
-        redirect("/student/courses")
+      if (user) {
+        // Get user profile to determine redirect
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role, status")
+          .eq("id", user.id)
+          .single()
+
+        if (profile) {
+          // Small delay to ensure payment webhook has processed
+          setTimeout(() => {
+            // Redirect based on role
+            if (profile.role === "admin") {
+              router.push("/admin/dashboard")
+            } else if (profile.role === "instructor") {
+              router.push("/instructor/dashboard")
+            } else {
+              router.push("/student/courses")
+            }
+          }, 2000)
+          return
+        }
       }
+      
+      setIsChecking(false)
     }
+
+    checkAuthAndRedirect()
+  }, [router])
+
+  if (isChecking) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-6">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Processing Payment...</CardTitle>
+            <CardDescription>Please wait while we verify your payment</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center py-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   // If not authenticated or no profile, show success page with dashboard link
@@ -40,6 +80,11 @@ export default async function CheckoutSuccessPage() {
           <CardDescription>Thank you for your purchase</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {paymentId && (
+            <p className="text-sm text-muted-foreground">
+              Payment ID: {paymentId}
+            </p>
+          )}
           <p className="text-muted-foreground">
             Your purchase has been completed successfully. You can now access your course or book.
           </p>
@@ -49,5 +94,22 @@ export default async function CheckoutSuccessPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function CheckoutSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center p-6">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Processing...</CardTitle>
+            <CardDescription>Please wait while we verify your payment</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    }>
+      <CheckoutSuccessContent />
+    </Suspense>
   )
 }
