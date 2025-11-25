@@ -12,6 +12,7 @@ function CheckoutSuccessContent() {
   const searchParams = useSearchParams()
   const [isChecking, setIsChecking] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
   const paymentId = searchParams.get('payment_id')
   const paymentToken = searchParams.get('payment_token') || searchParams.get('token')
   const source = searchParams.get('source')
@@ -28,6 +29,8 @@ function CheckoutSuccessContent() {
   if (courseId && courseId.includes('?')) {
     courseId = courseId.split('?')[0]
   }
+
+  const MAX_RETRIES = 5 // Maximum number of retries before giving up
 
   useEffect(() => {
     async function checkAuthAndVerifyPayment() {
@@ -111,23 +114,41 @@ function CheckoutSuccessContent() {
               }
             } else {
               // Payment not found or not completed, wait a bit more for webhook
-              console.log("Payment not yet verified, waiting for webhook...")
+              if (retryCount < MAX_RETRIES) {
+                console.log(`Payment not yet verified, waiting for webhook... (attempt ${retryCount + 1}/${MAX_RETRIES})`)
+                setRetryCount(prev => prev + 1)
+                setTimeout(() => {
+                  checkAuthAndVerifyPayment()
+                }, 3000)
+                return
+              } else {
+                console.log("Max retries reached, proceeding with redirect")
+                // Even if payment not verified, proceed with redirect
+                // The webhook will eventually process it
+              }
+            }
+          } else {
+            // No payment token, wait for webhook
+            if (retryCount < MAX_RETRIES) {
+              console.log(`No payment token, waiting for webhook... (attempt ${retryCount + 1}/${MAX_RETRIES})`)
+              setRetryCount(prev => prev + 1)
               setTimeout(() => {
                 checkAuthAndVerifyPayment()
               }, 3000)
               return
+            } else {
+              console.log("Max retries reached, proceeding with redirect")
+              // Proceed with redirect even if payment not verified
             }
-          } else {
-            // No payment token, wait for webhook
-            setTimeout(() => {
-              checkAuthAndVerifyPayment()
-            }, 3000)
-            return
           }
+        } else {
+          // Purchase already exists, proceed with redirect
+          console.log("Book purchase already exists")
         }
       }
 
-      // Small delay to ensure everything is processed
+      // Small delay to ensure everything is processed, then redirect
+      setIsChecking(false)
       setTimeout(() => {
         // Redirect based on role and purchase type
         if (profile.role === "admin") {
@@ -142,11 +163,11 @@ function CheckoutSuccessContent() {
             router.push("/student/courses")
           }
         }
-      }, 1000)
+      }, 500)
     }
 
     checkAuthAndVerifyPayment()
-  }, [router, bookId, courseId, paymentToken, orderId])
+  }, [router, bookId, courseId, paymentToken, orderId, retryCount])
 
   if (isChecking) {
     return (
