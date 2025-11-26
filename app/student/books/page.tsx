@@ -4,7 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { BookOpen, Download, Eye, ArrowRight, Trophy, Zap } from "lucide-react"
-import { RefreshBooksButton } from "./refresh-button"
 
 export const revalidate = 10 // Revalidate every 10 seconds
 
@@ -62,13 +61,12 @@ export default async function StudentBooksPage() {
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center glow-primary">
               <BookOpen className="w-6 h-6 text-primary-foreground" />
             </div>
-            <div className="flex-1">
+            <div>
               <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
                 My Library
               </h1>
               <p className="text-muted-foreground">Access your purchased books and resources</p>
             </div>
-            <RefreshBooksButton />
           </div>
         </div>
       </div>
@@ -144,12 +142,12 @@ export default async function StudentBooksPage() {
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Purchased:</span>
                         <span className="font-medium">
-                          {new Date(purchase.purchased_at).toLocaleDateString()}
+                          {purchase.purchased_at ? new Date(purchase.purchased_at).toLocaleDateString() : 'N/A'}
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Price Paid:</span>
-                        <span className="font-medium">${purchase.price_paid}</span>
+                        <span className="font-medium">${purchase.price_paid || 0}</span>
                       </div>
 
                       <div className="flex gap-2">
@@ -212,7 +210,7 @@ export default async function StudentBooksPage() {
   )
   } catch (error: any) {
     console.error("Error in StudentBooksPage:", error)
-    // Return a safe fallback UI
+    // Return a safe fallback UI without RefreshBooksButton to avoid import issues
     return (
       <div className="space-y-8">
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 p-8 md:p-12 border border-primary/20">
@@ -228,7 +226,6 @@ export default async function StudentBooksPage() {
                 </h1>
                 <p className="text-muted-foreground">Access your purchased books and resources</p>
               </div>
-              <RefreshBooksButton />
             </div>
           </div>
         </div>
@@ -240,12 +237,19 @@ export default async function StudentBooksPage() {
             <h3 className="text-2xl font-bold">Error Loading Books</h3>
             <p className="text-muted-foreground">Please try refreshing the page</p>
           </div>
-          <Link href="/books">
-            <Button className="bg-gradient-to-r from-primary to-secondary hover:shadow-lg hover:shadow-primary/30 text-primary-foreground">
-              Browse Books
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </Link>
+          <div className="flex gap-2 justify-center">
+            <Link href="/student/books">
+              <Button className="bg-gradient-to-r from-primary to-secondary hover:shadow-lg hover:shadow-primary/30 text-primary-foreground">
+                Refresh Page
+              </Button>
+            </Link>
+            <Link href="/books">
+              <Button variant="outline">
+                Browse Books
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     )

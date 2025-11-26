@@ -146,12 +146,12 @@ export default async function StudentBooksPage() {
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">{t('purchased')}:</span>
                         <span className="font-medium">
-                          {new Date(purchase.purchased_at).toLocaleDateString()}
+                          {purchase.purchased_at ? new Date(purchase.purchased_at).toLocaleDateString() : 'N/A'}
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">{t('pricePaid')}:</span>
-                        <span className="font-medium">${purchase.price_paid}</span>
+                        <span className="font-medium">${purchase.price_paid || 0}</span>
                       </div>
 
                       <div className="flex gap-2">
@@ -255,12 +255,19 @@ export default async function StudentBooksPage() {
             <h3 className="text-2xl font-bold">{t('errorLoadingBooks') || 'Error Loading Books'}</h3>
             <p className="text-muted-foreground">{t('pleaseTryRefreshing') || 'Please try refreshing the page'}</p>
           </div>
-          <Link href="/books">
-            <Button className="bg-gradient-to-r from-primary to-secondary hover:shadow-lg hover:shadow-primary/30 text-primary-foreground">
-              {t('browseBooks')}
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </Link>
+          <div className="flex gap-2 justify-center">
+            <Link href="/student/books">
+              <Button className="bg-gradient-to-r from-primary to-secondary hover:shadow-lg hover:shadow-primary/30 text-primary-foreground">
+                {t('refresh') || 'Refresh Page'}
+              </Button>
+            </Link>
+            <Link href="/books">
+              <Button variant="outline">
+                {t('browseBooks')}
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     )
