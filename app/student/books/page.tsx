@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { BookOpen, Download, Eye, ArrowRight, Trophy, Zap } from "lucide-react"
+import { RefreshBooksButton } from "./refresh-button"
 
 export const revalidate = 0 // Force fresh data on every request
 
@@ -72,12 +73,13 @@ export default async function StudentBooksPage() {
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center glow-primary">
               <BookOpen className="w-6 h-6 text-primary-foreground" />
             </div>
-            <div>
+            <div className="flex-1">
               <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
                 My Library
               </h1>
               <p className="text-muted-foreground">Access your purchased books and resources</p>
             </div>
+            <RefreshBooksButton />
           </div>
         </div>
       </div>
