@@ -20,12 +20,35 @@ export default async function StudentBooksPage() {
     redirect("/auth/login")
   }
 
-  // Get user's book purchases
-  const { data: purchases } = await supabase
+  // Get user's book purchases - fetch separately to avoid join issues
+  const { data: purchases, error: purchasesError } = await supabase
     .from("book_purchases")
-    .select("*, books(*)")
+    .select("*")
     .eq("student_id", user.id)
     .order("purchased_at", { ascending: false })
+
+  if (purchasesError) {
+    console.error("Error fetching book purchases:", purchasesError)
+  }
+
+  // Get book details for purchases
+  const bookIds = purchases?.map(p => p.book_id).filter(Boolean) || []
+  const { data: booksData, error: booksError } = bookIds.length > 0
+    ? await supabase
+        .from("books")
+        .select("*")
+        .in("id", bookIds)
+    : { data: null, error: null }
+
+  if (booksError) {
+    console.error("Error fetching books:", booksError)
+  }
+
+  // Map book purchases with book data and filter out purchases with missing books
+  const purchasesWithBooks = purchases?.map(purchase => ({
+    ...purchase,
+    books: booksData?.find(b => b.id === purchase.book_id) || null
+  })).filter(p => p.books !== null) || []
 
   return (
     <div className="space-y-4 sm:space-y-6 md:space-y-8">
@@ -46,7 +69,7 @@ export default async function StudentBooksPage() {
         </div>
       </div>
 
-      {purchases && purchases.length > 0 ? (
+      {purchasesWithBooks && purchasesWithBooks.length > 0 ? (
         <>
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -54,7 +77,7 @@ export default async function StudentBooksPage() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">{t('booksOwned')}</p>
-                  <p className="text-2xl sm:text-3xl font-bold text-primary">{purchases.length}</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-primary">{purchasesWithBooks.length}</p>
                 </div>
                 <BookOpen className="w-10 h-10 text-primary/30 flex-shrink-0" />
               </div>
@@ -64,7 +87,7 @@ export default async function StudentBooksPage() {
                 <div>
                   <p className="text-sm text-muted-foreground">{t('digitalBooks')}</p>
                   <p className="text-2xl sm:text-3xl font-bold text-secondary">
-                    {purchases.filter((p: any) => p.purchase_type === 'digital' || p.purchase_type === 'both').length}
+                    {purchasesWithBooks.filter((p: any) => p.purchase_type === 'digital' || p.purchase_type === 'both').length}
                   </p>
                 </div>
                 <Zap className="w-10 h-10 text-secondary/30 flex-shrink-0" />
@@ -75,7 +98,7 @@ export default async function StudentBooksPage() {
                 <div>
                   <p className="text-sm text-muted-foreground">{t('physicalBooks')}</p>
                   <p className="text-2xl sm:text-3xl font-bold text-accent">
-                    {purchases.filter((p: any) => p.purchase_type === 'physical' || p.purchase_type === 'both').length}
+                    {purchasesWithBooks.filter((p: any) => p.purchase_type === 'physical' || p.purchase_type === 'both').length}
                   </p>
                 </div>
                 <Trophy className="w-10 h-10 text-accent/30 flex-shrink-0" />
@@ -87,7 +110,7 @@ export default async function StudentBooksPage() {
           <div>
             <h2 className="text-2xl font-bold mb-6">{t('yourBooks')}</h2>
             <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {purchases.map((purchase: any) => (
+              {purchasesWithBooks.map((purchase: any) => (
                 <Card key={purchase.id} className="group hover:shadow-lg transition-all hover:scale-105 border-primary/20 cursor-pointer">
                   <Link href={`/student/books/${purchase.book_id}`}>
                     <CardHeader>
