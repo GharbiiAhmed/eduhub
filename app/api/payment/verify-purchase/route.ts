@@ -74,33 +74,43 @@ export async function POST(request: NextRequest) {
       payment = paymentByToken
     }
 
-    // If payment exists and is completed, create the purchase
-    // OR if we have payment_token (payment was successful), create purchase anyway
-    if ((payment && payment.status === "completed") || paymentToken) {
-      // Get book details
-      const { data: book } = await supabase
-        .from("books")
-        .select("price, title")
-        .eq("id", bookId)
-        .single()
+    // Get book details first
+    const { data: book } = await supabase
+      .from("books")
+      .select("price, title")
+      .eq("id", bookId)
+      .single()
 
-      // Extract purchase type from orderId if present (format: bookId-type-timestamp-userId)
-      let purchaseType = "digital"
-      if (orderId) {
-        const orderParts = orderId.split("-")
-        if (orderParts.length >= 2 && ["digital", "physical", "both"].includes(orderParts[1])) {
-          purchaseType = orderParts[1]
-        }
-      }
+    // Verify book exists
+    if (!book) {
+      console.error("Book not found:", bookId)
+      return NextResponse.json(
+        { error: "Book not found", bookId },
+        { status: 404 }
+      )
+    }
 
-      // Verify book exists before creating purchase
-      if (!book) {
-        console.error("Book not found:", bookId)
-        return NextResponse.json(
-          { error: "Book not found", bookId },
-          { status: 404 }
-        )
+    // Extract purchase type from orderId if present (format: bookId-type-timestamp-userId)
+    let purchaseType = "digital"
+    if (orderId) {
+      const orderParts = orderId.split("-")
+      if (orderParts.length >= 2 && ["digital", "physical", "both"].includes(orderParts[1])) {
+        purchaseType = orderParts[1]
       }
+    }
+
+    // If we have payment_token, payment was successful - create purchase directly
+    // OR if payment exists and is completed, create the purchase
+    const shouldCreatePurchase = paymentToken || (payment && payment.status === "completed")
+
+    if (shouldCreatePurchase) {
+      console.log("Creating purchase:", {
+        userId,
+        bookId,
+        purchaseType,
+        hasPayment: !!payment,
+        hasToken: !!paymentToken,
+      })
 
       // Create purchase
       const { data: newPurchase, error: purchaseError } = await supabase
@@ -115,7 +125,7 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (purchaseError) {
-        console.error("Error creating purchase:", purchaseError)
+        console.error("❌ Error creating purchase:", purchaseError)
         console.error("Purchase data:", {
           student_id: userId,
           book_id: bookId,
@@ -123,7 +133,12 @@ export async function POST(request: NextRequest) {
           price_paid: payment?.amount || book?.price || 0,
         })
         return NextResponse.json(
-          { error: "Failed to create purchase", details: purchaseError.message },
+          { 
+            error: "Failed to create purchase", 
+            details: purchaseError.message,
+            code: purchaseError.code,
+            hint: purchaseError.hint,
+          },
           { status: 500 }
         )
       }
@@ -154,6 +169,8 @@ export async function POST(request: NextRequest) {
         success: true,
         message: "Purchase created successfully",
         purchaseId: newPurchase?.id,
+        bookId,
+        bookTitle: book?.title,
       })
     }
 
