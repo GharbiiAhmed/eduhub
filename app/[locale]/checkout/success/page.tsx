@@ -59,16 +59,16 @@ function CheckoutSuccessContent() {
       // For book purchases, verify purchase exists and create if webhook hasn't processed yet
       if (bookId) {
         try {
-          // Check if purchase already exists
-          const { data: existingPurchase } = await supabase
+          // Check if purchase already exists - use maybeSingle() to avoid 406 error
+          const { data: existingPurchase, error: checkError } = await supabase
             .from("book_purchases")
             .select("id")
             .eq("student_id", user.id)
             .eq("book_id", bookId)
-            .single()
+            .maybeSingle()
 
-          // If purchase doesn't exist, try to create it via API (fallback if webhook hasn't run)
-          if (!existingPurchase) {
+          // If purchase doesn't exist (and no error), try to create it via API (fallback if webhook hasn't run)
+          if (!existingPurchase && !checkError) {
             console.log("Purchase not found, verifying payment and creating purchase...")
             try {
               const response = await fetch("/api/payment/verify-purchase", {
