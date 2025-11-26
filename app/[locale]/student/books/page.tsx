@@ -6,66 +6,55 @@ import { redirect } from '@/i18n/routing'
 import { BookOpen, Download, Eye, ArrowRight, Trophy, Zap, Package } from "lucide-react"
 import { getTranslations } from 'next-intl/server'
 
-export const revalidate = 0 // Force fresh data on every request
+export const revalidate = 10 // Revalidate every 10 seconds
 
 export default async function StudentBooksPage() {
-  const t = await getTranslations('books')
-  const tCommon = await getTranslations('common')
+  try {
+    const t = await getTranslations('books')
+    const tCommon = await getTranslations('common')
 
-  const supabase = await createClient()
+    const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
-  if (!user) {
-    redirect("/auth/login")
-  }
-
-  // Get user's book purchases - fetch separately to avoid join issues
-  const { data: purchases, error: purchasesError } = await supabase
-    .from("book_purchases")
-    .select("*")
-    .eq("student_id", user.id)
-    .order("purchased_at", { ascending: false })
-
-  if (purchasesError) {
-    console.error("Error fetching book purchases:", purchasesError)
-  }
-
-  console.log("📚 Book purchases found:", purchases?.length || 0, "for user:", user.id)
-  if (purchases && purchases.length > 0) {
-    console.log("Purchase book IDs:", purchases.map(p => p.book_id))
-  }
-
-  // Get book details for purchases
-  const bookIds = purchases?.map(p => p.book_id).filter(Boolean) || []
-  const { data: booksData, error: booksError } = bookIds.length > 0
-    ? await supabase
-        .from("books")
-        .select("*")
-        .in("id", bookIds)
-    : { data: null, error: null }
-
-  if (booksError) {
-    console.error("Error fetching books:", booksError)
-  }
-
-  console.log("📖 Books found:", booksData?.length || 0, "for IDs:", bookIds)
-
-  // Map book purchases with book data and filter out purchases with missing books
-  const purchasesWithBooks = purchases?.map(purchase => {
-    const book = booksData?.find(b => b.id === purchase.book_id) || null
-    if (!book) {
-      console.warn("⚠️ Book not found for purchase:", purchase.book_id, "Purchase ID:", purchase.id)
+    if (!user) {
+      redirect("/auth/login")
     }
-    return {
-      ...purchase,
-      books: book
-    }
-  }).filter(p => p.books !== null) || []
 
-  console.log("✅ Final purchases with books:", purchasesWithBooks.length)
+    // Get user's book purchases - fetch separately to avoid join issues
+    const { data: purchases, error: purchasesError } = await supabase
+      .from("book_purchases")
+      .select("*")
+      .eq("student_id", user.id)
+      .order("purchased_at", { ascending: false })
+
+    if (purchasesError) {
+      console.error("Error fetching book purchases:", purchasesError)
+    }
+
+    // Get book details for purchases
+    const bookIds = purchases?.map(p => p.book_id).filter(Boolean) || []
+    const { data: booksData, error: booksError } = bookIds.length > 0
+      ? await supabase
+          .from("books")
+          .select("*")
+          .in("id", bookIds)
+      : { data: null, error: null }
+
+    if (booksError) {
+      console.error("Error fetching books:", booksError)
+    }
+
+    // Map book purchases with book data and filter out purchases with missing books
+    const purchasesWithBooks = purchases?.map(purchase => {
+      const book = booksData?.find(b => b.id === purchase.book_id) || null
+      return {
+        ...purchase,
+        books: book
+      }
+    }).filter(p => p.books !== null) || []
 
   return (
     <div className="space-y-4 sm:space-y-6 md:space-y-8">
@@ -237,4 +226,43 @@ export default async function StudentBooksPage() {
       )}
     </div>
   )
+  } catch (error: any) {
+    console.error("Error in StudentBooksPage:", error)
+    // Return a safe fallback UI
+    return (
+      <div className="space-y-4 sm:space-y-6 md:space-y-8">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 p-4 sm:p-6 md:p-8 lg:p-12 border border-primary/20">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-secondary/10 blur-3xl"></div>
+          <div className="relative z-10 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center glow-primary flex-shrink-0">
+                <BookOpen className="w-6 h-6 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
+                  {t('myLibrary')}
+                </h1>
+                <p className="text-sm sm:text-base text-muted-foreground">{t('accessYourPurchasedBooks')}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="glass-effect rounded-3xl p-12 text-center border-primary/20 space-y-6">
+          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center mx-auto">
+            <BookOpen className="w-10 h-10 text-primary/40" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-2xl font-bold">{t('errorLoadingBooks') || 'Error Loading Books'}</h3>
+            <p className="text-muted-foreground">{t('pleaseTryRefreshing') || 'Please try refreshing the page'}</p>
+          </div>
+          <Link href="/books">
+            <Button className="bg-gradient-to-r from-primary to-secondary hover:shadow-lg hover:shadow-primary/30 text-primary-foreground">
+              {t('browseBooks')}
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </Link>
+        </div>
+      </div>
+    )
+  }
 }

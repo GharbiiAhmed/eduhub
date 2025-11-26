@@ -69,27 +69,65 @@ function CheckoutSuccessContent() {
 
           // If purchase doesn't exist (and no error), try to create it via API (fallback if webhook hasn't run)
           if (!existingPurchase && !checkError) {
-            console.log("Purchase not found, verifying payment and creating purchase...")
-            try {
-              const response = await fetch("/api/payment/verify-purchase", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  bookId,
-                  userId: user.id,
-                  orderId: searchParams.get('order_id'),
-                  paymentToken: searchParams.get('payment_token'),
-                }),
-              })
+            console.log("Purchase not found, creating from payment token...")
+            const paymentToken = searchParams.get('payment_token')
+            const orderId = searchParams.get('order_id')
+            
+            if (paymentToken) {
+              try {
+                // Try creating directly from payment token (most reliable)
+                const response = await fetch("/api/payment/create-from-token", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    bookId,
+                    userId: user.id,
+                    paymentToken,
+                    orderId,
+                  }),
+                })
 
-              if (response.ok) {
-                console.log("✅ Purchase verified and created via fallback")
-              } else {
-                console.log("Purchase verification failed, webhook will handle it")
+                const data = await response.json()
+                if (response.ok) {
+                  console.log("✅ Purchase created from payment token:", data)
+                } else {
+                  console.error("Failed to create purchase:", data)
+                  // Fallback to verify-purchase
+                  const verifyResponse = await fetch("/api/payment/verify-purchase", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      bookId,
+                      userId: user.id,
+                      orderId,
+                      paymentToken,
+                    }),
+                  })
+                  if (verifyResponse.ok) {
+                    console.log("✅ Purchase created via verify-purchase fallback")
+                  }
+                }
+              } catch (error) {
+                console.error("Error creating purchase:", error)
               }
-            } catch (error) {
-              console.error("Error verifying purchase:", error)
-              // Continue anyway - webhook will handle it
+            } else {
+              // No payment token, try verify-purchase
+              try {
+                const response = await fetch("/api/payment/verify-purchase", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    bookId,
+                    userId: user.id,
+                    orderId: searchParams.get('order_id'),
+                  }),
+                })
+                if (response.ok) {
+                  console.log("✅ Purchase verified and created via fallback")
+                }
+              } catch (error) {
+                console.error("Error verifying purchase:", error)
+              }
             }
           } else {
             console.log("✅ Purchase already exists")
