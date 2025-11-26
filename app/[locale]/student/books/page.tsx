@@ -6,6 +6,8 @@ import { redirect } from '@/i18n/routing'
 import { BookOpen, Download, Eye, ArrowRight, Trophy, Zap, Package } from "lucide-react"
 import { getTranslations } from 'next-intl/server'
 
+export const revalidate = 0 // Force fresh data on every request
+
 export default async function StudentBooksPage() {
   const t = await getTranslations('books')
   const tCommon = await getTranslations('common')
@@ -31,6 +33,11 @@ export default async function StudentBooksPage() {
     console.error("Error fetching book purchases:", purchasesError)
   }
 
+  console.log("📚 Book purchases found:", purchases?.length || 0, "for user:", user.id)
+  if (purchases && purchases.length > 0) {
+    console.log("Purchase book IDs:", purchases.map(p => p.book_id))
+  }
+
   // Get book details for purchases
   const bookIds = purchases?.map(p => p.book_id).filter(Boolean) || []
   const { data: booksData, error: booksError } = bookIds.length > 0
@@ -44,11 +51,21 @@ export default async function StudentBooksPage() {
     console.error("Error fetching books:", booksError)
   }
 
+  console.log("📖 Books found:", booksData?.length || 0, "for IDs:", bookIds)
+
   // Map book purchases with book data and filter out purchases with missing books
-  const purchasesWithBooks = purchases?.map(purchase => ({
-    ...purchase,
-    books: booksData?.find(b => b.id === purchase.book_id) || null
-  })).filter(p => p.books !== null) || []
+  const purchasesWithBooks = purchases?.map(purchase => {
+    const book = booksData?.find(b => b.id === purchase.book_id) || null
+    if (!book) {
+      console.warn("⚠️ Book not found for purchase:", purchase.book_id, "Purchase ID:", purchase.id)
+    }
+    return {
+      ...purchase,
+      books: book
+    }
+  }).filter(p => p.books !== null) || []
+
+  console.log("✅ Final purchases with books:", purchasesWithBooks.length)
 
   return (
     <div className="space-y-4 sm:space-y-6 md:space-y-8">
