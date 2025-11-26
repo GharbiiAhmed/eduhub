@@ -62,8 +62,10 @@ function CheckoutSuccessContent() {
       }
       hasRedirectedRef.current = true
 
-      // Wait a bit for webhook to process (same as courses)
+      // Wait a bit for webhook to process
       // The webhook will handle creating the enrollment/purchase
+      // For book purchases, wait longer to ensure webhook completes
+      const waitTime = bookId ? 5000 : 2000 // 5 seconds for books, 2 seconds for courses
       setIsChecking(false)
       setTimeout(() => {
         // Redirect based on role and purchase type
@@ -74,12 +76,12 @@ function CheckoutSuccessContent() {
         } else {
           // For students, redirect to books if it was a book purchase, otherwise courses
           if (bookId) {
-            router.push("/student/books")
+            router.push("/student/books?refresh=true")
           } else {
             router.push("/student/courses")
           }
         }
-      }, 2000) // 2 second delay to let webhook process (same as courses)
+      }, waitTime)
     }
 
     checkAuthAndRedirect()

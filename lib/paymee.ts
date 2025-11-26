@@ -95,12 +95,13 @@ export class PaymeeClient {
         body: { ...requestBody, phone: requestBody.phone ? '***' : 'missing' } // Don't log full phone
       })
 
-      // Paymee uses Token-based authentication
+      // Paymee authentication
+      // Try Token format first (most common for Paymee)
+      // If this fails with 401, check Paymee Swagger API docs for correct format
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Try Token authentication first
           'Authorization': `Token ${this.apiToken}`,
         },
         body: JSON.stringify(requestBody),

@@ -247,38 +247,88 @@ export async function POST(request: NextRequest) {
 
       // Handle book purchase
       if (bookId) {
-        const { data: existingPurchase } = await supabaseAdmin
+        console.log("Processing book purchase:", { bookId, userId, purchaseType })
+        
+        const { data: existingPurchase, error: checkError } = await supabaseAdmin
           .from("book_purchases")
           .select("id")
           .eq("student_id", userId)
           .eq("book_id", bookId)
           .single()
 
+        if (checkError && checkError.code !== 'PGRST116') {
+          console.error("Error checking existing purchase:", checkError)
+        }
+
         if (!existingPurchase) {
           // Get book to determine purchase type and price
-          const { data: book } = await supabaseAdmin
+          const { data: book, error: bookError } = await supabaseAdmin
             .from("books")
-            .select("price")
+            .select("price, title")
             .eq("id", bookId)
             .single()
 
-          // Use purchase type from orderId, default to "digital" if not specified
-          const finalPurchaseType = purchaseType || "digital"
+          if (bookError) {
+            console.error("Error fetching book:", bookError)
+          }
 
-          await supabaseAdmin.from("book_purchases").insert({
-            student_id: userId,
-            book_id: bookId,
-            purchase_type: finalPurchaseType,
-            price_paid: totalAmount || book?.price || 0,
-          })
-          
-          console.log("Book purchase created:", {
-            student_id: userId,
-            book_id: bookId,
-            purchase_type: finalPurchaseType,
-            price_paid: totalAmount || book?.price || 0
-          })
+          if (!book) {
+            console.error("Book not found:", bookId)
+          } else {
+            // Use purchase type from orderId, default to "digital" if not specified
+            const finalPurchaseType = purchaseType || "digital"
+
+            const { data: newPurchase, error: insertError } = await supabaseAdmin
+              .from("book_purchases")
+              .insert({
+                student_id: userId,
+                book_id: bookId,
+                purchase_type: finalPurchaseType,
+                price_paid: totalAmount || book?.price || 0,
+              })
+              .select()
+              .single()
+            
+            if (insertError) {
+              console.error("Error creating book purchase:", insertError)
+              console.error("Purchase data:", {
+                student_id: userId,
+                book_id: bookId,
+                purchase_type: finalPurchaseType,
+                price_paid: totalAmount || book?.price || 0,
+              })
+            } else {
+              console.log("✅ Book purchase created successfully:", {
+                purchase_id: newPurchase?.id,
+                student_id: userId,
+                book_id: bookId,
+                book_title: book?.title,
+                purchase_type: finalPurchaseType,
+                price_paid: totalAmount || book?.price || 0
+              })
+
+              // Create notification for book purchase
+              try {
+                await supabaseAdmin.from("notifications").insert({
+                  user_id: userId,
+                  type: "payment_received",
+                  title: "Book Purchase Successful! 📚",
+                  message: `You've successfully purchased "${book?.title || 'the book'}". Access it now!`,
+                  link: `/student/books/${bookId}`,
+                  related_id: bookId,
+                  related_type: "book"
+                })
+                console.log("✅ Book purchase notification created")
+              } catch (notifError) {
+                console.error("Failed to create book purchase notification:", notifError)
+              }
+            }
+          }
+        } else {
+          console.log("Book purchase already exists:", existingPurchase.id)
         }
+      } else {
+        console.log("No bookId found in webhook payload")
       }
 
       // Send emails and notifications
