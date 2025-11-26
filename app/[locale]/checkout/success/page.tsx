@@ -56,6 +56,49 @@ function CheckoutSuccessContent() {
         return
       }
 
+      // For book purchases, verify purchase exists and create if webhook hasn't processed yet
+      if (bookId) {
+        try {
+          // Check if purchase already exists
+          const { data: existingPurchase } = await supabase
+            .from("book_purchases")
+            .select("id")
+            .eq("student_id", user.id)
+            .eq("book_id", bookId)
+            .single()
+
+          // If purchase doesn't exist, try to create it via API (fallback if webhook hasn't run)
+          if (!existingPurchase) {
+            console.log("Purchase not found, verifying payment and creating purchase...")
+            try {
+              const response = await fetch("/api/payment/verify-purchase", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  bookId,
+                  userId: user.id,
+                  orderId: searchParams.get('order_id'),
+                  paymentToken: searchParams.get('payment_token'),
+                }),
+              })
+
+              if (response.ok) {
+                console.log("✅ Purchase verified and created via fallback")
+              } else {
+                console.log("Purchase verification failed, webhook will handle it")
+              }
+            } catch (error) {
+              console.error("Error verifying purchase:", error)
+              // Continue anyway - webhook will handle it
+            }
+          } else {
+            console.log("✅ Purchase already exists")
+          }
+        } catch (error) {
+          console.error("Error checking purchase:", error)
+        }
+      }
+
       // Prevent multiple redirects
       if (hasRedirectedRef.current) {
         return
