@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { createClient as createServiceClient } from "@supabase/supabase-js"
 import { NextRequest, NextResponse } from "next/server"
 
 /**
@@ -36,9 +37,29 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
+    // Use service role client to bypass RLS (instructors can't see purchases due to RLS)
+    // We've already verified the instructor owns the book, so it's safe
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+    
+    if (!supabaseServiceKey) {
+      console.error("Service role key not configured")
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      )
+    }
+
+    const supabaseAdmin = createServiceClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
+
     // Get all purchases for this book (physical or both)
     // Also include purchases where purchase_type might be null or undefined (legacy data)
-    const { data: allPurchases, error: allPurchasesError } = await supabase
+    const { data: allPurchases, error: allPurchasesError } = await supabaseAdmin
       .from("book_purchases")
       .select("*")
       .eq("book_id", bookId)
@@ -87,7 +108,7 @@ export async function GET(
     let studentProfiles: Record<string, any> = {}
     
     if (studentIds.length > 0) {
-      const { data: profiles } = await supabase
+      const { data: profiles } = await supabaseAdmin
         .from("profiles")
         .select("id, full_name, email")
         .in("id", studentIds)
@@ -161,8 +182,26 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Use service role client to bypass RLS
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+    
+    if (!supabaseServiceKey) {
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      )
+    }
+
+    const supabaseAdmin = createServiceClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
+
     // Verify instructor owns this book
-    const { data: book, error: bookError } = await supabase
+    const { data: book, error: bookError } = await supabaseAdmin
       .from("books")
       .select("id, instructor_id")
       .eq("id", bookId)
@@ -176,8 +215,8 @@ export async function PATCH(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    // Verify purchase belongs to this book
-    const { data: purchase, error: purchaseError } = await supabase
+    // Verify purchase belongs to this book (using admin client)
+    const { data: purchase, error: purchaseError } = await supabaseAdmin
       .from("book_purchases")
       .select("id, book_id")
       .eq("id", purchaseId)
@@ -211,7 +250,7 @@ export async function PATCH(
     // Set timestamps based on status
     if (deliveryStatus === "shipped" || deliveryStatus === "in_transit") {
       // Check if already shipped to avoid overwriting
-      const { data: currentPurchase } = await supabase
+      const { data: currentPurchase } = await supabaseAdmin
         .from("book_purchases")
         .select("shipped_at")
         .eq("id", purchaseId)
@@ -225,7 +264,7 @@ export async function PATCH(
     if (deliveryStatus === "delivered") {
       updateData.delivered_at = new Date().toISOString()
       // Also set shipped_at if not already set
-      const { data: currentPurchase } = await supabase
+      const { data: currentPurchase } = await supabaseAdmin
         .from("book_purchases")
         .select("shipped_at")
         .eq("id", purchaseId)
@@ -236,8 +275,8 @@ export async function PATCH(
       }
     }
 
-    // Update purchase
-    const { data: updatedPurchase, error: updateError } = await supabase
+    // Update purchase (using admin client)
+    const { data: updatedPurchase, error: updateError } = await supabaseAdmin
       .from("book_purchases")
       .update(updateData)
       .eq("id", purchaseId)
@@ -254,7 +293,7 @@ export async function PATCH(
 
     // Create notification for student
     try {
-      const { data: studentProfile } = await supabase
+      const { data: studentProfile } = await supabaseAdmin
         .from("profiles")
         .select("full_name")
         .eq("id", updatedPurchase.student_id)
@@ -273,7 +312,7 @@ export async function PATCH(
       }
 
       if (notificationMessage) {
-        await supabase.from("notifications").insert({
+        await supabaseAdmin.from("notifications").insert({
           user_id: updatedPurchase.student_id,
           type: "payment_received",
           title: "Shipment Update 📦",
