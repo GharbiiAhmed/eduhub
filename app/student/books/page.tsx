@@ -3,9 +3,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { BookOpen, Download, Eye, ArrowRight, Trophy, Zap } from "lucide-react"
-
-export const revalidate = 10 // Revalidate every 10 seconds
+import { BookOpen, Eye, ArrowRight, Trophy, Zap } from "lucide-react"
+import { DownloadButton } from "@/components/books/download-button"
 
 export default async function StudentBooksPage() {
   try {
@@ -20,39 +19,82 @@ export default async function StudentBooksPage() {
     }
 
     // Get user's book purchases - fetch separately to avoid join issues
-    const { data: purchases, error: purchasesError } = await supabase
-      .from("book_purchases")
-      .select("*")
-      .eq("student_id", user.id)
-      .order("purchased_at", { ascending: false })
+    let purchases: any[] = []
+    let booksData: any[] = []
+    
+    try {
+      const { data: purchasesData, error: purchasesError } = await supabase
+        .from("book_purchases")
+        .select("*")
+        .eq("student_id", user.id)
+        .order("purchased_at", { ascending: false })
 
-    if (purchasesError) {
-      console.error("Error fetching book purchases:", purchasesError)
+      if (purchasesError) {
+        console.error("Error fetching book purchases:", purchasesError)
+      } else {
+        purchases = purchasesData || []
+      }
+    } catch (err) {
+      console.error("Exception fetching purchases:", err)
+      purchases = []
     }
 
     // Get book details for purchases
-    const bookIds = purchases?.map(p => p.book_id).filter(Boolean) || []
-    const { data: booksData, error: booksError } = bookIds.length > 0
-      ? await supabase
+    const bookIds = purchases.map(p => p?.book_id).filter(Boolean) || []
+    
+    if (bookIds.length > 0) {
+      try {
+        const { data: books, error: booksError } = await supabase
           .from("books")
           .select("*")
           .in("id", bookIds)
-      : { data: null, error: null }
 
-    if (booksError) {
-      console.error("Error fetching books:", booksError)
+        if (booksError) {
+          console.error("Error fetching books:", booksError)
+        } else {
+          booksData = books || []
+        }
+      } catch (err) {
+        console.error("Exception fetching books:", err)
+        booksData = []
+      }
     }
 
     // Map book purchases with book data and filter out purchases with missing books
-    const purchasesWithBooks = purchases?.map(purchase => {
-      const book = booksData?.find(b => b.id === purchase.book_id) || null
-      return {
-        ...purchase,
-        books: book
-      }
-    }).filter(p => p.books !== null) || []
+    // Ensure all data is serializable (no functions, no circular references)
+    const purchasesWithBooks = purchases
+      .filter(p => p && p.book_id && typeof p.book_id === 'string') // Filter out invalid purchases
+      .map(purchase => {
+        try {
+          const book = booksData.find(b => b && b.id === purchase.book_id) || null
+          if (!book) {
+            return null
+          }
+          // Create a clean, serializable object
+          return {
+            id: purchase.id,
+            student_id: purchase.student_id,
+            book_id: purchase.book_id,
+            purchase_type: purchase.purchase_type || 'digital',
+            price_paid: Number(purchase.price_paid) || 0,
+            purchased_at: purchase.purchased_at || new Date().toISOString(),
+            books: {
+              id: book.id,
+              title: book.title || 'Unknown Book',
+              author: book.author || 'Unknown Author',
+              cover_url: book.cover_url || null,
+              pdf_url: book.pdf_url || null,
+              price: Number(book.price) || 0,
+            }
+          }
+        } catch (err) {
+          console.error("Error mapping purchase:", err)
+          return null
+        }
+      })
+      .filter(p => p !== null) // Only include valid purchases
 
-  return (
+    return (
     <div className="space-y-8">
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 p-8 md:p-12 border border-primary/20">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-secondary/10 blur-3xl"></div>
@@ -71,7 +113,7 @@ export default async function StudentBooksPage() {
         </div>
       </div>
 
-      {purchasesWithBooks && purchasesWithBooks.length > 0 ? (
+      {purchasesWithBooks && Array.isArray(purchasesWithBooks) && purchasesWithBooks.length > 0 ? (
         <>
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -160,18 +202,10 @@ export default async function StudentBooksPage() {
                           </Link>
                         )}
                         {(purchase.purchase_type === 'digital' || purchase.purchase_type === 'both') && purchase.books?.pdf_url && (
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => {
-                              const link = document.createElement('a')
-                              link.href = purchase.books.pdf_url
-                              link.download = `${purchase.books.title}.pdf`
-                              link.click()
-                            }}
-                          >
-                            <Download className="w-4 h-4" />
-                          </Button>
+                          <DownloadButton 
+                            pdfUrl={purchase.books.pdf_url}
+                            title={purchase.books.title || 'book'}
+                          />
                         )}
                       </div>
 
