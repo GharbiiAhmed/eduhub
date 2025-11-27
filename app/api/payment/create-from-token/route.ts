@@ -36,12 +36,28 @@ export async function POST(request: NextRequest) {
       .eq("book_id", bookId)
       .maybeSingle()
 
-    // Extract purchase type from orderId
+    // Extract purchase type from orderId (format: bookId-type-timestamp-userId)
+    // Since bookId is a UUID (has dashes), we need to extract it differently
     let purchaseType = "digital"
-    if (orderId) {
-      const orderParts = orderId.split("-")
-      if (orderParts.length >= 2 && ["digital", "physical", "both"].includes(orderParts[1])) {
-        purchaseType = orderParts[1]
+    if (orderId && bookId) {
+      // Check if orderId starts with bookId
+      if (orderId.startsWith(bookId)) {
+        // Remove bookId prefix (including the dash after it)
+        const remaining = orderId.substring(bookId.length + 1) // +1 to skip the dash
+        const parts = remaining.split("-")
+        // First part after bookId should be the purchase type
+        if (parts.length > 0 && ["digital", "physical", "both"].includes(parts[0])) {
+          purchaseType = parts[0]
+        }
+      } else {
+        // Fallback: try to find purchase type in the orderId
+        if (orderId.includes("-physical-") || orderId.endsWith("-physical")) {
+          purchaseType = "physical"
+        } else if (orderId.includes("-digital-") || orderId.endsWith("-digital")) {
+          purchaseType = "digital"
+        } else if (orderId.includes("-both-") || orderId.endsWith("-both")) {
+          purchaseType = "both"
+        }
       }
     }
 

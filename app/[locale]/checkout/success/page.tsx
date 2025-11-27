@@ -60,14 +60,33 @@ function CheckoutSuccessContent() {
       if (bookId) {
         try {
           // Extract purchase type from orderId to check if we need a different type
+          // OrderId format: bookId-type-timestamp-userIdPrefix
+          // Since bookId is a UUID (has dashes), we need to extract it differently
           const orderId = searchParams.get('order_id')
           let requestedPurchaseType = "digital"
-          if (orderId) {
-            const orderParts = orderId.split("-")
-            if (orderParts.length >= 2 && ["digital", "physical", "both"].includes(orderParts[1])) {
-              requestedPurchaseType = orderParts[1]
+          if (orderId && bookId) {
+            // Check if orderId starts with bookId
+            if (orderId.startsWith(bookId)) {
+              // Remove bookId prefix (including the dash after it)
+              const remaining = orderId.substring(bookId.length + 1) // +1 to skip the dash
+              const parts = remaining.split("-")
+              // First part after bookId should be the purchase type
+              if (parts.length > 0 && ["digital", "physical", "both"].includes(parts[0])) {
+                requestedPurchaseType = parts[0]
+              }
+            } else {
+              // Fallback: try to find purchase type in the orderId
+              // Look for "digital", "physical", or "both" as standalone words
+              if (orderId.includes("-physical-") || orderId.endsWith("-physical")) {
+                requestedPurchaseType = "physical"
+              } else if (orderId.includes("-digital-") || orderId.endsWith("-digital")) {
+                requestedPurchaseType = "digital"
+              } else if (orderId.includes("-both-") || orderId.endsWith("-both")) {
+                requestedPurchaseType = "both"
+              }
             }
           }
+          console.log("Extracted purchase type from orderId:", { orderId, bookId, requestedPurchaseType })
           
           // Check if purchase already exists - use maybeSingle() to avoid 406 error
           const { data: existingPurchase, error: checkError } = await supabase
