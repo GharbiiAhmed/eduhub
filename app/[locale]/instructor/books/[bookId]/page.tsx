@@ -323,6 +323,223 @@ export default function BookDetailPage({ params }: { params: Promise<{ bookId: s
           </form>
         </CardContent>
       </Card>
+
+      {/* Shipments Management */}
+      {(physicalAvailable || book?.physical_available) && (
+        <ShipmentsManager bookId={bookId} />
+      )}
     </div>
+  )
+}
+
+// Shipments Management Component
+function ShipmentsManager({ bookId }: { bookId: string }) {
+  const [purchases, setPurchases] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [editingPurchase, setEditingPurchase] = useState<string | null>(null)
+  const [deliveryStatus, setDeliveryStatus] = useState("")
+  const [trackingNumber, setTrackingNumber] = useState("")
+  const [carrierName, setCarrierName] = useState("")
+  const [shippingAddress, setShippingAddress] = useState("")
+  const [isSaving, setIsSaving] = useState(false)
+
+  useEffect(() => {
+    fetchShipments()
+  }, [bookId])
+
+  const fetchShipments = async () => {
+    try {
+      const response = await fetch(`/api/instructor/books/${bookId}/shipments`)
+      const data = await response.json()
+      if (response.ok) {
+        setPurchases(data.purchases || [])
+      }
+    } catch (error) {
+      console.error("Error fetching shipments:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleEdit = (purchase: any) => {
+    setEditingPurchase(purchase.id)
+    setDeliveryStatus(purchase.delivery_status || "pending")
+    setTrackingNumber(purchase.tracking_number || "")
+    setCarrierName(purchase.carrier_name || "")
+    setShippingAddress(purchase.shipping_address || "")
+  }
+
+  const handleSave = async (purchaseId: string) => {
+    setIsSaving(true)
+    try {
+      const response = await fetch(`/api/instructor/books/${bookId}/shipments`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          purchaseId,
+          deliveryStatus,
+          trackingNumber: trackingNumber || null,
+          carrierName: carrierName || null,
+          shippingAddress: shippingAddress || null,
+        }),
+      })
+
+      const data = await response.json()
+      if (response.ok) {
+        await fetchShipments()
+        setEditingPurchase(null)
+        setTrackingNumber("")
+        setCarrierName("")
+        setShippingAddress("")
+      } else {
+        alert(data.error || "Failed to update shipment")
+      }
+    } catch (error) {
+      console.error("Error updating shipment:", error)
+      alert("Failed to update shipment")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "delivered":
+        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+      case "shipped":
+      case "in_transit":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+      case "processing":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+      case "cancelled":
+        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+      default:
+        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Physical Book Shipments</CardTitle>
+          <CardDescription>Manage delivery status and tracking</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">Loading...</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Physical Book Shipments</CardTitle>
+        <CardDescription>Manage delivery status and tracking for physical book orders</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {purchases.length === 0 ? (
+          <p className="text-muted-foreground text-center py-8">
+            No physical book purchases yet
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {purchases.map((purchase: any) => (
+              <div
+                key={purchase.id}
+                className="border rounded-lg p-4 space-y-3"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="font-semibold">
+                        {purchase.profiles?.full_name || purchase.profiles?.email || "Unknown Student"}
+                      </span>
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(purchase.delivery_status || "pending")}`}>
+                        {purchase.delivery_status || "pending"}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Purchased: {purchase.purchased_at ? new Date(purchase.purchased_at).toLocaleDateString() : "N/A"}
+                    </p>
+                    {purchase.tracking_number && (
+                      <p className="text-sm">
+                        <span className="font-medium">Tracking:</span> {purchase.tracking_number}
+                      </p>
+                    )}
+                    {purchase.carrier_name && (
+                      <p className="text-sm">
+                        <span className="font-medium">Carrier:</span> {purchase.carrier_name}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEdit(purchase)}
+                  >
+                    {editingPurchase === purchase.id ? "Cancel" : "Update"}
+                  </Button>
+                </div>
+
+                {editingPurchase === purchase.id && (
+                  <div className="border-t pt-4 space-y-3 mt-3">
+                    <div>
+                      <Label>Delivery Status</Label>
+                      <Select value={deliveryStatus} onValueChange={setDeliveryStatus}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="processing">Processing</SelectItem>
+                          <SelectItem value="shipped">Shipped</SelectItem>
+                          <SelectItem value="in_transit">In Transit</SelectItem>
+                          <SelectItem value="delivered">Delivered</SelectItem>
+                          <SelectItem value="cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Tracking Number</Label>
+                      <Input
+                        value={trackingNumber}
+                        onChange={(e) => setTrackingNumber(e.target.value)}
+                        placeholder="Enter tracking number"
+                      />
+                    </div>
+                    <div>
+                      <Label>Carrier Name</Label>
+                      <Input
+                        value={carrierName}
+                        onChange={(e) => setCarrierName(e.target.value)}
+                        placeholder="e.g., DHL, FedEx, UPS"
+                      />
+                    </div>
+                    <div>
+                      <Label>Shipping Address</Label>
+                      <Textarea
+                        value={shippingAddress}
+                        onChange={(e) => setShippingAddress(e.target.value)}
+                        placeholder="Enter shipping address"
+                        rows={3}
+                      />
+                    </div>
+                    <Button
+                      onClick={() => handleSave(purchase.id)}
+                      disabled={isSaving}
+                      className="w-full"
+                    >
+                      {isSaving ? "Saving..." : "Save Changes"}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }

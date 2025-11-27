@@ -283,15 +283,15 @@ function CheckoutSuccessContent() {
       // Redirect based on role and purchase type
       setTimeout(() => {
         if (profile.role === "admin") {
-          router.push("/admin/dashboard")
+          window.location.href = "/admin/dashboard"
         } else if (profile.role === "instructor") {
-          router.push("/instructor/dashboard")
+          window.location.href = "/instructor/dashboard"
         } else {
           // For students, redirect to books if it was a book purchase, otherwise courses
           if (bookId) {
-            router.push("/student/books?refresh=true")
+            window.location.href = "/student/books?refresh=true"
           } else {
-            router.push("/student/courses")
+            window.location.href = "/student/courses"
           }
         }
       }, 1000) // Short delay after verification
