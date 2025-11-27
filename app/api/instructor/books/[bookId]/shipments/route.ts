@@ -53,10 +53,26 @@ export async function GET(
     }
 
     // Filter for physical purchases (including "both" and null/undefined for legacy)
+    // Also show ALL purchases if there are any, so instructor can see what's there
     const purchases = (allPurchases || []).filter(p => {
       const purchaseType = p.purchase_type
       // Include physical, both, or null/undefined (treat null as potentially physical)
-      return !purchaseType || purchaseType === "physical" || purchaseType === "both"
+      // If no purchases match, show all purchases for debugging
+      const isPhysical = !purchaseType || purchaseType === "physical" || purchaseType === "both"
+      
+      // If we have purchases but none are physical, show all for debugging
+      if (allPurchases && allPurchases.length > 0) {
+        const hasPhysical = allPurchases.some(ap => {
+          const pt = ap.purchase_type
+          return !pt || pt === "physical" || pt === "both"
+        })
+        // If no physical purchases found, show all purchases so instructor can see what's there
+        if (!hasPhysical) {
+          return true // Show all purchases
+        }
+      }
+      
+      return isPhysical
     })
 
     console.log("Shipments query:", {

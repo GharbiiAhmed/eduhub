@@ -352,10 +352,19 @@ function ShipmentsManager({ bookId }: { bookId: string }) {
       const response = await fetch(`/api/instructor/books/${bookId}/shipments`)
       const data = await response.json()
       if (response.ok) {
+        console.log("Shipments data:", data)
         setPurchases(data.purchases || [])
+        // Log debug info if available
+        if (data.debug) {
+          console.log("Shipments debug:", data.debug)
+        }
+      } else {
+        console.error("Error fetching shipments:", data)
+        alert(`Error: ${data.error || "Failed to fetch shipments"}`)
       }
     } catch (error) {
       console.error("Error fetching shipments:", error)
+      alert("Failed to fetch shipments. Check console for details.")
     } finally {
       setIsLoading(false)
     }
@@ -440,9 +449,22 @@ function ShipmentsManager({ bookId }: { bookId: string }) {
       </CardHeader>
       <CardContent>
         {purchases.length === 0 ? (
-          <p className="text-muted-foreground text-center py-8">
-            No physical book purchases yet
-          </p>
+          <div className="text-center py-8 space-y-2">
+            <p className="text-muted-foreground">
+              No physical book purchases yet
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Check browser console for debug information
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchShipments}
+              className="mt-2"
+            >
+              Refresh
+            </Button>
+          </div>
         ) : (
           <div className="space-y-4">
             {purchases.map((purchase: any) => (
@@ -452,12 +474,15 @@ function ShipmentsManager({ bookId }: { bookId: string }) {
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <span className="font-semibold">
                         {purchase.profiles?.full_name || purchase.profiles?.email || "Unknown Student"}
                       </span>
                       <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(purchase.delivery_status || "pending")}`}>
                         {purchase.delivery_status || "pending"}
+                      </span>
+                      <span className="px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
+                        Type: {purchase.purchase_type || "unknown"}
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground">
