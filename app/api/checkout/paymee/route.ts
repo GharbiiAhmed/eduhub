@@ -143,46 +143,95 @@ export async function POST(request: Request) {
 
         return NextResponse.json({ success: true, free: true })
       } else if (bookId) {
-        // Check if already purchased
+        // Check if already purchased - use maybeSingle() to avoid 406 error
         const { data: existingPurchase } = await supabase
           .from("book_purchases")
-          .select("id")
+          .select("id, purchase_type")
           .eq("student_id", user.id)
           .eq("book_id", bookId)
-          .single()
+          .maybeSingle()
 
-        if (!existingPurchase) {
-          const { data: purchaseData, error: purchaseError } = await supabase
-            .from("book_purchases")
-            .insert({
-              student_id: user.id,
-              book_id: bookId,
+        // Determine purchase type from request (default to digital for free books)
+        const purchaseType = type || "digital"
+        
+        // If purchase exists, check if we need to upgrade
+        if (existingPurchase) {
+          const existingType = existingPurchase.purchase_type
+          // If same type, return success (already purchased)
+          if (existingType === purchaseType || existingType === "both") {
+            return NextResponse.json({ 
+              success: true, 
+              free: true,
+              message: "Book already purchased",
+              existing: true
             })
-            .select()
-            .single()
-
-          if (purchaseError) {
-            console.error("Free book purchase creation error:", purchaseError)
-            return NextResponse.json({ error: "Failed to create purchase" }, { status: 500 })
           }
+          // If different type, upgrade to "both"
+          if (
+            (existingType === "digital" && purchaseType === "physical") ||
+            (existingType === "physical" && purchaseType === "digital")
+          ) {
+            const { error: updateError } = await supabase
+              .from("book_purchases")
+              .update({ purchase_type: "both" })
+              .eq("id", existingPurchase.id)
 
-          // Notify user about free book purchase
-          try {
-            await supabase.from("notifications").insert({
-              user_id: user.id,
-              type: "payment_received",
-              title: "Book Purchase Successful! 📚",
-              message: `You've successfully purchased "${product?.title || 'the book'}". Access it now!`,
-              link: `/books/${bookId}`,
-              related_id: bookId,
-              related_type: "book"
-            }).catch(err => console.error('Failed to create book purchase notification:', err))
-          } catch (notifError) {
-            console.error('Error creating book purchase notification:', notifError)
+            if (updateError) {
+              console.error("Free book purchase upgrade error:", updateError)
+              return NextResponse.json({ error: "Failed to upgrade purchase" }, { status: 500 })
+            }
+
+            return NextResponse.json({ 
+              success: true, 
+              free: true,
+              message: "Purchase upgraded to both formats",
+              upgraded: true
+            })
           }
         }
 
-        return NextResponse.json({ success: true, free: true })
+        // Create new purchase
+        const { data: purchaseData, error: purchaseError } = await supabase
+          .from("book_purchases")
+          .insert({
+            student_id: user.id,
+            book_id: bookId,
+            purchase_type: purchaseType,
+            price_paid: 0,
+          })
+          .select()
+          .single()
+
+        if (purchaseError) {
+          console.error("Free book purchase creation error:", purchaseError)
+          return NextResponse.json({ 
+            error: "Failed to create purchase",
+            details: purchaseError.message,
+            code: purchaseError.code,
+            hint: purchaseError.hint
+          }, { status: 500 })
+        }
+
+        // Notify user about free book purchase
+        try {
+          await supabase.from("notifications").insert({
+            user_id: user.id,
+            type: "payment_received",
+            title: "Book Purchase Successful! 📚",
+            message: `You've successfully purchased "${product?.title || 'the book'}". Access it now!`,
+            link: `/student/books/${bookId}`,
+            related_id: bookId,
+            related_type: "book"
+          }).catch(err => console.error('Failed to create book purchase notification:', err))
+        } catch (notifError) {
+          console.error('Error creating book purchase notification:', notifError)
+        }
+
+        return NextResponse.json({ 
+          success: true, 
+          free: true,
+          purchaseId: purchaseData?.id
+        })
       }
     }
 
