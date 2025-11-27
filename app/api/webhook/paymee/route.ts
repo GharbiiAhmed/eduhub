@@ -84,14 +84,15 @@ export async function POST(request: NextRequest) {
     // Payment status from Paymee webhook
     const isPaymentSuccessful = paymentStatus === true
 
-    console.log("Paymee webhook payment status:", {
+    console.log("🔔 Paymee webhook received - Payment status:", {
       token,
       paymentStatus: isPaymentSuccessful,
       orderId,
       amount,
       transactionId,
       receivedAmount,
-      cost
+      cost,
+      timestamp: new Date().toISOString()
     })
 
     // Find payment record by token (Paymee uses token as payment ID)
@@ -247,14 +248,14 @@ export async function POST(request: NextRequest) {
 
       // Handle book purchase
       if (bookId) {
-        console.log("Processing book purchase:", { bookId, userId, purchaseType })
+        console.log("📚 Processing book purchase in webhook:", { bookId, userId, purchaseType, orderId, token })
         
         const { data: existingPurchase, error: checkError } = await supabaseAdmin
           .from("book_purchases")
           .select("id")
           .eq("student_id", userId)
           .eq("book_id", bookId)
-          .single()
+          .maybeSingle()
 
         if (checkError && checkError.code !== 'PGRST116') {
           console.error("Error checking existing purchase:", checkError)

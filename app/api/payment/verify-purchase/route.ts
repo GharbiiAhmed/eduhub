@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       .select("id")
       .eq("student_id", userId)
       .eq("book_id", bookId)
-      .single()
+      .maybeSingle()
 
     if (existingPurchase) {
       return NextResponse.json({
@@ -46,32 +46,55 @@ export async function POST(request: NextRequest) {
     // Try multiple ways to find the payment
     let payment = null
     
-    // First, try to find by book_id and user_id
-    const { data: paymentByBook } = await supabase
-      .from("payments")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("book_id", bookId)
-      .eq("status", "completed")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    
-    payment = paymentByBook
-
-    // If not found and we have payment_token, try to find by token
-    if (!payment && paymentToken) {
+    // First, try to find by payment_token if provided
+    if (paymentToken) {
       const { data: paymentByToken } = await supabase
         .from("payments")
         .select("*")
         .eq("user_id", userId)
         .eq("paymee_payment_id", paymentToken)
-        .eq("status", "completed")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle()
       
       payment = paymentByToken
+    }
+    
+    // If not found, try to find by book_id and user_id (most recent completed payment)
+    if (!payment) {
+      const { data: paymentByBook } = await supabase
+        .from("payments")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("book_id", bookId)
+        .in("status", ["completed", "pending"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      
+      payment = paymentByBook
+    }
+    
+    // If still not found and we have orderId, try to extract bookId from orderId and find payment
+    // OrderId format: bookId-type-timestamp-userIdPrefix
+    if (!payment && orderId) {
+      const orderParts = orderId.split("-")
+      if (orderParts.length > 0) {
+        const orderBookId = orderParts[0]
+        if (orderBookId === bookId) {
+          // Try to find payment by user and book (any status)
+          const { data: paymentByOrder } = await supabase
+            .from("payments")
+            .select("*")
+            .eq("user_id", userId)
+            .eq("book_id", bookId)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          
+          payment = paymentByOrder
+        }
+      }
     }
 
     // Get book details first
@@ -101,7 +124,8 @@ export async function POST(request: NextRequest) {
 
     // If we have payment_token, payment was successful - create purchase directly
     // OR if payment exists and is completed, create the purchase
-    const shouldCreatePurchase = paymentToken || (payment && payment.status === "completed")
+    // OR if we have orderId (which means payment was initiated), create purchase (webhook will update payment later)
+    const shouldCreatePurchase = paymentToken || (payment && payment.status === "completed") || orderId
 
     if (shouldCreatePurchase) {
       console.log("Creating purchase:", {
