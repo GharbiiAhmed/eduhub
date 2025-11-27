@@ -39,27 +39,43 @@ export async function GET(
     // Get all purchases for this book (physical or both)
     const { data: purchases, error: purchasesError } = await supabase
       .from("book_purchases")
-      .select(`
-        *,
-        profiles:student_id (
-          id,
-          full_name,
-          email
-        )
-      `)
+      .select("*")
       .eq("book_id", bookId)
       .in("purchase_type", ["physical", "both"])
       .order("purchased_at", { ascending: false })
 
+    // Get student profiles separately to avoid join issues
+    const studentIds = purchases?.map(p => p.student_id).filter(Boolean) || []
+    let studentProfiles: Record<string, any> = {}
+    
+    if (studentIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", studentIds)
+      
+      if (profiles) {
+        profiles.forEach(profile => {
+          studentProfiles[profile.id] = profile
+        })
+      }
+    }
+
+    // Combine purchases with student profiles
+    const purchasesWithProfiles = purchases?.map(purchase => ({
+      ...purchase,
+      profiles: studentProfiles[purchase.student_id] || null
+    })) || []
+
     if (purchasesError) {
       console.error("Error fetching shipments:", purchasesError)
       return NextResponse.json(
-        { error: "Failed to fetch shipments" },
+        { error: "Failed to fetch shipments", details: purchasesError.message },
         { status: 500 }
       )
     }
 
-    return NextResponse.json({ purchases: purchases || [] })
+    return NextResponse.json({ purchases: purchasesWithProfiles })
   } catch (error: any) {
     console.error("Error in GET shipments:", error)
     return NextResponse.json(
