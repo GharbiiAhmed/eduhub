@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from "next/server"
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { bookId, userId, purchaseType = "digital", pricePaid } = body
+    const { bookId, userId, purchaseType = "digital", pricePaid, upgradeExisting, existingPurchaseId } = body
 
     if (!bookId || !userId) {
       return NextResponse.json(
@@ -30,15 +30,51 @@ export async function POST(request: NextRequest) {
     // Check if purchase already exists
     const { data: existingPurchase } = await supabase
       .from("book_purchases")
-      .select("id")
+      .select("id, purchase_type")
       .eq("student_id", userId)
       .eq("book_id", bookId)
       .maybeSingle()
 
-    if (existingPurchase) {
+    // If upgrade is requested, update existing purchase to "both"
+    if (upgradeExisting && existingPurchase && existingPurchaseId === existingPurchase.id) {
+      const { data: updatedPurchase, error: updateError } = await supabase
+        .from("book_purchases")
+        .update({ purchase_type: "both" })
+        .eq("id", existingPurchase.id)
+        .select()
+        .single()
+
+      if (updateError) {
+        console.error("❌ Error upgrading purchase:", updateError)
+        return NextResponse.json(
+          {
+            error: "Failed to upgrade purchase",
+            details: updateError.message,
+          },
+          { status: 500 }
+        )
+      }
+
+      console.log("✅ Purchase upgraded to 'both':", {
+        purchaseId: updatedPurchase?.id,
+        bookId,
+        userId,
+      })
+
       return NextResponse.json({
         success: true,
-        message: "Purchase already exists",
+        message: "Purchase upgraded successfully",
+        purchaseId: updatedPurchase?.id,
+        bookId,
+        upgraded: true,
+      })
+    }
+
+    // If purchase exists with same type, don't create duplicate
+    if (existingPurchase && existingPurchase.purchase_type === purchaseType) {
+      return NextResponse.json({
+        success: true,
+        message: "Purchase already exists with this type",
         purchaseId: existingPurchase.id,
       })
     }

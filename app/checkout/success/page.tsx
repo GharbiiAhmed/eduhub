@@ -59,22 +59,71 @@ function CheckoutSuccessContent() {
       // For book purchases, verify purchase exists and create if webhook hasn't processed yet
       if (bookId) {
         try {
+          // Extract purchase type from orderId to check if we need a different type
+          const orderId = searchParams.get('order_id')
+          let requestedPurchaseType = "digital"
+          if (orderId) {
+            const orderParts = orderId.split("-")
+            if (orderParts.length >= 2 && ["digital", "physical", "both"].includes(orderParts[1])) {
+              requestedPurchaseType = orderParts[1]
+            }
+          }
+          
           // Check if purchase already exists - use maybeSingle() to avoid 406 error
           const { data: existingPurchase, error: checkError } = await supabase
             .from("book_purchases")
-            .select("id")
+            .select("id, purchase_type")
             .eq("student_id", user.id)
             .eq("book_id", bookId)
             .maybeSingle()
 
-          // If purchase doesn't exist (and no error), try to create it via API (fallback if webhook hasn't run)
+          // Determine if we should create a new purchase:
+          // - No existing purchase: create it
+          // - Existing purchase with different type: upgrade logic
+          //   - digital + physical = both
+          //   - physical + digital = both
+          //   - If already "both", don't create
+          //   - If same type, don't create
+          let shouldCreatePurchase = false
+          let upgradeToBoth = false
+          
           if (!existingPurchase && !checkError) {
-            console.log("Purchase not found, creating from payment token...")
+            shouldCreatePurchase = true
+          } else if (existingPurchase) {
+            const existingType = existingPurchase.purchase_type
+            // If requesting same type, don't create
+            if (existingType === requestedPurchaseType) {
+              console.log(`✅ Purchase already exists with type: ${existingType}`)
+            } 
+            // If existing is "both", don't create
+            else if (existingType === "both") {
+              console.log("✅ Purchase already exists with 'both' type")
+            }
+            // If upgrading (digital->physical or physical->digital), upgrade to "both"
+            else if (
+              (existingType === "digital" && requestedPurchaseType === "physical") ||
+              (existingType === "physical" && requestedPurchaseType === "digital")
+            ) {
+              upgradeToBoth = true
+              shouldCreatePurchase = true
+              console.log(`Upgrading purchase from ${existingType} to both`)
+            }
+            // If requesting "both" and have single type, upgrade
+            else if (requestedPurchaseType === "both" && (existingType === "digital" || existingType === "physical")) {
+              upgradeToBoth = true
+              shouldCreatePurchase = true
+              console.log(`Upgrading purchase from ${existingType} to both`)
+            }
+          }
+
+          // If purchase doesn't exist or needs upgrade, try to create it via API (fallback if webhook hasn't run)
+          if (shouldCreatePurchase && !checkError) {
+            console.log(upgradeToBoth ? "Upgrading purchase..." : "Purchase not found, creating from payment token...")
             // Paymee returns payment_id in the URL, but it's actually the payment token
             const paymentToken = searchParams.get('payment_token') || searchParams.get('payment_id') || searchParams.get('token')
-            const orderId = searchParams.get('order_id')
-            console.log("Payment parameters:", { paymentToken, orderId, allParams: Object.fromEntries(searchParams.entries()) })
+            console.log("Payment parameters:", { paymentToken, orderId, requestedPurchaseType, upgradeToBoth, allParams: Object.fromEntries(searchParams.entries()) })
             let purchaseCreated = false
+            const finalPurchaseType = upgradeToBoth ? "both" : requestedPurchaseType
             
             if (paymentToken) {
               try {
@@ -87,6 +136,8 @@ function CheckoutSuccessContent() {
                     userId: user.id,
                     paymentToken,
                     orderId,
+                    upgradeExisting: upgradeToBoth,
+                    existingPurchaseId: existingPurchase?.id,
                   }),
                 })
 
@@ -136,22 +187,15 @@ function CheckoutSuccessContent() {
               // This works exactly like the manual console command that worked
               console.log("No payment token found, using simple create-purchase endpoint...")
               try {
-                // Extract purchase type from orderId if present
-                let purchaseType = "digital"
-                if (orderId) {
-                  const orderParts = orderId.split("-")
-                  if (orderParts.length >= 2 && ["digital", "physical", "both"].includes(orderParts[1])) {
-                    purchaseType = orderParts[1]
-                  }
-                }
-                
                 const response = await fetch("/api/payment/create-purchase", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
                     bookId,
                     userId: user.id,
-                    purchaseType,
+                    purchaseType: finalPurchaseType,
+                    upgradeExisting: upgradeToBoth,
+                    existingPurchaseId: existingPurchase?.id,
                   }),
                 })
                 const data = await response.json()
