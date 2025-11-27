@@ -37,15 +37,37 @@ export async function GET(
     }
 
     // Get all purchases for this book (physical or both)
-    const { data: purchases, error: purchasesError } = await supabase
+    // Also include purchases where purchase_type might be null or undefined (legacy data)
+    const { data: allPurchases, error: allPurchasesError } = await supabase
       .from("book_purchases")
       .select("*")
       .eq("book_id", bookId)
-      .in("purchase_type", ["physical", "both"])
       .order("purchased_at", { ascending: false })
 
+    if (allPurchasesError) {
+      console.error("Error fetching all purchases:", allPurchasesError)
+      return NextResponse.json(
+        { error: "Failed to fetch shipments", details: allPurchasesError.message },
+        { status: 500 }
+      )
+    }
+
+    // Filter for physical purchases (including "both" and null/undefined for legacy)
+    const purchases = (allPurchases || []).filter(p => {
+      const purchaseType = p.purchase_type
+      // Include physical, both, or null/undefined (treat null as potentially physical)
+      return !purchaseType || purchaseType === "physical" || purchaseType === "both"
+    })
+
+    console.log("Shipments query:", {
+      bookId,
+      totalPurchases: allPurchases?.length || 0,
+      physicalPurchases: purchases.length,
+      purchaseTypes: allPurchases?.map(p => ({ id: p.id, type: p.purchase_type })) || []
+    })
+
     // Get student profiles separately to avoid join issues
-    const studentIds = purchases?.map(p => p.student_id).filter(Boolean) || []
+    const studentIds = purchases.map(p => p.student_id).filter(Boolean) || []
     let studentProfiles: Record<string, any> = {}
     
     if (studentIds.length > 0) {
@@ -62,20 +84,19 @@ export async function GET(
     }
 
     // Combine purchases with student profiles
-    const purchasesWithProfiles = purchases?.map(purchase => ({
+    const purchasesWithProfiles = purchases.map(purchase => ({
       ...purchase,
       profiles: studentProfiles[purchase.student_id] || null
-    })) || []
+    }))
 
-    if (purchasesError) {
-      console.error("Error fetching shipments:", purchasesError)
-      return NextResponse.json(
-        { error: "Failed to fetch shipments", details: purchasesError.message },
-        { status: 500 }
-      )
-    }
-
-    return NextResponse.json({ purchases: purchasesWithProfiles })
+    return NextResponse.json({ 
+      purchases: purchasesWithProfiles,
+      debug: {
+        totalPurchases: allPurchases?.length || 0,
+        filteredPurchases: purchases.length,
+        bookId
+      }
+    })
   } catch (error: any) {
     console.error("Error in GET shipments:", error)
     return NextResponse.json(
