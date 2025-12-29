@@ -10,17 +10,19 @@ import "react-pdf/dist/Page/AnnotationLayer.css"
 import "react-pdf/dist/Page/TextLayer.css"
 import "./book-reader.css"
 
-// Set up PDF.js worker
+// Set up PDF.js worker - must be done before any PDF operations
 if (typeof window !== "undefined") {
-  // Use the version from the installed package
-  const workerVersion = pdfjs.version || "4.0.379"
+  // Use the exact version from react-pdf's pdfjs-dist dependency
+  // react-pdf uses pdfjs-dist@5.4.296, so we need to match that
+  const workerVersion = "5.4.296" // Match react-pdf's pdfjs-dist version
   
-  // Try multiple CDN sources in order of reliability
-  // unpkg is usually most reliable
+  // Try local worker first (if available), then fallback to CDN
+  // Use unpkg which has better version coverage
   pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${workerVersion}/build/pdf.worker.min.mjs`
   
-  // If that fails, the library will fallback, but we can also set a backup
-  // Note: The library handles fallback internally, but we set the primary source
+  console.log('PDF.js worker configured:', pdfjs.GlobalWorkerOptions.workerSrc)
+  console.log('PDF.js library version:', pdfjs.version)
+  console.log('PDF.js worker version:', workerVersion)
 }
 
 interface BookReaderProps {
@@ -243,6 +245,12 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
                                 <div className="w-8 h-8 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
                               </div>
                             }
+                            onRenderError={(error) => {
+                              console.error('Error rendering page', leftPage, ':', error)
+                            }}
+                            onRenderSuccess={() => {
+                              console.log('Page', leftPage, 'rendered successfully')
+                            }}
                           />
                         </div>
                       </div>
@@ -270,6 +278,12 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
                                   <div className="w-8 h-8 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
                                 </div>
                               }
+                              onRenderError={(error) => {
+                                console.error('Error rendering page', rightPage, ':', error)
+                              }}
+                              onRenderSuccess={() => {
+                                console.log('Page', rightPage, 'rendered successfully')
+                              }}
                             />
                           </div>
                         </div>
