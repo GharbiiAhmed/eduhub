@@ -296,12 +296,6 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
                 </div>
               )}
             </Document>
-          ) : (
-            <div className="flex flex-col items-center justify-center gap-4">
-              <div className="w-16 h-16 border-4 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-amber-800 dark:text-amber-200">Preparing PDF...</p>
-            </div>
-          )}
         </div>
 
         {/* Navigation Controls */}
