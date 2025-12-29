@@ -64,10 +64,17 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
   }, [open, pdfUrl])
 
   useEffect(() => {
-    // Calculate page width based on viewport
+    // Calculate page width based on viewport - use more space for two-page spread
     const updatePageWidth = () => {
-      const width = Math.min(window.innerWidth * 0.4, 500)
-      setPageWidth(width)
+      // Use 48% of viewport width per page, so two pages + gap = ~96% of viewport
+      // This ensures full pages are visible
+      const availableWidth = window.innerWidth * 0.96
+      const gap = 8 // gap between pages (spine shadow)
+      const width = Math.floor((availableWidth - gap) / 2)
+      // Allow pages to be larger on big screens, but ensure they fit
+      const maxWidth = Math.min(window.innerWidth * 0.48, 800)
+      const minWidth = 350
+      setPageWidth(Math.max(350, Math.min(width, maxWidth)))
     }
     updatePageWidth()
     window.addEventListener("resize", updatePageWidth)
@@ -175,7 +182,7 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
         </div>
 
         {/* Book Container */}
-        <div className="w-full h-full flex items-center justify-center pt-16 pb-24 overflow-auto">
+        <div className="w-full h-full flex items-center justify-center pt-16 pb-24 overflow-hidden">
           <Document
             file={pdfUrl}
             onLoadSuccess={onDocumentLoadSuccess}
@@ -216,19 +223,18 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
             }}
           >
               {numPages > 0 && (
-                <div className="relative flex items-center justify-center gap-2 perspective-1000 w-full h-full">
+                <div className="relative flex items-center justify-center gap-2 perspective-1000 w-full h-full overflow-auto">
                   {/* Book Pages Container */}
-                  <div className="relative flex items-center gap-1 book-container" style={{ height: 'calc(95vh - 200px)' }}>
+                  <div className="relative flex items-center gap-1 book-container" style={{ minHeight: 'calc(95vh - 200px)' }}>
                     {/* Left Page */}
-                    <div className="relative book-page book-page-left" style={{ width: `${pageWidth}px`, height: '100%' }}>
-                      <div className="book-page-inner" style={{ width: '100%', height: '100%', overflow: 'auto' }}>
-                        <div className="flex items-center justify-center h-full p-4">
-                          <Page
-                            pageNumber={leftPage}
-                            width={pageWidth - 32}
-                            renderTextLayer={true}
-                            renderAnnotationLayer={true}
-                            className="book-page-content"
+                    <div className="relative book-page book-page-left" style={{ width: `${pageWidth}px`, minHeight: 'calc(95vh - 200px)' }}>
+                      <div className="book-page-inner" style={{ width: '100%', minHeight: 'calc(95vh - 200px)', overflow: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '1rem' }}>
+                        <Page
+                          pageNumber={leftPage}
+                          width={pageWidth - 32}
+                          renderTextLayer={true}
+                          renderAnnotationLayer={true}
+                          className="book-page-content"
                             loading={
                               <div className="flex items-center justify-center h-full">
                                 <div className="w-8 h-8 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
@@ -241,7 +247,6 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
                               console.log('Page', leftPage, 'rendered successfully')
                             }}
                           />
-                        </div>
                       </div>
                       {leftPage % 2 === 0 && (
                         <div className="absolute inset-0 bg-gradient-to-r from-amber-900/20 to-transparent pointer-events-none"></div>
@@ -253,15 +258,14 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
 
                     {/* Right Page */}
                     {rightPage <= numPages && (
-                      <div className="relative book-page book-page-right" style={{ width: `${pageWidth}px`, height: '100%' }}>
-                        <div className="book-page-inner" style={{ width: '100%', height: '100%', overflow: 'auto' }}>
-                          <div className="flex items-center justify-center h-full p-4">
-                            <Page
-                              pageNumber={rightPage}
-                              width={pageWidth - 32}
-                              renderTextLayer={true}
-                              renderAnnotationLayer={true}
-                              className="book-page-content"
+                      <div className="relative book-page book-page-right" style={{ width: `${pageWidth}px`, minHeight: 'calc(95vh - 200px)' }}>
+                        <div className="book-page-inner" style={{ width: '100%', minHeight: 'calc(95vh - 200px)', overflow: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '1rem' }}>
+                          <Page
+                            pageNumber={rightPage}
+                            width={pageWidth - 32}
+                            renderTextLayer={true}
+                            renderAnnotationLayer={true}
+                            className="book-page-content"
                               loading={
                                 <div className="flex items-center justify-center h-full">
                                   <div className="w-8 h-8 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
@@ -270,11 +274,10 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
                               onRenderError={(error) => {
                                 console.error('Error rendering page', rightPage, ':', error)
                               }}
-                              onRenderSuccess={() => {
-                                console.log('Page', rightPage, 'rendered successfully')
-                              }}
-                            />
-                          </div>
+                            onRenderSuccess={() => {
+                              console.log('Page', rightPage, 'rendered successfully')
+                            }}
+                          />
                         </div>
                         {rightPage % 2 === 1 && (
                           <div className="absolute inset-0 bg-gradient-to-l from-amber-900/20 to-transparent pointer-events-none"></div>
