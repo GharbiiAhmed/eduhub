@@ -12,7 +12,8 @@ import "./book-reader.css"
 
 // Set up PDF.js worker
 if (typeof window !== "undefined") {
-  pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`
+  // Use jsdelivr CDN which is very reliable and has all versions
+  pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`
 }
 
 interface BookReaderProps {
