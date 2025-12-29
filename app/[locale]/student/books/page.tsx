@@ -5,7 +5,9 @@ import { Link } from '@/i18n/routing'
 import { redirect } from '@/i18n/routing'
 import { BookOpen, Eye, ArrowRight, Trophy, Zap, Package } from "lucide-react"
 import { getTranslations } from 'next-intl/server'
-import { DownloadButton } from "@/components/books/download-button"
+
+// This page uses cookies for authentication, so it must be dynamic
+export const dynamic = 'force-dynamic'
 
 export default async function StudentBooksPage() {
   try {
@@ -200,18 +202,12 @@ export default async function StudentBooksPage() {
 
                       <div className="flex gap-2">
                         {(purchase.purchase_type === 'digital' || purchase.purchase_type === 'both') && purchase.books?.pdf_url && (
-                          <Link href={purchase.books.pdf_url} target="_blank" rel="noopener noreferrer">
-                            <Button size="sm" className="flex-1 bg-gradient-to-r from-primary to-secondary hover:shadow-lg hover:shadow-primary/30 text-primary-foreground">
+                          <Link href={`/student/books/${purchase.book_id}`} className="flex-1">
+                            <Button size="sm" className="w-full bg-gradient-to-r from-primary to-secondary hover:shadow-lg hover:shadow-primary/30 text-primary-foreground">
                               <Eye className="w-4 h-4 mr-2" />
                               {t('readPDF')}
                             </Button>
                           </Link>
-                        )}
-                        {(purchase.purchase_type === 'digital' || purchase.purchase_type === 'both') && purchase.books?.pdf_url && (
-                          <DownloadButton 
-                            pdfUrl={purchase.books.pdf_url}
-                            title={purchase.books.title || 'book'}
-                          />
                         )}
                       </div>
 

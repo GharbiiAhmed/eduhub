@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { BookOpen, Download, Eye, ArrowLeft, Calendar, DollarSign, Package } from "lucide-react"
+import { BookOpen, ArrowLeft, Calendar, DollarSign, Package } from "lucide-react"
+import { BookPDFViewer } from "@/components/books/book-pdf-viewer"
 
 export default async function StudentBookDetailPage({ params }: { params: Promise<{ bookId: string }> }) {
   const { bookId } = await params
@@ -71,28 +72,7 @@ export default async function StudentBookDetailPage({ params }: { params: Promis
 
               <div className="space-y-3">
                 {(purchase.purchase_type === 'digital' || purchase.purchase_type === 'both') && book?.pdf_url && (
-                  <Link href={book.pdf_url} target="_blank" rel="noopener noreferrer">
-                    <Button className="w-full bg-gradient-to-r from-primary to-secondary hover:shadow-lg hover:shadow-primary/30 text-primary-foreground">
-                      <Eye className="w-4 h-4 mr-2" />
-                      Read PDF Online
-                    </Button>
-                  </Link>
-                )}
-                
-                {(purchase.purchase_type === 'digital' || purchase.purchase_type === 'both') && book?.pdf_url && (
-                  <Button 
-                    className="w-full" 
-                    variant="outline"
-                    onClick={() => {
-                      const link = document.createElement('a')
-                      link.href = book.pdf_url
-                      link.download = `${book.title}.pdf`
-                      link.click()
-                    }}
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download PDF
-                  </Button>
+                  <BookPDFViewer pdfUrl={book.pdf_url} title={book.title} />
                 )}
 
                 {purchase.purchase_type === 'physical' && (
