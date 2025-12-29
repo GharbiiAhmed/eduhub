@@ -56,7 +56,8 @@ export default function StudentLessonPage({ params }: { params: Promise<{ lesson
             for (const pattern of patterns) {
               const match = lessonData.video_url.match(pattern)
               if (match && match[1]) {
-                filePath = decodeURIComponent(match[1])
+                // Remove query parameters and decode
+                filePath = decodeURIComponent(match[1].split('?')[0])
                 break
               }
             }
@@ -72,29 +73,52 @@ export default function StudentLessonPage({ params }: { params: Promise<{ lesson
             if (filePath) {
               console.log('Extracted file path:', filePath)
               
-              // Always use signed URL - it's more reliable and works for both public and private buckets
-              const { data: signedData, error: signedError } = await supabase
-                .storage
-                .from('lesson-videos')
-                .createSignedUrl(filePath, 7200) // 2 hour expiry
+              // Check if the original URL is already a signed URL (has token parameter)
+              const isAlreadySigned = lessonData.video_url.includes('/sign/') && lessonData.video_url.includes('token=')
               
-              if (!signedError && signedData?.signedUrl) {
-                console.log('Generated signed URL successfully')
-                setVideoUrl(signedData.signedUrl)
+              if (isAlreadySigned) {
+                // If it's already a signed URL, use it directly
+                console.log('Using existing signed URL from database')
+                setVideoUrl(lessonData.video_url)
               } else {
-                console.error('Error generating signed URL:', signedError)
-                // Fallback: try public URL
-                const { data: publicUrlData } = supabase
+                // Always try signed URL first - it's more reliable and works for both public and private buckets
+                const { data: signedData, error: signedError } = await supabase
                   .storage
                   .from('lesson-videos')
-                  .getPublicUrl(filePath)
+                  .createSignedUrl(filePath, 7200) // 2 hour expiry
                 
-                if (publicUrlData?.publicUrl) {
-                  console.log('Using public URL as fallback')
-                  setVideoUrl(publicUrlData.publicUrl)
+                if (!signedError && signedData?.signedUrl) {
+                  console.log('Generated signed URL successfully')
+                  setVideoUrl(signedData.signedUrl)
                 } else {
-                  console.error('Failed to get public URL')
-                  setVideoUrl(lessonData.video_url) // Last resort
+                  console.error('Error generating signed URL:', signedError)
+                  
+                  // If bucket not found error, the bucket might not exist or be misconfigured
+                  if (signedError?.message?.includes('Bucket not found') || signedError?.message?.includes('bucket')) {
+                    console.error('Bucket access error. Trying to use original URL.')
+                    // Try using the original URL - it might be a working signed URL
+                    setVideoUrl(lessonData.video_url)
+                    setVideoError('Unable to access video storage. Please contact support if this issue persists.')
+                  } else {
+                    // Fallback: try public URL (only if bucket exists)
+                    const { data: publicUrlData } = supabase
+                      .storage
+                      .from('lesson-videos')
+                      .getPublicUrl(filePath)
+                    
+                    if (publicUrlData?.publicUrl) {
+                      console.log('Using public URL as fallback:', publicUrlData.publicUrl)
+                      setVideoUrl(publicUrlData.publicUrl)
+                    } else {
+                      console.error('Failed to get public URL')
+                      // Last resort: use original URL
+                      console.warn('Using original URL as last resort. Signed URL error:', signedError)
+                      setVideoUrl(lessonData.video_url)
+                      if (signedError) {
+                        setVideoError(`Video access error: ${signedError.message}. The file may not exist or the path may be incorrect.`)
+                      }
+                    }
+                  }
                 }
               }
             } else {
@@ -105,6 +129,9 @@ export default function StudentLessonPage({ params }: { params: Promise<{ lesson
             console.error('Error processing video URL:', error)
             // Keep the original URL as fallback
             setVideoUrl(lessonData.video_url)
+            if (error instanceof Error) {
+              setVideoError(`Error loading video: ${error.message}`)
+            }
           }
         }
 
@@ -243,17 +270,47 @@ export default function StudentLessonPage({ params }: { params: Promise<{ lesson
                         setVideoError(null)
                         // Try to regenerate signed URL
                         const supabase = createClient()
-                        const urlMatch = (videoUrl || lesson.video_url)?.match(/\/storage\/v1\/object\/public\/lesson-videos\/(.+)$/)
-                        if (urlMatch && urlMatch[1]) {
-                          const filePath = decodeURIComponent(urlMatch[1])
-                          const { data: signedData } = await supabase
+                        const currentUrl = videoUrl || lesson.video_url
+                        
+                        // Try different URL patterns to extract file path
+                        let filePath: string | null = null
+                        const patterns = [
+                          /\/storage\/v1\/object\/public\/lesson-videos\/(.+)$/,
+                          /\/storage\/v1\/object\/sign\/lesson-videos\/(.+)$/,
+                          /lesson-videos\/(.+)$/
+                        ]
+                        
+                        for (const pattern of patterns) {
+                          const match = currentUrl?.match(pattern)
+                          if (match && match[1]) {
+                            filePath = decodeURIComponent(match[1].split('?')[0])
+                            break
+                          }
+                        }
+                        
+                        // Fallback extraction
+                        if (!filePath && currentUrl) {
+                          const urlParts = currentUrl.split('/lesson-videos/')
+                          if (urlParts.length > 1) {
+                            filePath = decodeURIComponent(urlParts[1].split('?')[0])
+                          }
+                        }
+                        
+                        if (filePath) {
+                          const { data: signedData, error: signedError } = await supabase
                             .storage
                             .from('lesson-videos')
                             .createSignedUrl(filePath, 3600)
+                          
                           if (signedData?.signedUrl) {
                             setVideoUrl(signedData.signedUrl)
+                          } else if (signedError) {
+                            setVideoError(`Failed to generate signed URL: ${signedError.message}`)
                           }
+                        } else {
+                          setVideoError('Could not extract file path from URL')
                         }
+                        
                         const video = document.querySelector('video') as HTMLVideoElement
                         if (video) {
                           video.load()

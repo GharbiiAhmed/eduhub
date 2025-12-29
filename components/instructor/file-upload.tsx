@@ -186,14 +186,44 @@ export function FileUpload({
           throw error
         }
 
-        // Get public URL
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from(bucket).getPublicUrl(filePath)
+        // For video files, use signed URLs (more reliable, works for both public and private buckets)
+        // For other files, try signed URL first, fallback to public URL
+        let finalUrl: string | null = null
+        
+        if (type === "video") {
+          // Always use signed URL for videos
+          const { data: signedData, error: signedError } = await supabase
+            .storage
+            .from(bucket)
+            .createSignedUrl(filePath, 31536000) // 1 year expiry for stored URLs
+          
+          if (!signedError && signedData?.signedUrl) {
+            finalUrl = signedData.signedUrl
+          } else {
+            console.warn('Failed to generate signed URL for video, falling back to public URL:', signedError)
+            // Fallback to public URL
+            const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(filePath)
+            finalUrl = publicUrl
+          }
+        } else {
+          // For images and PDFs, try signed URL first, then fallback to public
+          const { data: signedData, error: signedError } = await supabase
+            .storage
+            .from(bucket)
+            .createSignedUrl(filePath, 31536000) // 1 year expiry
+          
+          if (!signedError && signedData?.signedUrl) {
+            finalUrl = signedData.signedUrl
+          } else {
+            // Fallback to public URL
+            const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(filePath)
+            finalUrl = publicUrl
+          }
+        }
 
         setUploadProgress(100)
-        setPreviewUrl(publicUrl)
-        onUploadComplete(publicUrl)
+        setPreviewUrl(finalUrl)
+        onUploadComplete(finalUrl)
 
         toast({
           title: t('uploadSuccessful'),

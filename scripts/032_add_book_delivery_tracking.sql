@@ -24,3 +24,4 @@ COMMENT ON COLUMN public.book_purchases.carrier_name IS 'Name of the shipping ca
 
 
 
+
