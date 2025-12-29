@@ -38,21 +38,22 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
   const [pageWidth, setPageWidth] = useState(600)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null)
-  const [useBlob, setUseBlob] = useState(false)
+  const [pdfData, setPdfData] = useState<ArrayBuffer | string | null>(null)
+  const [useData, setUseData] = useState(false)
 
   useEffect(() => {
     if (open) {
       setCurrentPage(1)
       setLoading(true)
       setError(null)
-      setPdfBlob(null)
-      setUseBlob(false)
+      setPdfData(null)
+      setUseData(false)
       setNumPages(0)
       console.log("BookReader: Opening with PDF URL:", pdfUrl)
       
-      // Try to fetch as blob first to handle CORS issues
-      const fetchPdfAsBlob = async () => {
+      // Try to fetch as ArrayBuffer first to handle CORS issues
+      // ArrayBuffer works better with PDF.js than Blob
+      const fetchPdfAsArrayBuffer = async () => {
         try {
           const response = await fetch(pdfUrl, {
             method: 'GET',
@@ -64,17 +65,17 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
             throw new Error(`HTTP ${response.status}: ${response.statusText}`)
           }
           
-          const blob = await response.blob()
-          console.log("BookReader: PDF fetched as blob successfully, size:", blob.size)
-          setPdfBlob(blob)
-          setUseBlob(true)
+          const arrayBuffer = await response.arrayBuffer()
+          console.log("BookReader: PDF fetched as ArrayBuffer successfully, size:", arrayBuffer.byteLength)
+          setPdfData(arrayBuffer)
+          setUseData(true)
         } catch (err) {
-          console.warn("BookReader: Failed to fetch as blob, will try direct URL:", err)
-          setUseBlob(false)
+          console.warn("BookReader: Failed to fetch as ArrayBuffer, will try direct URL:", err)
+          setUseData(false)
         }
       }
       
-      fetchPdfAsBlob()
+      fetchPdfAsArrayBuffer()
     }
   }, [open, pdfUrl])
 
@@ -186,9 +187,8 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
 
         {/* Book Container */}
         <div className="w-full h-full flex items-center justify-center pt-16 pb-24 overflow-auto">
-          {(useBlob && pdfBlob) || !useBlob ? (
-            <Document
-              file={useBlob && pdfBlob ? pdfBlob : pdfUrl}
+          <Document
+            file={useData && pdfData ? pdfData : pdfUrl}
             onLoadSuccess={onDocumentLoadSuccess}
             onLoadError={onDocumentLoadError}
             loading={
