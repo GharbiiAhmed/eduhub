@@ -148,72 +148,57 @@ export function FileUpload({
         throw new Error(t('mustBeLoggedInToUpload'))
       }
 
-      // Get Supabase project URL and storage endpoint
-      // The storage API endpoint format is: /storage/v1/object/{bucket}/{path}
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-      if (!supabaseUrl) {
-        throw new Error('Supabase URL not configured')
+      // Use Supabase SDK with progress simulation
+      // Start with initial progress to show activity
+      setUploadProgress(5)
+      
+      // Calculate estimated upload time based on file size (rough estimate: 1MB per second)
+      const fileSizeMB = file.size / (1024 * 1024)
+      const estimatedSeconds = Math.max(fileSizeMB * 0.8, 3) // Estimate, minimum 3 seconds
+      const updateInterval = 200 // Update every 200ms for smooth progress
+      const progressPerUpdate = 85 / (estimatedSeconds * 1000 / updateInterval) // Reach 85% over estimated time
+
+      // Start progress simulation immediately
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => {
+          if (prev < 85) {
+            const newProgress = prev + progressPerUpdate
+            return Math.min(newProgress, 85)
+          }
+          return prev
+        })
+      }, updateInterval)
+
+      try {
+        // Upload file to Supabase Storage
+        const { data, error } = await supabase.storage.from(bucket).upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+        })
+
+        clearInterval(progressInterval)
+
+        if (error) {
+          throw error
+        }
+
+        // Get public URL
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from(bucket).getPublicUrl(filePath)
+
+        setUploadProgress(100)
+        setPreviewUrl(publicUrl)
+        onUploadComplete(publicUrl)
+
+        toast({
+          title: t('uploadSuccessful'),
+          description: t('fileUploadedSuccessfully'),
+        })
+      } catch (uploadError: any) {
+        clearInterval(progressInterval)
+        throw uploadError
       }
-
-      // Encode path segments separately to preserve folder structure
-      // Split by '/' and encode each segment, then rejoin
-      const pathSegments = filePath.split('/').map(segment => encodeURIComponent(segment))
-      const encodedPath = pathSegments.join('/')
-      const storageUrl = `${supabaseUrl}/storage/v1/object/${bucket}/${encodedPath}`
-
-      // Upload using XMLHttpRequest for progress tracking
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest()
-
-        // Track upload progress
-        xhr.upload.addEventListener('progress', (e) => {
-          if (e.lengthComputable) {
-            const percentComplete = Math.round((e.loaded / e.total) * 100)
-            setUploadProgress(Math.min(percentComplete, 99)) // Cap at 99% until complete
-          }
-        })
-
-        xhr.addEventListener('load', () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            // Get public URL
-            const {
-              data: { publicUrl },
-            } = supabase.storage.from(bucket).getPublicUrl(filePath)
-
-            setUploadProgress(100)
-            setPreviewUrl(publicUrl)
-            onUploadComplete(publicUrl)
-
-            toast({
-              title: t('uploadSuccessful'),
-              description: t('fileUploadedSuccessfully'),
-            })
-            resolve()
-          } else {
-            try {
-              const error = JSON.parse(xhr.responseText)
-              reject(new Error(error.message || error.error || `Upload failed with status ${xhr.status}`))
-            } catch {
-              reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.statusText}`))
-            }
-          }
-        })
-
-        xhr.addEventListener('error', () => {
-          reject(new Error('Network error during upload'))
-        })
-
-        xhr.addEventListener('abort', () => {
-          reject(new Error('Upload was aborted'))
-        })
-
-        xhr.open('POST', storageUrl)
-        xhr.setRequestHeader('Authorization', `Bearer ${session.access_token}`)
-        xhr.setRequestHeader('x-upsert', 'false')
-        xhr.setRequestHeader('cache-control', '3600')
-        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
-        xhr.send(file)
-      })
     } catch (error: any) {
       console.error("Error uploading file:", error)
       toast({
