@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react"
 import { Document, Page, pdfjs } from "react-pdf"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { ChevronLeft, ChevronRight, X, BookOpen } from "lucide-react"
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden"
 import "react-pdf/dist/Page/AnnotationLayer.css"
 import "react-pdf/dist/Page/TextLayer.css"
 import "./book-reader.css"
@@ -91,6 +92,14 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] w-full h-[95vh] p-0 bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 dark:from-amber-950 dark:via-orange-950 dark:to-amber-900 overflow-hidden">
+        {/* Accessibility: Hidden title and description for screen readers */}
+        <VisuallyHidden.Root>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>
+            Book reader for {title}. Use arrow keys or navigation buttons to turn pages.
+          </DialogDescription>
+        </VisuallyHidden.Root>
+        
         {/* Header */}
         <div className="absolute top-0 left-0 right-0 z-50 bg-gradient-to-r from-amber-800/90 to-orange-800/90 dark:from-amber-900/90 dark:to-orange-900/90 backdrop-blur-sm border-b border-amber-700/50 px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
