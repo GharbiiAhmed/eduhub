@@ -34,6 +34,7 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
       setCurrentPage(1)
       setLoading(true)
       setError(null)
+      console.log("BookReader: Opening with PDF URL:", pdfUrl)
     }
   }, [open, pdfUrl])
 
@@ -49,6 +50,7 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
   }, [])
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    console.log("BookReader: PDF loaded successfully, pages:", numPages)
     setNumPages(numPages)
     setLoading(false)
     setError(null)
@@ -56,7 +58,8 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
 
   const onDocumentLoadError = (error: Error) => {
     console.error("Error loading PDF:", error)
-    setError("Failed to load PDF. Please try again.")
+    console.error("PDF URL:", pdfUrl)
+    setError(`Failed to load PDF: ${error.message || "Unknown error"}. Please check the PDF URL and try again.`)
     setLoading(false)
   }
 
@@ -123,82 +126,107 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
 
         {/* Book Container */}
         <div className="w-full h-full flex items-center justify-center pt-16 pb-24 overflow-auto">
-          {loading && (
-            <div className="flex flex-col items-center justify-center gap-4">
-              <div className="w-16 h-16 border-4 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-amber-800 dark:text-amber-200">Loading book...</p>
-            </div>
-          )}
-
-          {error && (
-            <div className="flex flex-col items-center justify-center gap-4 p-8">
-              <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center">
-                <X className="w-8 h-8 text-red-600 dark:text-red-400" />
-              </div>
-              <p className="text-red-800 dark:text-red-200 font-medium">{error}</p>
-              <Button onClick={() => window.location.reload()} variant="outline">
-                Retry
-              </Button>
-            </div>
-          )}
-
-          {!loading && !error && numPages > 0 && (
-            <div className="relative flex items-center justify-center gap-2 perspective-1000 w-full h-full">
-              {/* Book Pages Container */}
-              <div className="relative flex items-center gap-1 book-container" style={{ height: 'calc(95vh - 200px)' }}>
-                {/* Left Page */}
-                <div className="relative book-page book-page-left" style={{ width: `${pageWidth}px`, height: '100%' }}>
-                  <div className="book-page-inner" style={{ width: '100%', height: '100%', overflow: 'auto' }}>
-                    <div className="flex items-center justify-center h-full p-4">
-                      <Page
-                        pageNumber={leftPage}
-                        width={pageWidth - 32}
-                        renderTextLayer={true}
-                        renderAnnotationLayer={true}
-                        className="book-page-content"
-                        loading={
-                          <div className="flex items-center justify-center h-full">
-                            <div className="w-8 h-8 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
-                          </div>
-                        }
-                      />
-                    </div>
-                  </div>
-                  {leftPage % 2 === 0 && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-amber-900/20 to-transparent pointer-events-none"></div>
-                  )}
+          <Document
+            <Document
+              file={{
+                url: pdfUrl,
+                httpHeaders: {},
+                withCredentials: false,
+              }}
+              onLoadSuccess={onDocumentLoadSuccess}
+              onLoadError={onDocumentLoadError}
+              loading={
+                <div className="flex flex-col items-center justify-center gap-4">
+                  <div className="w-16 h-16 border-4 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-amber-800 dark:text-amber-200">Loading PDF document...</p>
+                  <p className="text-sm text-amber-700 dark:text-amber-300">This may take a moment</p>
                 </div>
-
-                {/* Book Spine Shadow */}
-                <div className="w-2 h-full bg-gradient-to-r from-amber-900/30 via-amber-800/50 to-amber-900/30 shadow-2xl"></div>
-
-                {/* Right Page */}
-                {rightPage <= numPages && (
-                  <div className="relative book-page book-page-right" style={{ width: `${pageWidth}px`, height: '100%' }}>
-                    <div className="book-page-inner" style={{ width: '100%', height: '100%', overflow: 'auto' }}>
-                      <div className="flex items-center justify-center h-full p-4">
-                        <Page
-                          pageNumber={rightPage}
-                          width={pageWidth - 32}
-                          renderTextLayer={true}
-                          renderAnnotationLayer={true}
-                          className="book-page-content"
-                          loading={
-                            <div className="flex items-center justify-center h-full">
-                              <div className="w-8 h-8 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
-                            </div>
-                          }
-                        />
+              }
+              error={
+                <div className="flex flex-col items-center justify-center gap-4 p-8">
+                  <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center">
+                    <X className="w-8 h-8 text-red-600 dark:text-red-400" />
+                  </div>
+                  <p className="text-red-800 dark:text-red-200 font-medium">Failed to load PDF document</p>
+                  <p className="text-sm text-red-700 dark:text-red-300 text-center max-w-md">
+                    The PDF may be unavailable or there may be a network issue. Please try again.
+                  </p>
+                  <Button 
+                    onClick={() => { 
+                      setLoading(true); 
+                      setError(null);
+                      setCurrentPage(1);
+                    }} 
+                    variant="outline"
+                  >
+                    Retry
+                  </Button>
+                </div>
+              }
+              options={{
+                cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/',
+                cMapPacked: true,
+                standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/standard_fonts/',
+              }}
+            >
+              {numPages > 0 && (
+                <div className="relative flex items-center justify-center gap-2 perspective-1000 w-full h-full">
+                  {/* Book Pages Container */}
+                  <div className="relative flex items-center gap-1 book-container" style={{ height: 'calc(95vh - 200px)' }}>
+                    {/* Left Page */}
+                    <div className="relative book-page book-page-left" style={{ width: `${pageWidth}px`, height: '100%' }}>
+                      <div className="book-page-inner" style={{ width: '100%', height: '100%', overflow: 'auto' }}>
+                        <div className="flex items-center justify-center h-full p-4">
+                          <Page
+                            pageNumber={leftPage}
+                            width={pageWidth - 32}
+                            renderTextLayer={true}
+                            renderAnnotationLayer={true}
+                            className="book-page-content"
+                            loading={
+                              <div className="flex items-center justify-center h-full">
+                                <div className="w-8 h-8 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
+                              </div>
+                            }
+                          />
+                        </div>
                       </div>
+                      {leftPage % 2 === 0 && (
+                        <div className="absolute inset-0 bg-gradient-to-r from-amber-900/20 to-transparent pointer-events-none"></div>
+                      )}
                     </div>
-                    {rightPage % 2 === 1 && (
-                      <div className="absolute inset-0 bg-gradient-to-l from-amber-900/20 to-transparent pointer-events-none"></div>
+
+                    {/* Book Spine Shadow */}
+                    <div className="w-2 h-full bg-gradient-to-r from-amber-900/30 via-amber-800/50 to-amber-900/30 shadow-2xl"></div>
+
+                    {/* Right Page */}
+                    {rightPage <= numPages && (
+                      <div className="relative book-page book-page-right" style={{ width: `${pageWidth}px`, height: '100%' }}>
+                        <div className="book-page-inner" style={{ width: '100%', height: '100%', overflow: 'auto' }}>
+                          <div className="flex items-center justify-center h-full p-4">
+                            <Page
+                              pageNumber={rightPage}
+                              width={pageWidth - 32}
+                              renderTextLayer={true}
+                              renderAnnotationLayer={true}
+                              className="book-page-content"
+                              loading={
+                                <div className="flex items-center justify-center h-full">
+                                  <div className="w-8 h-8 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
+                                </div>
+                              }
+                            />
+                          </div>
+                        </div>
+                        {rightPage % 2 === 1 && (
+                          <div className="absolute inset-0 bg-gradient-to-l from-amber-900/20 to-transparent pointer-events-none"></div>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
-            </div>
-          )}
+                </div>
+              )}
+            </Document>
         </div>
 
         {/* Navigation Controls */}
