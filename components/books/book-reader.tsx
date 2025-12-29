@@ -10,19 +10,24 @@ import "react-pdf/dist/Page/AnnotationLayer.css"
 import "react-pdf/dist/Page/TextLayer.css"
 import "./book-reader.css"
 
-// Set up PDF.js worker - must be done before any PDF operations
-if (typeof window !== "undefined") {
-  // Use the exact version from react-pdf's pdfjs-dist dependency
-  // react-pdf uses pdfjs-dist@5.4.296, so we need to match that
-  const workerVersion = "5.4.296" // Match react-pdf's pdfjs-dist version
+// Set up PDF.js worker - lazy initialization to avoid issues on module load
+let workerInitialized = false
+const initializeWorker = () => {
+  if (typeof window === "undefined" || workerInitialized) return
   
-  // Try local worker first (if available), then fallback to CDN
-  // Use unpkg which has better version coverage
-  pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${workerVersion}/build/pdf.worker.min.mjs`
-  
-  console.log('PDF.js worker configured:', pdfjs.GlobalWorkerOptions.workerSrc)
-  console.log('PDF.js library version:', pdfjs.version)
-  console.log('PDF.js worker version:', workerVersion)
+  try {
+    // Use the exact version from react-pdf's pdfjs-dist dependency
+    // react-pdf uses pdfjs-dist@5.4.296, so we need to match that
+    const workerVersion = "5.4.296" // Match react-pdf's pdfjs-dist version
+    
+    // Use unpkg which has better version coverage
+    pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${workerVersion}/build/pdf.worker.min.mjs`
+    
+    workerInitialized = true
+    console.log('PDF.js worker configured:', pdfjs.GlobalWorkerOptions.workerSrc)
+  } catch (error) {
+    console.error('Error setting up PDF.js worker:', error)
+  }
 }
 
 interface BookReaderProps {
@@ -38,44 +43,23 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
   const [pageWidth, setPageWidth] = useState(600)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [pdfData, setPdfData] = useState<ArrayBuffer | string | null>(null)
-  const [useData, setUseData] = useState(false)
+  const [isClient, setIsClient] = useState(false)
+
+  // Ensure we're on the client side
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   useEffect(() => {
     if (open) {
+      // Initialize worker when dialog opens
+      initializeWorker()
+      
       setCurrentPage(1)
       setLoading(true)
       setError(null)
-      setPdfData(null)
-      setUseData(false)
       setNumPages(0)
       console.log("BookReader: Opening with PDF URL:", pdfUrl)
-      
-      // Try to fetch as ArrayBuffer first to handle CORS issues
-      // ArrayBuffer works better with PDF.js than Blob
-      const fetchPdfAsArrayBuffer = async () => {
-        try {
-          const response = await fetch(pdfUrl, {
-            method: 'GET',
-            mode: 'cors',
-            credentials: 'omit',
-          })
-          
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-          }
-          
-          const arrayBuffer = await response.arrayBuffer()
-          console.log("BookReader: PDF fetched as ArrayBuffer successfully, size:", arrayBuffer.byteLength)
-          setPdfData(arrayBuffer)
-          setUseData(true)
-        } catch (err) {
-          console.warn("BookReader: Failed to fetch as ArrayBuffer, will try direct URL:", err)
-          setUseData(false)
-        }
-      }
-      
-      fetchPdfAsArrayBuffer()
     }
   }, [open, pdfUrl])
 
@@ -153,6 +137,11 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
   const leftPage = currentPage % 2 === 0 ? currentPage - 1 : currentPage
   const rightPage = currentPage % 2 === 0 ? currentPage : currentPage + 1
 
+  // Don't render until we're on the client
+  if (!isClient) {
+    return null
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] w-full h-[95vh] p-0 bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 dark:from-amber-950 dark:via-orange-950 dark:to-amber-900 overflow-hidden">
@@ -188,7 +177,7 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
         {/* Book Container */}
         <div className="w-full h-full flex items-center justify-center pt-16 pb-24 overflow-auto">
           <Document
-            file={useData && pdfData ? pdfData : pdfUrl}
+            file={pdfUrl}
             onLoadSuccess={onDocumentLoadSuccess}
             onLoadError={onDocumentLoadError}
             loading={

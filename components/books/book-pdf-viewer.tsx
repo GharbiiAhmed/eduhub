@@ -1,9 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useState, lazy, Suspense } from "react"
 import { Button } from "@/components/ui/button"
 import { BookOpen } from "lucide-react"
-import { BookReader } from "./book-reader"
+
+// Dynamically import BookReader to avoid SSR issues with PDF.js
+const BookReader = lazy(() => 
+  import("./book-reader").then(module => ({ 
+    default: module.BookReader 
+  }))
+)
 
 interface BookPDFViewerProps {
   pdfUrl: string
@@ -23,12 +29,20 @@ export function BookPDFViewer({ pdfUrl, title }: BookPDFViewerProps) {
         Read Book Online
       </Button>
 
-      <BookReader
-        pdfUrl={pdfUrl}
-        title={title}
-        open={isViewerOpen}
-        onOpenChange={setIsViewerOpen}
-      />
+      {isViewerOpen && (
+        <Suspense fallback={
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="text-white">Loading book reader...</div>
+          </div>
+        }>
+          <BookReader
+            pdfUrl={pdfUrl}
+            title={title}
+            open={isViewerOpen}
+            onOpenChange={setIsViewerOpen}
+          />
+        </Suspense>
+      )}
     </>
   )
 }
