@@ -22,6 +22,7 @@ export default function StudentLessonPage({
   const [isMarking, setIsMarking] = useState(false)
   const [quizzes, setQuizzes] = useState<any[]>([])
   const [videoError, setVideoError] = useState<string | null>(null)
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -40,25 +41,79 @@ export default function StudentLessonPage({
       const { data: lessonData } = await supabase.from("lessons").select("*").eq("id", lessonId).single()
 
       if (lessonData) {
-        // If video URL exists, verify it's accessible
+        setLesson(lessonData)
+        
+        // If video URL exists, try to get a working URL
         if (lessonData.video_url) {
           console.log('Video URL from database:', lessonData.video_url)
           
-          // Check if URL is a Supabase storage URL and verify accessibility
-          if (lessonData.video_url.includes('supabase.co/storage')) {
-            // Test if the URL is accessible
-            try {
-              const testResponse = await fetch(lessonData.video_url, { method: 'HEAD' })
-              if (!testResponse.ok) {
-                console.warn('Video URL may not be accessible:', testResponse.status, testResponse.statusText)
+          // Always try to generate a signed URL first (more reliable)
+          try {
+            // Extract path from Supabase storage URL
+            // Format: https://[project].supabase.co/storage/v1/object/public/[bucket]/[path]
+            let filePath: string | null = null
+            
+            // Try different URL patterns
+            const patterns = [
+              /\/storage\/v1\/object\/public\/lesson-videos\/(.+)$/,
+              /\/storage\/v1\/object\/sign\/lesson-videos\/(.+)$/,
+              /lesson-videos\/(.+)$/
+            ]
+            
+            for (const pattern of patterns) {
+              const match = lessonData.video_url.match(pattern)
+              if (match && match[1]) {
+                filePath = decodeURIComponent(match[1])
+                break
               }
-            } catch (error) {
-              console.error('Error checking video URL accessibility:', error)
             }
+            
+            // If no pattern matched, try to extract from the full URL
+            if (!filePath) {
+              const urlParts = lessonData.video_url.split('/lesson-videos/')
+              if (urlParts.length > 1) {
+                filePath = decodeURIComponent(urlParts[1].split('?')[0]) // Remove query params
+              }
+            }
+            
+            if (filePath) {
+              console.log('Extracted file path:', filePath)
+              
+              // Always use signed URL - it's more reliable and works for both public and private buckets
+              const { data: signedData, error: signedError } = await supabase
+                .storage
+                .from('lesson-videos')
+                .createSignedUrl(filePath, 7200) // 2 hour expiry
+              
+              if (!signedError && signedData?.signedUrl) {
+                console.log('Generated signed URL successfully')
+                setVideoUrl(signedData.signedUrl)
+              } else {
+                console.error('Error generating signed URL:', signedError)
+                // Fallback: try public URL
+                const { data: publicUrlData } = supabase
+                  .storage
+                  .from('lesson-videos')
+                  .getPublicUrl(filePath)
+                
+                if (publicUrlData?.publicUrl) {
+                  console.log('Using public URL as fallback')
+                  setVideoUrl(publicUrlData.publicUrl)
+                } else {
+                  console.error('Failed to get public URL')
+                  setVideoUrl(lessonData.video_url) // Last resort
+                }
+              }
+            } else {
+              console.warn('Could not extract file path from URL, using original URL')
+              setVideoUrl(lessonData.video_url)
+            }
+          } catch (error) {
+            console.error('Error processing video URL:', error)
+            // Keep the original URL as fallback
+            setVideoUrl(lessonData.video_url)
           }
         }
-        
-        setLesson(lessonData)
 
         // Check if lesson is completed
         const { data: progressData } = await supabase
@@ -180,31 +235,50 @@ export default function StudentLessonPage({
             </div>
           )}
 
-          {(lesson.content_type === "video" || lesson.content_type === "mixed") && lesson.video_url && (
+          {(lesson.content_type === "video" || lesson.content_type === "mixed") && (videoUrl || lesson.video_url) && (
             <div>
               <h3 className="font-semibold mb-2">Video</h3>
               {videoError ? (
                 <div className="p-4 bg-destructive/10 text-destructive rounded-lg">
                   <p className="font-medium">Unable to load video</p>
                   <p className="text-sm mt-1">{videoError}</p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="mt-2"
-                    onClick={() => {
-                      setVideoError(null)
-                      const video = document.querySelector('video') as HTMLVideoElement
-                      if (video) {
-                        video.load()
-                      }
-                    }}
-                  >
-                    Retry
-                  </Button>
+                  <div className="mt-2 space-y-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={async () => {
+                        setVideoError(null)
+                        // Try to regenerate signed URL
+                        const supabase = createClient()
+                        const urlMatch = (videoUrl || lesson.video_url)?.match(/\/storage\/v1\/object\/public\/lesson-videos\/(.+)$/)
+                        if (urlMatch && urlMatch[1]) {
+                          const filePath = decodeURIComponent(urlMatch[1])
+                          const { data: signedData } = await supabase
+                            .storage
+                            .from('lesson-videos')
+                            .createSignedUrl(filePath, 3600)
+                          if (signedData?.signedUrl) {
+                            setVideoUrl(signedData.signedUrl)
+                          }
+                        }
+                        const video = document.querySelector('video') as HTMLVideoElement
+                        if (video) {
+                          video.load()
+                        }
+                      }}
+                    >
+                      Retry
+                    </Button>
+                    {videoUrl && (
+                      <div className="text-xs text-muted-foreground mt-2">
+                        <p>Video URL: {videoUrl.substring(0, 80)}...</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <video 
-                  src={lesson.video_url} 
+                  src={videoUrl || lesson.video_url} 
                   controls 
                   preload="metadata"
                   playsInline
@@ -223,7 +297,7 @@ export default function StudentLessonPage({
                           errorMessage = "Video loading was aborted."
                           break
                         case error.MEDIA_ERR_NETWORK:
-                          errorMessage = "Network error occurred while loading the video."
+                          errorMessage = "Network error occurred while loading the video. The bucket may not be public or CORS may be blocking access."
                           break
                         case error.MEDIA_ERR_DECODE:
                           errorMessage = "Video decoding error. The file may be corrupted or in an unsupported format."
@@ -233,12 +307,24 @@ export default function StudentLessonPage({
                           break
                       }
                     }
+                    console.error("Video error details:", {
+                      code: error?.code,
+                      message: error?.message,
+                      url: videoUrl || lesson.video_url
+                    })
                     setVideoError(errorMessage)
                   }}
+                  onLoadStart={() => {
+                    console.log("Video loading started:", videoUrl || lesson.video_url)
+                  }}
+                  onCanPlay={() => {
+                    console.log("Video can play")
+                    setVideoError(null)
+                  }}
                 >
-                  <source src={lesson.video_url} type="video/mp4" />
-                  <source src={lesson.video_url} type="video/webm" />
-                  <source src={lesson.video_url} type="video/quicktime" />
+                  <source src={videoUrl || lesson.video_url} type="video/mp4" />
+                  <source src={videoUrl || lesson.video_url} type="video/webm" />
+                  <source src={videoUrl || lesson.video_url} type="video/quicktime" />
                   Your browser does not support the video tag.
                 </video>
               )}
