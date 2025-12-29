@@ -12,8 +12,15 @@ import "./book-reader.css"
 
 // Set up PDF.js worker
 if (typeof window !== "undefined") {
-  // Use jsdelivr CDN which is very reliable and has all versions
-  pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`
+  // Use the version from the installed package
+  const workerVersion = pdfjs.version || "4.0.379"
+  
+  // Try multiple CDN sources in order of reliability
+  // unpkg is usually most reliable
+  pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${workerVersion}/build/pdf.worker.min.mjs`
+  
+  // If that fails, the library will fallback, but we can also set a backup
+  // Note: The library handles fallback internally, but we set the primary source
 }
 
 interface BookReaderProps {
@@ -39,6 +46,7 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
       setError(null)
       setPdfBlob(null)
       setUseBlob(false)
+      setNumPages(0)
       console.log("BookReader: Opening with PDF URL:", pdfUrl)
       
       // Try to fetch as blob first to handle CORS issues
@@ -55,7 +63,7 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
           }
           
           const blob = await response.blob()
-          console.log("BookReader: PDF fetched as blob successfully")
+          console.log("BookReader: PDF fetched as blob successfully, size:", blob.size)
           setPdfBlob(blob)
           setUseBlob(true)
         } catch (err) {
@@ -176,8 +184,9 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
 
         {/* Book Container */}
         <div className="w-full h-full flex items-center justify-center pt-16 pb-24 overflow-auto">
-          <Document
-            file={useBlob && pdfBlob ? pdfBlob : pdfUrl}
+          {(useBlob && pdfBlob) || !useBlob ? (
+            <Document
+              file={useBlob && pdfBlob ? pdfBlob : pdfUrl}
             onLoadSuccess={onDocumentLoadSuccess}
             onLoadError={onDocumentLoadError}
             loading={
@@ -273,6 +282,12 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
                 </div>
               )}
             </Document>
+          ) : (
+            <div className="flex flex-col items-center justify-center gap-4">
+              <div className="w-16 h-16 border-4 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-amber-800 dark:text-amber-200">Preparing PDF...</p>
+            </div>
+          )}
         </div>
 
         {/* Navigation Controls */}
