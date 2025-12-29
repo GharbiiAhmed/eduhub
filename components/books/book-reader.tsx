@@ -29,13 +29,42 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
   const [pageWidth, setPageWidth] = useState(600)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null)
+  const [useBlob, setUseBlob] = useState(false)
 
   useEffect(() => {
     if (open) {
       setCurrentPage(1)
       setLoading(true)
       setError(null)
+      setPdfBlob(null)
+      setUseBlob(false)
       console.log("BookReader: Opening with PDF URL:", pdfUrl)
+      
+      // Try to fetch as blob first to handle CORS issues
+      const fetchPdfAsBlob = async () => {
+        try {
+          const response = await fetch(pdfUrl, {
+            method: 'GET',
+            mode: 'cors',
+            credentials: 'omit',
+          })
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+          }
+          
+          const blob = await response.blob()
+          console.log("BookReader: PDF fetched as blob successfully")
+          setPdfBlob(blob)
+          setUseBlob(true)
+        } catch (err) {
+          console.warn("BookReader: Failed to fetch as blob, will try direct URL:", err)
+          setUseBlob(false)
+        }
+      }
+      
+      fetchPdfAsBlob()
     }
   }, [open, pdfUrl])
 
@@ -60,7 +89,27 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
   const onDocumentLoadError = (error: Error) => {
     console.error("Error loading PDF:", error)
     console.error("PDF URL:", pdfUrl)
-    setError(`Failed to load PDF: ${error.message || "Unknown error"}. Please check the PDF URL and try again.`)
+    console.error("Error details:", {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    })
+    
+    let errorMessage = "Failed to load PDF document."
+    
+    if (error.message?.includes("CORS")) {
+      errorMessage = "CORS error: The PDF server doesn't allow cross-origin requests. Please contact support."
+    } else if (error.message?.includes("404") || error.message?.includes("Not Found")) {
+      errorMessage = "PDF file not found. The file may have been moved or deleted."
+    } else if (error.message?.includes("403") || error.message?.includes("Forbidden")) {
+      errorMessage = "Access denied. You may not have permission to view this PDF."
+    } else if (error.message?.includes("network") || error.message?.includes("fetch")) {
+      errorMessage = "Network error. Please check your internet connection and try again."
+    } else {
+      errorMessage = `Failed to load PDF: ${error.message || "Unknown error"}. Please try again.`
+    }
+    
+    setError(errorMessage)
     setLoading(false)
   }
 
@@ -128,47 +177,44 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
         {/* Book Container */}
         <div className="w-full h-full flex items-center justify-center pt-16 pb-24 overflow-auto">
           <Document
-            file={{
-              url: pdfUrl,
-              httpHeaders: {},
-              withCredentials: false,
+            file={useBlob && pdfBlob ? pdfBlob : pdfUrl}
+            onLoadSuccess={onDocumentLoadSuccess}
+            onLoadError={onDocumentLoadError}
+            loading={
+              <div className="flex flex-col items-center justify-center gap-4">
+                <div className="w-16 h-16 border-4 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-amber-800 dark:text-amber-200">Loading PDF document...</p>
+                <p className="text-sm text-amber-700 dark:text-amber-300">This may take a moment</p>
+              </div>
+            }
+            error={
+              <div className="flex flex-col items-center justify-center gap-4 p-8">
+                <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center">
+                  <X className="w-8 h-8 text-red-600 dark:text-red-400" />
+                </div>
+                <p className="text-red-800 dark:text-red-200 font-medium">Failed to load PDF document</p>
+                <p className="text-sm text-red-700 dark:text-red-300 text-center max-w-md">
+                  {error || "The PDF may be unavailable or there may be a network issue. Please try again."}
+                </p>
+                <Button 
+                  onClick={() => { 
+                    setLoading(true); 
+                    setError(null);
+                    setCurrentPage(1);
+                    setNumPages(0);
+                  }} 
+                  variant="outline"
+                >
+                  Retry
+                </Button>
+              </div>
+            }
+            options={{
+              cMapUrl: `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/cmaps/`,
+              cMapPacked: true,
+              standardFontDataUrl: `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/standard_fonts/`,
             }}
-              onLoadSuccess={onDocumentLoadSuccess}
-              onLoadError={onDocumentLoadError}
-              loading={
-                <div className="flex flex-col items-center justify-center gap-4">
-                  <div className="w-16 h-16 border-4 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-amber-800 dark:text-amber-200">Loading PDF document...</p>
-                  <p className="text-sm text-amber-700 dark:text-amber-300">This may take a moment</p>
-                </div>
-              }
-              error={
-                <div className="flex flex-col items-center justify-center gap-4 p-8">
-                  <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center">
-                    <X className="w-8 h-8 text-red-600 dark:text-red-400" />
-                  </div>
-                  <p className="text-red-800 dark:text-red-200 font-medium">Failed to load PDF document</p>
-                  <p className="text-sm text-red-700 dark:text-red-300 text-center max-w-md">
-                    The PDF may be unavailable or there may be a network issue. Please try again.
-                  </p>
-                  <Button 
-                    onClick={() => { 
-                      setLoading(true); 
-                      setError(null);
-                      setCurrentPage(1);
-                    }} 
-                    variant="outline"
-                  >
-                    Retry
-                  </Button>
-                </div>
-              }
-              options={{
-                cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/',
-                cMapPacked: true,
-                standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/standard_fonts/',
-              }}
-            >
+          >
               {numPages > 0 && (
                 <div className="relative flex items-center justify-center gap-2 perspective-1000 w-full h-full">
                   {/* Book Pages Container */}
