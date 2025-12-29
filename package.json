@@ -38,6 +38,7 @@
     "@radix-ui/react-toggle": "latest",
     "@radix-ui/react-toggle-group": "latest",
     "@radix-ui/react-tooltip": "latest",
+    "@radix-ui/react-visually-hidden": "^1.2.4",
     "@stripe/stripe-js": "latest",
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
