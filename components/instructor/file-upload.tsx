@@ -149,21 +149,25 @@ export function FileUpload({
       }
 
       // Use Supabase SDK with progress simulation
-      // Start with initial progress to show activity
-      setUploadProgress(5)
+      // Start with initial progress immediately to show activity
+      setUploadProgress(10)
       
       // Calculate estimated upload time based on file size (rough estimate: 1MB per second)
       const fileSizeMB = file.size / (1024 * 1024)
-      const estimatedSeconds = Math.max(fileSizeMB * 0.8, 3) // Estimate, minimum 3 seconds
-      const updateInterval = 200 // Update every 200ms for smooth progress
-      const progressPerUpdate = 85 / (estimatedSeconds * 1000 / updateInterval) // Reach 85% over estimated time
+      const estimatedSeconds = Math.max(fileSizeMB * 0.8, 2) // Estimate, minimum 2 seconds
+      const updateInterval = 150 // Update every 150ms for smooth progress
+      const totalUpdates = Math.ceil((estimatedSeconds * 1000) / updateInterval)
+      const progressPerUpdate = 75 / totalUpdates // Reach 85% (10% start + 75% = 85%)
 
-      // Start progress simulation immediately
-      const progressInterval = setInterval(() => {
+      // Start progress simulation immediately - use setTimeout to ensure state update
+      setTimeout(() => setUploadProgress(15), 100)
+      
+      // Store interval ID to clear it later
+      const progressIntervalId = setInterval(() => {
         setUploadProgress((prev) => {
           if (prev < 85) {
-            const newProgress = prev + progressPerUpdate
-            return Math.min(newProgress, 85)
+            const newProgress = Math.min(prev + progressPerUpdate, 85)
+            return newProgress
           }
           return prev
         })
@@ -176,7 +180,7 @@ export function FileUpload({
           upsert: false,
         })
 
-        clearInterval(progressInterval)
+        clearInterval(progressIntervalId)
 
         if (error) {
           throw error
@@ -196,7 +200,7 @@ export function FileUpload({
           description: t('fileUploadedSuccessfully'),
         })
       } catch (uploadError: any) {
-        clearInterval(progressInterval)
+        clearInterval(progressIntervalId)
         throw uploadError
       }
     } catch (error: any) {

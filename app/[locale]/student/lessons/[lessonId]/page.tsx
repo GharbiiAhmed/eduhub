@@ -40,6 +40,24 @@ export default function StudentLessonPage({
       const { data: lessonData } = await supabase.from("lessons").select("*").eq("id", lessonId).single()
 
       if (lessonData) {
+        // If video URL exists, verify it's accessible
+        if (lessonData.video_url) {
+          console.log('Video URL from database:', lessonData.video_url)
+          
+          // Check if URL is a Supabase storage URL and verify accessibility
+          if (lessonData.video_url.includes('supabase.co/storage')) {
+            // Test if the URL is accessible
+            try {
+              const testResponse = await fetch(lessonData.video_url, { method: 'HEAD' })
+              if (!testResponse.ok) {
+                console.warn('Video URL may not be accessible:', testResponse.status, testResponse.statusText)
+              }
+            } catch (error) {
+              console.error('Error checking video URL accessibility:', error)
+            }
+          }
+        }
+        
         setLesson(lessonData)
 
         // Check if lesson is completed
