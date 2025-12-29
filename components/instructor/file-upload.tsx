@@ -142,28 +142,77 @@ export function FileUpload({
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`
       const filePath = folder ? `${folder}/${fileName}` : fileName
 
-      // Upload file to Supabase Storage
-      const { data, error } = await supabase.storage.from(bucket).upload(filePath, file, {
-        cacheControl: "3600",
-        upsert: false,
-      })
-
-      if (error) {
-        throw error
+      // Get session for auth headers
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        throw new Error(t('mustBeLoggedInToUpload'))
       }
 
-      // Get public URL
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from(bucket).getPublicUrl(filePath)
+      // Get Supabase project URL and storage endpoint
+      // The storage API endpoint format is: /storage/v1/object/{bucket}/{path}
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+      if (!supabaseUrl) {
+        throw new Error('Supabase URL not configured')
+      }
 
-      setUploadProgress(100)
-      setPreviewUrl(publicUrl)
-      onUploadComplete(publicUrl)
+      // Encode path segments separately to preserve folder structure
+      // Split by '/' and encode each segment, then rejoin
+      const pathSegments = filePath.split('/').map(segment => encodeURIComponent(segment))
+      const encodedPath = pathSegments.join('/')
+      const storageUrl = `${supabaseUrl}/storage/v1/object/${bucket}/${encodedPath}`
 
-      toast({
-        title: t('uploadSuccessful'),
-        description: t('fileUploadedSuccessfully'),
+      // Upload using XMLHttpRequest for progress tracking
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+
+        // Track upload progress
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            const percentComplete = Math.round((e.loaded / e.total) * 100)
+            setUploadProgress(Math.min(percentComplete, 99)) // Cap at 99% until complete
+          }
+        })
+
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            // Get public URL
+            const {
+              data: { publicUrl },
+            } = supabase.storage.from(bucket).getPublicUrl(filePath)
+
+            setUploadProgress(100)
+            setPreviewUrl(publicUrl)
+            onUploadComplete(publicUrl)
+
+            toast({
+              title: t('uploadSuccessful'),
+              description: t('fileUploadedSuccessfully'),
+            })
+            resolve()
+          } else {
+            try {
+              const error = JSON.parse(xhr.responseText)
+              reject(new Error(error.message || error.error || `Upload failed with status ${xhr.status}`))
+            } catch {
+              reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.statusText}`))
+            }
+          }
+        })
+
+        xhr.addEventListener('error', () => {
+          reject(new Error('Network error during upload'))
+        })
+
+        xhr.addEventListener('abort', () => {
+          reject(new Error('Upload was aborted'))
+        })
+
+        xhr.open('POST', storageUrl)
+        xhr.setRequestHeader('Authorization', `Bearer ${session.access_token}`)
+        xhr.setRequestHeader('x-upsert', 'false')
+        xhr.setRequestHeader('cache-control', '3600')
+        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+        xhr.send(file)
       })
     } catch (error: any) {
       console.error("Error uploading file:", error)
@@ -172,9 +221,9 @@ export function FileUpload({
         description: error.message || t('failedToUploadFile'),
         variant: "destructive",
       })
+      setUploadProgress(0)
     } finally {
       setUploading(false)
-      setUploadProgress(0)
       if (fileInputRef.current) {
         fileInputRef.current.value = ""
       }
