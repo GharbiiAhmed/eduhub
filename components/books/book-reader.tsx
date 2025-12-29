@@ -127,12 +127,11 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
         {/* Book Container */}
         <div className="w-full h-full flex items-center justify-center pt-16 pb-24 overflow-auto">
           <Document
-            <Document
-              file={{
-                url: pdfUrl,
-                httpHeaders: {},
-                withCredentials: false,
-              }}
+            file={{
+              url: pdfUrl,
+              httpHeaders: {},
+              withCredentials: false,
+            }}
               onLoadSuccess={onDocumentLoadSuccess}
               onLoadError={onDocumentLoadError}
               loading={
