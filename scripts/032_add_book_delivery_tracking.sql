@@ -20,3 +20,6 @@ COMMENT ON COLUMN public.book_purchases.delivered_at IS 'Timestamp when the book
 COMMENT ON COLUMN public.book_purchases.carrier_name IS 'Name of the shipping carrier (e.g., DHL, FedEx, UPS)';
 
 
+
+
+

@@ -21,6 +21,7 @@ export default function StudentLessonPage({
   const [isLoading, setIsLoading] = useState(true)
   const [isMarking, setIsMarking] = useState(false)
   const [quizzes, setQuizzes] = useState<any[]>([])
+  const [videoError, setVideoError] = useState<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -164,7 +165,65 @@ export default function StudentLessonPage({
           {(lesson.content_type === "video" || lesson.content_type === "mixed") && lesson.video_url && (
             <div>
               <h3 className="font-semibold mb-2">Video</h3>
-              <video src={lesson.video_url} controls className="w-full rounded-lg" style={{ maxHeight: "500px" }} />
+              {videoError ? (
+                <div className="p-4 bg-destructive/10 text-destructive rounded-lg">
+                  <p className="font-medium">Unable to load video</p>
+                  <p className="text-sm mt-1">{videoError}</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={() => {
+                      setVideoError(null)
+                      const video = document.querySelector('video') as HTMLVideoElement
+                      if (video) {
+                        video.load()
+                      }
+                    }}
+                  >
+                    Retry
+                  </Button>
+                </div>
+              ) : (
+                <video 
+                  src={lesson.video_url} 
+                  controls 
+                  preload="metadata"
+                  playsInline
+                  className="w-full rounded-lg" 
+                  style={{ maxHeight: "500px" }}
+                  crossOrigin="anonymous"
+                  onError={(e) => {
+                    console.error("Video playback error:", e)
+                    const target = e.target as HTMLVideoElement
+                    const error = target.error
+                    let errorMessage = "Unable to load video. Please check your internet connection or contact support."
+                    
+                    if (error) {
+                      switch (error.code) {
+                        case error.MEDIA_ERR_ABORTED:
+                          errorMessage = "Video loading was aborted."
+                          break
+                        case error.MEDIA_ERR_NETWORK:
+                          errorMessage = "Network error occurred while loading the video."
+                          break
+                        case error.MEDIA_ERR_DECODE:
+                          errorMessage = "Video decoding error. The file may be corrupted or in an unsupported format."
+                          break
+                        case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                          errorMessage = "Video format not supported by your browser."
+                          break
+                      }
+                    }
+                    setVideoError(errorMessage)
+                  }}
+                >
+                  <source src={lesson.video_url} type="video/mp4" />
+                  <source src={lesson.video_url} type="video/webm" />
+                  <source src={lesson.video_url} type="video/quicktime" />
+                  Your browser does not support the video tag.
+                </video>
+              )}
             </div>
           )}
 
