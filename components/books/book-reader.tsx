@@ -77,20 +77,25 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
     return () => ro.disconnect()
   }, [open])
 
-  /* ---------- PAGE CALC ---------- */
+  /* ---------- PAGE CALC (FIXED) ---------- */
+
+  const effectivePageIndex =
+    isFlipping && pendingIndex !== null ? pendingIndex : pageIndex
 
   const spreadStart = useMemo(() => {
-    if (!isTwoPage) return pageIndex
-    return pageIndex % 2 === 0 ? pageIndex - 1 : pageIndex
-  }, [pageIndex, isTwoPage])
+    if (!isTwoPage) return effectivePageIndex
+    return effectivePageIndex % 2 === 0
+      ? effectivePageIndex - 1
+      : effectivePageIndex
+  }, [effectivePageIndex, isTwoPage])
 
-  const leftPage = isTwoPage ? spreadStart : pageIndex
+  const leftPage = isTwoPage ? spreadStart : effectivePageIndex
   const rightPage = isTwoPage ? spreadStart + 1 : null
 
-  const canPrev = pageIndex > 1
+  const canPrev = effectivePageIndex > 1
   const canNext = isTwoPage
     ? spreadStart + 2 <= numPages + 1
-    : pageIndex < numPages
+    : effectivePageIndex < numPages
 
   /* ---------- FLIP ---------- */
 
@@ -132,7 +137,7 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
     }
     window.addEventListener("keydown", h)
     return () => window.removeEventListener("keydown", h)
-  }, [open, pageIndex, isTwoPage, isFlipping])
+  }, [open, effectivePageIndex, isTwoPage, isFlipping])
 
   /* ================= RENDER ================= */
 
@@ -236,7 +241,7 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
           <Button onClick={() => requestFlip("prev")} disabled={!canPrev || isFlipping}>
             <ChevronLeft /> Prev
           </Button>
-          <span>{pageIndex} / {numPages}</span>
+          <span>{effectivePageIndex} / {numPages}</span>
           <Button onClick={() => requestFlip("next")} disabled={!canNext || isFlipping}>
             Next <ChevronRight />
           </Button>
