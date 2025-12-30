@@ -3,7 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Document, Page, pdfjs } from "react-pdf"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
 import { ChevronLeft, ChevronRight, X, BookOpen } from "lucide-react"
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden"
 import "./book-reader.css"
@@ -31,7 +36,12 @@ type FlipDir = "next" | "prev"
 
 /* ================= COMPONENT ================= */
 
-export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProps) {
+export function BookReader({
+  pdfUrl,
+  title,
+  open,
+  onOpenChange,
+}: BookReaderProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   const [numPages, setNumPages] = useState(0)
@@ -40,6 +50,7 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
 
   const [isTwoPage, setIsTwoPage] = useState(false)
   const [isFlipping, setIsFlipping] = useState(false)
+  const [freezeRender, setFreezeRender] = useState(false)
   const [flipDir, setFlipDir] = useState<FlipDir>("next")
   const [pendingIndex, setPendingIndex] = useState<number | null>(null)
 
@@ -77,7 +88,7 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
     return () => ro.disconnect()
   }, [open])
 
-  /* ---------- PAGE CALC (FIXED) ---------- */
+  /* ---------- PAGE CALC (NO FLASH) ---------- */
 
   const effectivePageIndex =
     isFlipping && pendingIndex !== null ? pendingIndex : pageIndex
@@ -113,17 +124,22 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
         ? pageIndex + 1
         : pageIndex - 1
 
+    setFreezeRender(true)
     setFlipDir(dir)
     setPendingIndex(next)
     setIsFlipping(true)
   }
 
   const finishFlip = () => {
-    setIsFlipping(false)
     if (pendingIndex !== null) {
       setPageIndex(Math.min(Math.max(1, pendingIndex), numPages))
     }
-    setPendingIndex(null)
+
+    requestAnimationFrame(() => {
+      setIsFlipping(false)
+      setPendingIndex(null)
+      setFreezeRender(false)
+    })
   }
 
   /* ---------- KEYBOARD ---------- */
@@ -181,6 +197,7 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
                       width={pageWidth}
                       renderTextLayer={false}
                       renderAnnotationLayer={false}
+                      className={freezeRender ? "opacity-100" : "opacity-100"}
                     />
                   </div>
 
@@ -194,6 +211,7 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
                         width={pageWidth}
                         renderTextLayer={false}
                         renderAnnotationLayer={false}
+                        className={freezeRender ? "opacity-100" : "opacity-100"}
                       />
                     </div>
                   )}
@@ -238,11 +256,19 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
 
         {/* FOOTER */}
         <div className="br-footer">
-          <Button onClick={() => requestFlip("prev")} disabled={!canPrev || isFlipping}>
+          <Button
+            onClick={() => requestFlip("prev")}
+            disabled={!canPrev || isFlipping}
+          >
             <ChevronLeft /> Prev
           </Button>
-          <span>{effectivePageIndex} / {numPages}</span>
-          <Button onClick={() => requestFlip("next")} disabled={!canNext || isFlipping}>
+          <span>
+            {effectivePageIndex} / {numPages}
+          </span>
+          <Button
+            onClick={() => requestFlip("next")}
+            disabled={!canNext || isFlipping}
+          >
             Next <ChevronRight />
           </Button>
         </div>
