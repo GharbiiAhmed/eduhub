@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Document, Page, pdfjs } from "react-pdf"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog"
@@ -10,23 +10,17 @@ import "react-pdf/dist/Page/AnnotationLayer.css"
 import "react-pdf/dist/Page/TextLayer.css"
 import "./book-reader.css"
 
-// Set up PDF.js worker - lazy initialization to avoid issues on module load
+// ---- PDF.js worker init (keep yours) ----
 let workerInitialized = false
 const initializeWorker = () => {
   if (typeof window === "undefined" || workerInitialized) return
-  
   try {
-    // Use the exact version from react-pdf's pdfjs-dist dependency
-    // react-pdf uses pdfjs-dist@5.4.296, so we need to match that
-    const workerVersion = "5.4.296" // Match react-pdf's pdfjs-dist version
-    
-    // Use unpkg which has better version coverage
+    const workerVersion = "5.4.296"
     pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${workerVersion}/build/pdf.worker.min.mjs`
-    
     workerInitialized = true
-    console.log('PDF.js worker configured:', pdfjs.GlobalWorkerOptions.workerSrc)
+    console.log("PDF.js worker configured:", pdfjs.GlobalWorkerOptions.workerSrc)
   } catch (error) {
-    console.error('Error setting up PDF.js worker:', error)
+    console.error("Error setting up PDF.js worker:", error)
   }
 }
 
@@ -37,138 +31,190 @@ interface BookReaderProps {
   onOpenChange: (open: boolean) => void
 }
 
+type FlipDir = "next" | "prev"
+
 export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProps) {
-  const [numPages, setNumPages] = useState<number>(0)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageWidth, setPageWidth] = useState(600)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+
+  const [numPages, setNumPages] = useState(0)
+  const [pageIndex, setPageIndex] = useState(1) // "current logical page" (we'll derive spread)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
   const [isClient, setIsClient] = useState(false)
 
-  // Ensure we're on the client side
-  useEffect(() => {
-    setIsClient(true)
-  }, [])
+  // responsive/layout
+  const [isTwoPage, setIsTwoPage] = useState(false) // set based on width
+  const [pageWidth, setPageWidth] = useState(520)
+
+  // flip animation state
+  const [isFlipping, setIsFlipping] = useState(false)
+  const [flipDir, setFlipDir] = useState<FlipDir>("next")
+  const [pendingIndex, setPendingIndex] = useState<number | null>(null)
+
+  useEffect(() => setIsClient(true), [])
 
   useEffect(() => {
-    if (open) {
-      // Initialize worker when dialog opens
-      initializeWorker()
-      
-      setCurrentPage(1)
-      setLoading(true)
-      setError(null)
-      setNumPages(0)
-      console.log("BookReader: Opening with PDF URL:", pdfUrl)
-    }
+    if (!open) return
+    initializeWorker()
+    setPageIndex(1)
+    setLoading(true)
+    setError(null)
+    setNumPages(0)
   }, [open, pdfUrl])
 
+  // Measure available width from container (not window) and decide 1 vs 2 pages
   useEffect(() => {
-    // Calculate page width based on viewport - use more space for two-page spread
-    const updatePageWidth = () => {
-      // Use 48% of viewport width per page, so two pages + gap = ~96% of viewport
-      // This ensures full pages are visible
-      const availableWidth = window.innerWidth * 0.96
-      const gap = 8 // gap between pages (spine shadow)
-      const width = Math.floor((availableWidth - gap) / 2)
-      // Allow pages to be larger on big screens, but ensure they fit
-      const maxWidth = Math.min(window.innerWidth * 0.48, 800)
-      const minWidth = 350
-      setPageWidth(Math.max(350, Math.min(width, maxWidth)))
+    if (!open) return
+    const el = containerRef.current
+    if (!el) return
+
+    const measure = () => {
+      const rect = el.getBoundingClientRect()
+      const w = rect.width
+
+      // Rule: 2-page only when there's enough space
+      // Adjust threshold as you like:
+      const twoPage = w >= 1100 // ~xl
+      setIsTwoPage(twoPage)
+
+      const padding = 48 // inner paddings / margins
+      const maxSingle = 900
+      const maxPerPageTwo = 650
+
+      if (twoPage) {
+        // two pages + spine gap
+        const spineGap = 18
+        const available = Math.max(320, w - padding - spineGap)
+        const perPage = Math.min(maxPerPageTwo, Math.floor(available / 2))
+        setPageWidth(perPage)
+      } else {
+        const available = Math.max(320, w - padding)
+        setPageWidth(Math.min(maxSingle, available))
+      }
     }
-    updatePageWidth()
-    window.addEventListener("resize", updatePageWidth)
-    return () => window.removeEventListener("resize", updatePageWidth)
-  }, [])
+
+    measure()
+
+    const ro = new ResizeObserver(() => measure())
+    ro.observe(el)
+
+    window.addEventListener("resize", measure)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener("resize", measure)
+    }
+  }, [open])
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
-    console.log("BookReader: PDF loaded successfully, pages:", numPages)
     setNumPages(numPages)
     setLoading(false)
     setError(null)
   }
 
-  const onDocumentLoadError = (error: Error) => {
-    console.error("Error loading PDF:", error)
-    console.error("PDF URL:", pdfUrl)
-    console.error("Error details:", {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
-    })
-    
-    let errorMessage = "Failed to load PDF document."
-    
-    if (error.message?.includes("CORS")) {
-      errorMessage = "CORS error: The PDF server doesn't allow cross-origin requests. Please contact support."
-    } else if (error.message?.includes("404") || error.message?.includes("Not Found")) {
-      errorMessage = "PDF file not found. The file may have been moved or deleted."
-    } else if (error.message?.includes("403") || error.message?.includes("Forbidden")) {
-      errorMessage = "Access denied. You may not have permission to view this PDF."
-    } else if (error.message?.includes("network") || error.message?.includes("fetch")) {
-      errorMessage = "Network error. Please check your internet connection and try again."
-    } else {
-      errorMessage = `Failed to load PDF: ${error.message || "Unknown error"}. Please try again.`
-    }
-    
-    setError(errorMessage)
+  const onDocumentLoadError = (err: Error) => {
+    console.error("Error loading PDF:", err, pdfUrl)
+    let msg = "Failed to load PDF document."
+    if (err.message?.includes("CORS")) msg = "CORS error: PDF server blocks cross-origin requests."
+    else if (err.message?.includes("404") || err.message?.includes("Not Found")) msg = "PDF file not found."
+    else if (err.message?.includes("403") || err.message?.includes("Forbidden")) msg = "Access denied."
+    else if (err.message?.toLowerCase().includes("fetch") || err.message?.toLowerCase().includes("network"))
+      msg = "Network error while loading PDF."
+    else msg = `Failed to load PDF: ${err.message || "Unknown error"}`
+    setError(msg)
     setLoading(false)
   }
 
-  const goToPrevPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1)
+  // ---- Spread calculation ----
+  // For two-page: we render spreadStart (odd) and spreadStart+1
+  const spreadStart = useMemo(() => {
+    if (!isTwoPage) return pageIndex
+    return pageIndex % 2 === 0 ? pageIndex - 1 : pageIndex
+  }, [pageIndex, isTwoPage])
+
+  const leftPage = isTwoPage ? spreadStart : pageIndex
+  const rightPage = isTwoPage ? spreadStart + 1 : null
+
+  const canPrev = useMemo(() => {
+    if (numPages <= 0) return false
+    return pageIndex > 1
+  }, [pageIndex, numPages])
+
+  const canNext = useMemo(() => {
+    if (numPages <= 0) return false
+    if (!isTwoPage) return pageIndex < numPages
+    // in spread mode, next jumps by 2
+    return spreadStart + 2 <= numPages + 1 // allow last single
+  }, [numPages, isTwoPage, pageIndex, spreadStart])
+
+  // ---- Turn page (animated) ----
+  const requestFlip = (dir: FlipDir) => {
+    if (isFlipping) return
+    if (dir === "next" && !canNext) return
+    if (dir === "prev" && !canPrev) return
+
+    let nextIndex = pageIndex
+    if (!isTwoPage) {
+      nextIndex = dir === "next" ? pageIndex + 1 : pageIndex - 1
+    } else {
+      // in spread mode, jump by 2 (but keep it aligned)
+      const base = spreadStart
+      nextIndex = dir === "next" ? base + 2 : Math.max(1, base - 2)
     }
+
+    setFlipDir(dir)
+    setPendingIndex(nextIndex)
+    setIsFlipping(true)
   }
 
-  const goToNextPage = () => {
-    if (currentPage < numPages) {
-      setCurrentPage(currentPage + 1)
+  const finishFlip = () => {
+    setIsFlipping(false)
+    if (pendingIndex != null) {
+      // clamp
+      const clamped = Math.max(1, Math.min(pendingIndex, numPages || pendingIndex))
+      setPageIndex(clamped)
     }
+    setPendingIndex(null)
   }
 
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (!open) return
-    if (e.key === "ArrowLeft") goToPrevPage()
-    if (e.key === "ArrowRight") goToNextPage()
-  }
-
+  // Keyboard
   useEffect(() => {
-    if (open) {
-      window.addEventListener("keydown", handleKeyDown as any)
-      return () => window.removeEventListener("keydown", handleKeyDown as any)
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight") requestFlip("next")
+      if (e.key === "ArrowLeft") requestFlip("prev")
+      if (e.key === "Escape") onOpenChange(false)
     }
-  }, [open, currentPage, numPages])
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, pageIndex, isTwoPage, canNext, canPrev, spreadStart, isFlipping, pendingIndex])
 
-  // Calculate which pages to show (two-page spread)
-  const leftPage = currentPage % 2 === 0 ? currentPage - 1 : currentPage
-  const rightPage = currentPage % 2 === 0 ? currentPage : currentPage + 1
+  // After flip animation, commit page change
+  const onFlipAnimationEnd = () => finishFlip()
 
-  // Don't render until we're on the client
-  if (!isClient) {
-    return null
-  }
+  if (!isClient) return null
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] w-full h-[95vh] p-0 bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 dark:from-amber-950 dark:via-orange-950 dark:to-amber-900 overflow-hidden">
-        {/* Accessibility: Hidden title and description for screen readers */}
+      {/* IMPORTANT: removed overflow-hidden here to avoid cropping */}
+      <DialogContent className="max-w-[96vw] w-full h-[96vh] p-0 bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 dark:from-amber-950 dark:via-orange-950 dark:to-amber-900">
         <VisuallyHidden.Root>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
             Book reader for {title}. Use arrow keys or navigation buttons to turn pages.
           </DialogDescription>
         </VisuallyHidden.Root>
-        
+
         {/* Header */}
-        <div className="absolute top-0 left-0 right-0 z-50 bg-gradient-to-r from-amber-800/90 to-orange-800/90 dark:from-amber-900/90 dark:to-orange-900/90 backdrop-blur-sm border-b border-amber-700/50 px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <BookOpen className="w-5 h-5 text-amber-100" />
-            <h2 className="text-lg font-semibold text-amber-50 truncate max-w-md">{title}</h2>
+        <div className="br-header">
+          <div className="flex items-center gap-3 min-w-0">
+            <BookOpen className="w-5 h-5 text-amber-100 shrink-0" />
+            <h2 className="text-lg font-semibold text-amber-50 truncate">{title}</h2>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-amber-100 px-3 py-1 bg-amber-900/50 rounded-full">
-              Page {currentPage} of {numPages}
+              Page {Math.min(pageIndex, numPages || pageIndex)} of {numPages}
             </span>
             <Button
               variant="ghost"
@@ -181,8 +227,8 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
           </div>
         </div>
 
-        {/* Book Container */}
-        <div className="w-full h-full flex items-center justify-center pt-16 pb-24 overflow-hidden">
+        {/* Body */}
+        <div ref={containerRef} className="br-body">
           <Document
             file={pdfUrl}
             onLoadSuccess={onDocumentLoadSuccess}
@@ -203,13 +249,13 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
                 <p className="text-sm text-red-700 dark:text-red-300 text-center max-w-md">
                   {error || "The PDF may be unavailable or there may be a network issue. Please try again."}
                 </p>
-                <Button 
-                  onClick={() => { 
-                    setLoading(true); 
-                    setError(null);
-                    setCurrentPage(1);
-                    setNumPages(0);
-                  }} 
+                <Button
+                  onClick={() => {
+                    setLoading(true)
+                    setError(null)
+                    setPageIndex(1)
+                    setNumPages(0)
+                  }}
                   variant="outline"
                 >
                   Retry
@@ -222,81 +268,146 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
               standardFontDataUrl: `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/standard_fonts/`,
             }}
           >
-              {numPages > 0 && (
-                <div className="relative flex items-center justify-center gap-2 perspective-1000 w-full h-full overflow-auto">
-                  {/* Book Pages Container */}
-                  <div className="relative flex items-center gap-1 book-container" style={{ minHeight: 'calc(95vh - 200px)' }}>
-                    {/* Left Page */}
-                    <div className="relative book-page book-page-left" style={{ width: `${pageWidth}px`, minHeight: 'calc(95vh - 200px)' }}>
-                      <div className="book-page-inner" style={{ width: '100%', minHeight: 'calc(95vh - 200px)', overflow: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '1rem' }}>
-                        <Page
-                          pageNumber={leftPage}
-                          width={pageWidth - 32}
-                          renderTextLayer={true}
-                          renderAnnotationLayer={true}
-                          className="book-page-content"
-                            loading={
-                              <div className="flex items-center justify-center h-full">
-                                <div className="w-8 h-8 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
-                              </div>
-                            }
-                            onRenderError={(error) => {
-                              console.error('Error rendering page', leftPage, ':', error)
-                            }}
-                            onRenderSuccess={() => {
-                              console.log('Page', leftPage, 'rendered successfully')
-                            }}
-                          />
-                      </div>
-                      {leftPage % 2 === 0 && (
-                        <div className="absolute inset-0 bg-gradient-to-r from-amber-900/20 to-transparent pointer-events-none"></div>
-                      )}
+            {numPages > 0 && (
+              <div className="br-bookWrap">
+                {/* Book (one-page or two-page) */}
+                <div className={`br-book ${isTwoPage ? "two" : "one"}`}>
+                  {/* LEFT (or single) page */}
+                  <div className="br-page br-left" style={{ width: `${pageWidth}px` }}>
+                    <div className="br-pageInner">
+                      <Page
+                        key={`p-${leftPage}-${pageWidth}`}
+                        pageNumber={leftPage}
+                        width={pageWidth}
+                        renderTextLayer={!isFlipping}
+                        renderAnnotationLayer={!isFlipping}
+                        loading={
+                          <div className="flex items-center justify-center h-[60vh]">
+                            <div className="w-8 h-8 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
+                          </div>
+                        }
+                      />
                     </div>
+                    <div className="br-shadow-left" />
+                  </div>
 
-                    {/* Book Spine Shadow */}
-                    <div className="w-2 h-full bg-gradient-to-r from-amber-900/30 via-amber-800/50 to-amber-900/30 shadow-2xl"></div>
+                  {/* Spine for two-page */}
+                  {isTwoPage && <div className="br-spine" />}
 
-                    {/* Right Page */}
-                    {rightPage <= numPages && (
-                      <div className="relative book-page book-page-right" style={{ width: `${pageWidth}px`, minHeight: 'calc(95vh - 200px)' }}>
-                        <div className="book-page-inner" style={{ width: '100%', minHeight: 'calc(95vh - 200px)', overflow: 'auto', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '1rem' }}>
+                  {/* RIGHT page (two-page only) */}
+                  {isTwoPage && rightPage && rightPage <= numPages && (
+                    <div className="br-page br-right" style={{ width: `${pageWidth}px` }}>
+                      <div className="br-pageInner">
+                        <Page
+                          key={`p-${rightPage}-${pageWidth}`}
+                          pageNumber={rightPage}
+                          width={pageWidth}
+                          renderTextLayer={!isFlipping}
+                          renderAnnotationLayer={!isFlipping}
+                          loading={
+                            <div className="flex items-center justify-center h-[60vh]">
+                              <div className="w-8 h-8 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
+                            </div>
+                          }
+                        />
+                      </div>
+                      <div className="br-shadow-right" />
+                    </div>
+                  )}
+
+                  {/* FLIP LAYER (animated sheet) */}
+                  {/* We overlay a “sheet” that flips, then we commit pageIndex on animation end */}
+                  {isTwoPage ? (
+                    <div
+                      className={`br-flipSheet ${isFlipping ? `flip-${flipDir}` : ""}`}
+                      style={{
+                        width: `${pageWidth}px`,
+                        // When going next, sheet starts on the RIGHT and flips left.
+                        // When going prev, sheet starts on the LEFT and flips right.
+                        left: flipDir === "next" ? `${pageWidth + 18}px` : `0px`,
+                        transformOrigin: flipDir === "next" ? "left center" : "right center",
+                      }}
+                      onAnimationEnd={onFlipAnimationEnd}
+                      aria-hidden
+                    >
+                      <div className="br-flipFront">
+                        {/* show the page that is being turned */}
+                        <div className="br-pageInner">
                           <Page
-                            pageNumber={rightPage}
-                            width={pageWidth - 32}
-                            renderTextLayer={true}
-                            renderAnnotationLayer={true}
-                            className="book-page-content"
-                              loading={
-                                <div className="flex items-center justify-center h-full">
-                                  <div className="w-8 h-8 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></div>
-                                </div>
-                              }
-                              onRenderError={(error) => {
-                                console.error('Error rendering page', rightPage, ':', error)
-                              }}
-                            onRenderSuccess={() => {
-                              console.log('Page', rightPage, 'rendered successfully')
-                            }}
+                            key={`flip-front-${flipDir}-${isFlipping}-${pageWidth}-${spreadStart}`}
+                            pageNumber={flipDir === "next" ? Math.min(spreadStart + 1, numPages) : spreadStart}
+                            width={pageWidth}
+                            renderTextLayer={false}
+                            renderAnnotationLayer={false}
                           />
                         </div>
-                        {rightPage % 2 === 1 && (
-                          <div className="absolute inset-0 bg-gradient-to-l from-amber-900/20 to-transparent pointer-events-none"></div>
-                        )}
                       </div>
-                    )}
-                  </div>
+                      <div className="br-flipBack">
+                        {/* show the next/prev page on the back for realism */}
+                        <div className="br-pageInner">
+                          <Page
+                            key={`flip-back-${flipDir}-${isFlipping}-${pageWidth}-${spreadStart}`}
+                            pageNumber={
+                              flipDir === "next"
+                                ? Math.min(spreadStart + 2, numPages)
+                                : Math.max(1, spreadStart - 1)
+                            }
+                            width={pageWidth}
+                            renderTextLayer={false}
+                            renderAnnotationLayer={false}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    // Single-page: flip sheet covers the whole page
+                    <div
+                      className={`br-flipSheet single ${isFlipping ? `flip-${flipDir}` : ""}`}
+                      style={{
+                        width: `${pageWidth}px`,
+                        left: 0,
+                        transformOrigin: flipDir === "next" ? "left center" : "right center",
+                      }}
+                      onAnimationEnd={onFlipAnimationEnd}
+                      aria-hidden
+                    >
+                      <div className="br-flipFront">
+                        <div className="br-pageInner">
+                          <Page
+                            key={`flip-front-single-${flipDir}-${isFlipping}-${pageWidth}-${pageIndex}`}
+                            pageNumber={pageIndex}
+                            width={pageWidth}
+                            renderTextLayer={false}
+                            renderAnnotationLayer={false}
+                          />
+                        </div>
+                      </div>
+                      <div className="br-flipBack">
+                        <div className="br-pageInner">
+                          <Page
+                            key={`flip-back-single-${flipDir}-${isFlipping}-${pageWidth}-${pageIndex}`}
+                            pageNumber={flipDir === "next" ? Math.min(pageIndex + 1, numPages) : Math.max(1, pageIndex - 1)}
+                            width={pageWidth}
+                            renderTextLayer={false}
+                            renderAnnotationLayer={false}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </Document>
+              </div>
+            )}
+          </Document>
         </div>
 
-        {/* Navigation Controls */}
+        {/* Footer controls */}
         {!loading && !error && numPages > 0 && (
-          <div className="absolute bottom-0 left-0 right-0 z-50 bg-gradient-to-r from-amber-800/90 to-orange-800/90 dark:from-amber-900/90 dark:to-orange-900/90 backdrop-blur-sm border-t border-amber-700/50 px-6 py-4">
-            <div className="flex items-center justify-between max-w-4xl mx-auto">
+          <div className="br-footer">
+            <div className="flex items-center justify-between max-w-4xl mx-auto w-full">
               <Button
-                onClick={goToPrevPage}
-                disabled={currentPage <= 1}
+                onClick={() => requestFlip("prev")}
+                disabled={!canPrev || isFlipping}
                 className="bg-amber-700 hover:bg-amber-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                 size="lg"
               >
@@ -309,12 +420,12 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
                   type="number"
                   min={1}
                   max={numPages}
-                  value={currentPage}
+                  value={Math.min(pageIndex, numPages)}
                   onChange={(e) => {
-                    const page = parseInt(e.target.value)
-                    if (page >= 1 && page <= numPages) {
-                      setCurrentPage(page)
-                    }
+                    const v = parseInt(e.target.value)
+                    if (!Number.isFinite(v)) return
+                    const clamped = Math.max(1, Math.min(v, numPages))
+                    setPageIndex(clamped)
                   }}
                   className="w-20 px-3 py-2 text-center bg-amber-900/50 border border-amber-700 rounded-lg text-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
                 />
@@ -322,8 +433,8 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
               </div>
 
               <Button
-                onClick={goToNextPage}
-                disabled={currentPage >= numPages}
+                onClick={() => requestFlip("next")}
+                disabled={!canNext || isFlipping}
                 className="bg-amber-700 hover:bg-amber-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                 size="lg"
               >
@@ -337,4 +448,3 @@ export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProp
     </Dialog>
   )
 }
-

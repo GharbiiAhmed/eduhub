@@ -1,86 +1,195 @@
-/* Book Reader Styles */
-.perspective-1000 {
-  perspective: 1000px;
+/* --- Layout wrappers --- */
+.br-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  background: linear-gradient(to right, rgba(146,64,14,0.92), rgba(154,52,18,0.92));
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(180,83,9,0.35);
 }
 
-.book-container {
-  transform-style: preserve-3d;
+.br-body {
+  position: absolute;
+  inset: 0;
+  padding-top: 64px;
+  padding-bottom: 92px;
+  /* IMPORTANT: allow the book to fit without being cropped */
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.book-page {
-  position: relative;
-  background: #fef3e2;
-  box-shadow: 
-    -5px 0 15px rgba(0, 0, 0, 0.1),
-    inset -2px 0 5px rgba(0, 0, 0, 0.05);
-  transition: transform 0.6s cubic-bezier(0.645, 0.045, 0.355, 1);
-  transform-style: preserve-3d;
+.br-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  padding: 14px 18px;
+
+  background: linear-gradient(to right, rgba(146,64,14,0.92), rgba(154,52,18,0.92));
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(180,83,9,0.35);
+  display: flex;
+  justify-content: center;
 }
 
-.book-page-left {
-  border-radius: 8px 0 0 8px;
-  transform-origin: right center;
-}
-
-.book-page-right {
-  border-radius: 0 8px 8px 0;
-  transform-origin: left center;
-}
-
-.book-page-inner {
-  position: relative;
+/* --- Book wrapper --- */
+.br-bookWrap {
   width: 100%;
   height: 100%;
-  overflow: auto;
-  background: white;
-  border: 1px solid rgba(180, 83, 9, 0.2);
-}
-
-.book-page-content {
-  width: 100% !important;
-  height: auto !important;
-  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.05);
-  display: flex !important;
-  justify-content: center;
+  overflow: auto; /* one scroll level only */
+  display: flex;
   align-items: center;
+  justify-content: center;
+  padding: 18px;
 }
 
-.book-page-content canvas {
-  display: block !important;
-  max-width: 100% !important;
-  height: auto !important;
-  object-fit: contain;
+.br-book {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  perspective: 2200px;
 }
 
-/* Page turning animation */
-.book-page.turning {
-  transform: rotateY(-15deg);
-  box-shadow: 
-    -10px 0 30px rgba(0, 0, 0, 0.2),
-    inset -5px 0 10px rgba(0, 0, 0, 0.1);
+.br-book.one {
+  gap: 0;
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .book-page {
-    box-shadow: 
-      -3px 0 10px rgba(0, 0, 0, 0.1),
-      inset -1px 0 3px rgba(0, 0, 0, 0.05);
-  }
+.br-book.two {
+  gap: 18px;
 }
 
-/* Dark mode adjustments */
-.dark .book-page {
-  background: #1c1917;
-  box-shadow: 
-    -5px 0 15px rgba(0, 0, 0, 0.3),
-    inset -2px 0 5px rgba(0, 0, 0, 0.1);
+/* --- Page base --- */
+.br-page {
+  position: relative;
+  background: rgba(255,255,255,0.98);
+  border-radius: 14px;
+  box-shadow: 0 18px 60px rgba(0,0,0,0.20);
+  overflow: hidden;
 }
 
-.dark .book-page-inner {
-  background: #292524;
-  border-color: rgba(180, 83, 9, 0.4);
+.br-pageInner {
+  padding: 14px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
 }
 
+/* Shadows for realism */
+.br-shadow-left {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(to right, rgba(120,53,15,0.14), transparent 25%);
+}
 
+.br-shadow-right {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(to left, rgba(120,53,15,0.14), transparent 25%);
+}
 
+/* Spine */
+.br-spine {
+  width: 18px;
+  align-self: stretch;
+  border-radius: 10px;
+  background: linear-gradient(to right,
+    rgba(120,53,15,0.25),
+    rgba(120,53,15,0.55),
+    rgba(120,53,15,0.25)
+  );
+  box-shadow: 0 0 25px rgba(0,0,0,0.25);
+}
+
+/* --- Flip sheet (animated page) --- */
+.br-flipSheet {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 14px;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  pointer-events: none; /* don’t block clicks */
+  z-index: 50;
+  box-shadow: 0 18px 60px rgba(0,0,0,0.25);
+}
+
+.br-flipSheet .br-flipFront,
+.br-flipSheet .br-flipBack {
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.98);
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+.br-flipSheet .br-flipBack {
+  transform: rotateY(180deg);
+}
+
+/* Add “paper edge” gradient while flipping */
+.br-flipSheet::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  pointer-events: none;
+  background: linear-gradient(to right, rgba(0,0,0,0.08), transparent 20%, transparent 80%, rgba(0,0,0,0.12));
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.br-flipSheet.flip-next::after,
+.br-flipSheet.flip-prev::after {
+  opacity: 1;
+}
+
+/* Animation */
+.br-flipSheet.flip-next {
+  animation: brFlipNext 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.br-flipSheet.flip-prev {
+  animation: brFlipPrev 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes brFlipNext {
+  0%   { transform: rotateY(0deg); }
+  100% { transform: rotateY(-180deg); }
+}
+
+@keyframes brFlipPrev {
+  0%   { transform: rotateY(0deg); }
+  100% { transform: rotateY(180deg); }
+}
+
+/* Single-page flip slightly different “feel” */
+.br-flipSheet.single.flip-next {
+  animation: brFlipNextSingle 0.75s cubic-bezier(0.2, 0.85, 0.2, 1) forwards;
+}
+.br-flipSheet.single.flip-prev {
+  animation: brFlipPrevSingle 0.75s cubic-bezier(0.2, 0.85, 0.2, 1) forwards;
+}
+
+@keyframes brFlipNextSingle {
+  0%   { transform: rotateY(0deg); }
+  100% { transform: rotateY(-180deg); }
+}
+@keyframes brFlipPrevSingle {
+  0%   { transform: rotateY(0deg); }
+  100% { transform: rotateY(180deg); }
+}
