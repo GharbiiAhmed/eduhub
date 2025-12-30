@@ -34,32 +34,45 @@ interface BookReaderProps {
 
 type FlipDir = "next" | "prev"
 
+type RenderFlags = {
+  left: boolean
+  right: boolean
+}
+
 /* ================= COMPONENT ================= */
 
-export function BookReader({
-  pdfUrl,
-  title,
-  open,
-  onOpenChange,
-}: BookReaderProps) {
+export function BookReader({ pdfUrl, title, open, onOpenChange }: BookReaderProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   const [numPages, setNumPages] = useState(0)
-  const [pageIndex, setPageIndex] = useState(1)
-  const [pageWidth, setPageWidth] = useState(520)
 
+  // "Displayed" pages (what user sees)
+  const [displayIndex, setDisplayIndex] = useState(1)
+
+  // Next requested page (render in background, then swap)
+  const [targetIndex, setTargetIndex] = useState<number | null>(null)
+
+  const [pageWidth, setPageWidth] = useState(520)
   const [isTwoPage, setIsTwoPage] = useState(false)
+
+  // Flip animation
   const [isFlipping, setIsFlipping] = useState(false)
-  const [freezeRender, setFreezeRender] = useState(false)
   const [flipDir, setFlipDir] = useState<FlipDir>("next")
-  const [pendingIndex, setPendingIndex] = useState<number | null>(null)
+
+  // When we are waiting for hidden pages to finish rendering
+  const [isPreloading, setIsPreloading] = useState(false)
+  const [renderedTarget, setRenderedTarget] = useState<RenderFlags>({ left: false, right: false })
 
   /* ---------- INIT ---------- */
 
   useEffect(() => {
     if (!open) return
     initializeWorker()
-    setPageIndex(1)
+    setDisplayIndex(1)
+    setTargetIndex(null)
+    setIsFlipping(false)
+    setIsPreloading(false)
+    setRenderedTarget({ left: false, right: false })
     setNumPages(0)
   }, [open, pdfUrl])
 
@@ -75,11 +88,8 @@ export function BookReader({
       const two = w >= 1100
       setIsTwoPage(two)
 
-      if (two) {
-        setPageWidth(Math.min(650, Math.floor((w - 80) / 2)))
-      } else {
-        setPageWidth(Math.min(900, w - 48))
-      }
+      if (two) setPageWidth(Math.min(650, Math.floor((w - 80) / 2)))
+      else setPageWidth(Math.min(900, w - 48))
     }
 
     measure()
@@ -88,59 +98,76 @@ export function BookReader({
     return () => ro.disconnect()
   }, [open])
 
-  /* ---------- PAGE CALC (NO FLASH) ---------- */
+  /* ---------- PAGE CALC HELPERS ---------- */
 
-  const effectivePageIndex =
-    isFlipping && pendingIndex !== null ? pendingIndex : pageIndex
+  const calcSpreadStart = (idx: number) => {
+    if (!isTwoPage) return idx
+    return idx % 2 === 0 ? idx - 1 : idx
+  }
 
-  const spreadStart = useMemo(() => {
-    if (!isTwoPage) return effectivePageIndex
-    return effectivePageIndex % 2 === 0
-      ? effectivePageIndex - 1
-      : effectivePageIndex
-  }, [effectivePageIndex, isTwoPage])
+  const displaySpreadStart = useMemo(() => calcSpreadStart(displayIndex), [displayIndex, isTwoPage])
+  const displayLeft = isTwoPage ? displaySpreadStart : displayIndex
+  const displayRight = isTwoPage ? displaySpreadStart + 1 : null
 
-  const leftPage = isTwoPage ? spreadStart : effectivePageIndex
-  const rightPage = isTwoPage ? spreadStart + 1 : null
+  const targetSpreadStart = useMemo(() => (targetIndex ? calcSpreadStart(targetIndex) : null), [targetIndex, isTwoPage])
+  const targetLeft = targetSpreadStart ? (isTwoPage ? targetSpreadStart : targetIndex!) : null
+  const targetRight = targetSpreadStart && isTwoPage ? targetSpreadStart + 1 : null
 
-  const canPrev = effectivePageIndex > 1
-  const canNext = isTwoPage
-    ? spreadStart + 2 <= numPages + 1
-    : effectivePageIndex < numPages
+  const canPrev = displayIndex > 1
+  const canNext = isTwoPage ? displaySpreadStart + 2 <= numPages + 1 : displayIndex < numPages
 
-  /* ---------- FLIP ---------- */
+  /* ---------- REQUEST FLIP ---------- */
 
   const requestFlip = (dir: FlipDir) => {
-    if (isFlipping) return
+    if (isFlipping || isPreloading) return
     if (dir === "next" && !canNext) return
     if (dir === "prev" && !canPrev) return
 
     const next =
       isTwoPage
         ? dir === "next"
-          ? spreadStart + 2
-          : Math.max(1, spreadStart - 2)
+          ? displaySpreadStart + 2
+          : Math.max(1, displaySpreadStart - 2)
         : dir === "next"
-        ? pageIndex + 1
-        : pageIndex - 1
+        ? displayIndex + 1
+        : displayIndex - 1
 
-    setFreezeRender(true)
     setFlipDir(dir)
-    setPendingIndex(next)
+    setTargetIndex(next)
+    setRenderedTarget({ left: false, right: false })
     setIsFlipping(true)
   }
 
-  const finishFlip = () => {
-    if (pendingIndex !== null) {
-      setPageIndex(Math.min(Math.max(1, pendingIndex), numPages))
-    }
-
-    requestAnimationFrame(() => {
-      setIsFlipping(false)
-      setPendingIndex(null)
-      setFreezeRender(false)
-    })
+  /* ---------- AFTER FLIP ANIMATION ENDS ---------- */
+  // We do NOT swap to target immediately.
+  // We start preloading hidden pages, show a paper overlay (not white),
+  // then swap instantly when the hidden pages are rendered.
+  const onFlipAnimationEnd = () => {
+    // animation finished, now preload
+    setIsFlipping(false)
+    setIsPreloading(true)
   }
+
+  /* ---------- WHEN HIDDEN TARGET PAGES ARE READY, SWAP ---------- */
+
+  useEffect(() => {
+    if (!isPreloading) return
+    if (!targetIndex) return
+
+    const needLeft = true
+    const needRight = isTwoPage ? (targetRight !== null && targetRight <= numPages) : false
+
+    if (!renderedTarget.left) return
+    if (needRight && !renderedTarget.right) return
+
+    // Swap instantly (no canvas white flash, because these are already rendered)
+    requestAnimationFrame(() => {
+      setDisplayIndex(targetIndex)
+      setTargetIndex(null)
+      setIsPreloading(false)
+      setRenderedTarget({ left: false, right: false })
+    })
+  }, [isPreloading, targetIndex, renderedTarget, isTwoPage, targetRight, numPages])
 
   /* ---------- KEYBOARD ---------- */
 
@@ -153,7 +180,7 @@ export function BookReader({
     }
     window.addEventListener("keydown", h)
     return () => window.removeEventListener("keydown", h)
-  }, [open, effectivePageIndex, isTwoPage, isFlipping])
+  }, [open, displayIndex, isTwoPage, isFlipping, isPreloading, canNext, canPrev])
 
   /* ================= RENDER ================= */
 
@@ -189,65 +216,105 @@ export function BookReader({
           >
             {numPages > 0 && (
               <div className="br-bookWrap">
-                <div className={`br-book ${isTwoPage ? "two" : "one"}`}>
-                  {/* LEFT */}
+                <div className={`br-book ${isTwoPage ? "two" : "one"}`} style={{ position: "relative" }}>
+                  {/* ========== VISIBLE PAGES (NEVER HIDDEN / NEVER FLASH) ========== */}
                   <div className="br-page" style={{ width: pageWidth }}>
                     <Page
-                      pageNumber={leftPage}
+                      pageNumber={displayLeft}
                       width={pageWidth}
                       renderTextLayer={false}
                       renderAnnotationLayer={false}
-                      className={freezeRender ? "opacity-100" : "opacity-100"}
                     />
                   </div>
 
                   {isTwoPage && <div className="br-spine" />}
 
-                  {/* RIGHT */}
-                  {isTwoPage && rightPage && rightPage <= numPages && (
+                  {isTwoPage && displayRight && displayRight <= numPages && (
                     <div className="br-page" style={{ width: pageWidth }}>
                       <Page
-                        pageNumber={rightPage}
+                        pageNumber={displayRight}
                         width={pageWidth}
                         renderTextLayer={false}
                         renderAnnotationLayer={false}
-                        className={freezeRender ? "opacity-100" : "opacity-100"}
                       />
                     </div>
                   )}
 
-                  {/* FLIP SHEET */}
-                  <div
-                    className={`br-flipSheet ${isFlipping ? `flip-${flipDir}` : ""}`}
-                    style={{
-                      width: pageWidth,
-                      left: isTwoPage && flipDir === "next" ? pageWidth + 18 : 0,
-                      transformOrigin:
-                        flipDir === "next" ? "left center" : "right center",
-                    }}
-                    onAnimationEnd={finishFlip}
-                  >
-                    <div className="br-flipFront">
+                  {/* ========== FLIP SHEET OVERLAY ========== */}
+                  {/* Flip uses CURRENT visible pages for realism */}
+                  {(isFlipping || isPreloading) && (
+                    <div
+                      className={`br-flipSheet ${isFlipping ? `flip-${flipDir}` : ""}`}
+                      style={{
+                        width: pageWidth,
+                        left: isTwoPage && flipDir === "next" ? pageWidth + 18 : 0,
+                        transformOrigin: flipDir === "next" ? "left center" : "right center",
+                      }}
+                      onAnimationEnd={isFlipping ? onFlipAnimationEnd : undefined}
+                      aria-hidden
+                    >
+                      <div className="br-flipFront">
+                        <Page
+                          pageNumber={displayLeft}
+                          width={pageWidth}
+                          renderTextLayer={false}
+                          renderAnnotationLayer={false}
+                        />
+                      </div>
+                      <div className="br-flipBack">
+                        <Page
+                          pageNumber={
+                            flipDir === "next"
+                              ? Math.min(displayLeft + 1, numPages)
+                              : Math.max(1, displayLeft - 1)
+                          }
+                          width={pageWidth}
+                          renderTextLayer={false}
+                          renderAnnotationLayer={false}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ========== PAPER OVERLAY WHILE PRELOADING (HIDES WHITE CANVAS CLEAR) ========== */}
+                  {isPreloading && <div className="br-paperOverlay" aria-hidden />}
+
+                  {/* ========== HIDDEN PRELOAD PAGES (RENDER OFFSCREEN, THEN SWAP) ========== */}
+                  {targetIndex !== null && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: -100000,
+                        top: 0,
+                        width: 1,
+                        height: 1,
+                        overflow: "hidden",
+                        opacity: 0,
+                        pointerEvents: "none",
+                      }}
+                      aria-hidden
+                    >
+                      {/* preload left */}
                       <Page
-                        pageNumber={leftPage}
+                        pageNumber={targetLeft ?? 1}
                         width={pageWidth}
                         renderTextLayer={false}
                         renderAnnotationLayer={false}
+                        onRenderSuccess={() => setRenderedTarget((p) => ({ ...p, left: true }))}
                       />
+
+                      {/* preload right if needed */}
+                      {isTwoPage && targetRight && targetRight <= numPages && (
+                        <Page
+                          pageNumber={targetRight}
+                          width={pageWidth}
+                          renderTextLayer={false}
+                          renderAnnotationLayer={false}
+                          onRenderSuccess={() => setRenderedTarget((p) => ({ ...p, right: true }))}
+                        />
+                      )}
                     </div>
-                    <div className="br-flipBack">
-                      <Page
-                        pageNumber={
-                          flipDir === "next"
-                            ? Math.min(leftPage + 1, numPages)
-                            : Math.max(1, leftPage - 1)
-                        }
-                        width={pageWidth}
-                        renderTextLayer={false}
-                        renderAnnotationLayer={false}
-                      />
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             )}
@@ -256,19 +323,13 @@ export function BookReader({
 
         {/* FOOTER */}
         <div className="br-footer">
-          <Button
-            onClick={() => requestFlip("prev")}
-            disabled={!canPrev || isFlipping}
-          >
+          <Button onClick={() => requestFlip("prev")} disabled={!canPrev || isFlipping || isPreloading}>
             <ChevronLeft /> Prev
           </Button>
           <span>
-            {effectivePageIndex} / {numPages}
+            {displayIndex} / {numPages}
           </span>
-          <Button
-            onClick={() => requestFlip("next")}
-            disabled={!canNext || isFlipping}
-          >
+          <Button onClick={() => requestFlip("next")} disabled={!canNext || isFlipping || isPreloading}>
             Next <ChevronRight />
           </Button>
         </div>
