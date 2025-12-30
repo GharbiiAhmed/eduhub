@@ -82,16 +82,16 @@ export default function StudentLessonPage({ params }: { params: Promise<{ lesson
                 setVideoUrl(lessonData.video_url)
               } else {
                 // Always try signed URL first - it's more reliable and works for both public and private buckets
-                const { data: signedData, error: signedError } = await supabase
-                  .storage
-                  .from('lesson-videos')
-                  .createSignedUrl(filePath, 7200) // 2 hour expiry
-                
-                if (!signedError && signedData?.signedUrl) {
-                  console.log('Generated signed URL successfully')
-                  setVideoUrl(signedData.signedUrl)
-                } else {
-                  console.error('Error generating signed URL:', signedError)
+              const { data: signedData, error: signedError } = await supabase
+                .storage
+                .from('lesson-videos')
+                .createSignedUrl(filePath, 7200) // 2 hour expiry
+              
+              if (!signedError && signedData?.signedUrl) {
+                console.log('Generated signed URL successfully')
+                setVideoUrl(signedData.signedUrl)
+              } else {
+                console.error('Error generating signed URL:', signedError)
                   
                   // If bucket not found error, the bucket might not exist or be misconfigured
                   if (signedError?.message?.includes('Bucket not found') || signedError?.message?.includes('bucket')) {
@@ -101,16 +101,16 @@ export default function StudentLessonPage({ params }: { params: Promise<{ lesson
                     setVideoError('Unable to access video storage. Please contact support if this issue persists.')
                   } else {
                     // Fallback: try public URL (only if bucket exists)
-                    const { data: publicUrlData } = supabase
-                      .storage
-                      .from('lesson-videos')
-                      .getPublicUrl(filePath)
-                    
-                    if (publicUrlData?.publicUrl) {
+                const { data: publicUrlData } = supabase
+                  .storage
+                  .from('lesson-videos')
+                  .getPublicUrl(filePath)
+                
+                if (publicUrlData?.publicUrl) {
                       console.log('Using public URL as fallback:', publicUrlData.publicUrl)
-                      setVideoUrl(publicUrlData.publicUrl)
-                    } else {
-                      console.error('Failed to get public URL')
+                  setVideoUrl(publicUrlData.publicUrl)
+                } else {
+                  console.error('Failed to get public URL')
                       // Last resort: use original URL
                       console.warn('Using original URL as last resort. Signed URL error:', signedError)
                       setVideoUrl(lessonData.video_url)
