@@ -198,11 +198,16 @@
 .br-paperOverlay {
   position: absolute;
   inset: 0;
-  background: #fef3e2; /* paper color */
-  opacity: 1;
-  z-index: 60;
-  pointer-events: none;
+  background: #fef3e2;
+  z-index: 50;
+  animation: paperFade 120ms ease-out forwards;
 }
+
+@keyframes paperFade {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
 
 /* optional: make it feel like paper, not flat */
 .br-paperOverlay::after {
