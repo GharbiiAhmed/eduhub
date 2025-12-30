@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useEffect, useState, use } from "react"
 import { useRouter } from "next/navigation"
 import QuizSection from "@/components/student/quiz-section"
+import ModuleCurriculumSidebar from "@/components/student/module-curriculum-sidebar"
 
 export default function StudentLessonPage({ params }: { params: Promise<{ lessonId: string }> }) {
   const { lessonId } = use(params)
@@ -16,6 +17,8 @@ export default function StudentLessonPage({ params }: { params: Promise<{ lesson
   const [quizzes, setQuizzes] = useState<any[]>([])
   const [videoError, setVideoError] = useState<string | null>(null)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const [moduleId, setModuleId] = useState<string | null>(null)
+  const [courseId, setCourseId] = useState<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -31,10 +34,18 @@ export default function StudentLessonPage({ params }: { params: Promise<{ lesson
         return
       }
 
-      const { data: lessonData } = await supabase.from("lessons").select("*").eq("id", lessonId).single()
+      const { data: lessonData } = await supabase
+        .from("lessons")
+        .select("*, modules(id, course_id)")
+        .eq("id", lessonId)
+        .single()
 
       if (lessonData) {
         setLesson(lessonData)
+        setModuleId(lessonData.module_id)
+        if (lessonData.modules) {
+          setCourseId(lessonData.modules.course_id)
+        }
         
         // If video URL exists, try to get a working URL
         if (lessonData.video_url) {
@@ -228,13 +239,26 @@ export default function StudentLessonPage({ params }: { params: Promise<{ lesson
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">{lesson.title}</h1>
-        <Button variant="outline" onClick={() => router.back()}>
-          Back
-        </Button>
-      </div>
+    <div className="flex gap-6 max-w-7xl mx-auto">
+      {/* Sidebar */}
+      {moduleId && (
+        <div className="flex-shrink-0">
+          <ModuleCurriculumSidebar
+            moduleId={moduleId}
+            currentLessonId={lessonId}
+            courseId={courseId || undefined}
+          />
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div className="flex-1 space-y-6 min-w-0">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold">{lesson.title}</h1>
+          <Button variant="outline" onClick={() => router.back()}>
+            Back
+          </Button>
+        </div>
 
       <Card>
         <CardHeader>
@@ -408,6 +432,7 @@ export default function StudentLessonPage({ params }: { params: Promise<{ lesson
           ))}
         </div>
       )}
+      </div>
     </div>
   )
 }
