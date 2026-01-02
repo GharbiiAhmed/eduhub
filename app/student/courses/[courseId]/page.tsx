@@ -9,7 +9,7 @@ import { useEffect, useState, use } from "react"
 import { useRouter } from "next/navigation"
 import { RatingDisplay } from "@/components/course/rating-display"
 import { CourseRatingSection } from "@/components/student/course-rating-section"
-import BottomCurriculum from "@/components/student/bottom-curriculum"
+import ModuleCurriculumSidebar from "@/components/student/module-curriculum-sidebar"
 import { 
   BookOpen, 
   Info, 
@@ -115,9 +115,21 @@ export default function StudentCourseDetailPage({
   }
 
   return (
-    <div className="max-w-7xl mx-auto py-6 space-y-6">
-      {/* Header */}
-      <div className="space-y-4">
+    <div className="flex gap-6 max-w-7xl mx-auto py-6">
+      {/* Sidebar - Show on all tabs */}
+      {currentModuleId && (
+        <div className="flex-shrink-0">
+          <ModuleCurriculumSidebar
+            moduleId={currentModuleId}
+            courseId={courseId}
+          />
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div className="flex-1 space-y-6 min-w-0">
+        {/* Header */}
+        <div className="space-y-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 space-y-3">
             <div className="flex items-center gap-2">
@@ -200,18 +212,22 @@ export default function StudentCourseDetailPage({
               <>
                 <div className="space-y-3">
                   {modules.map((module) => (
-                    <Card key={module.id} className="overflow-hidden">
-                      <CardHeader 
-                        className="cursor-pointer hover:bg-muted/50 transition-colors"
-                        onClick={() => setCurrentModuleId(currentModuleId === module.id ? null : module.id)}
-                      >
+                    <Card 
+                      key={module.id} 
+                      className={cn(
+                        "overflow-hidden cursor-pointer transition-all",
+                        currentModuleId === module.id && "border-2 border-primary"
+                      )}
+                      onClick={() => setCurrentModuleId(module.id)}
+                    >
+                      <CardHeader>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <CardTitle className="text-lg">
                               {module.order_index}. {module.title}
                             </CardTitle>
                             <Badge variant="outline" className="text-xs">
-                              {module.order_index}
+                              Module {module.order_index}
                             </Badge>
                           </div>
                         </div>
@@ -221,17 +237,16 @@ export default function StudentCourseDetailPage({
                           </CardDescription>
                         )}
                       </CardHeader>
-                      {currentModuleId === module.id && (
-                        <CardContent className="pt-0">
-                          <BottomCurriculum
-                            moduleId={module.id}
-                            courseId={courseId}
-                          />
-                        </CardContent>
-                      )}
                     </Card>
                   ))}
                 </div>
+                {!currentModuleId && modules.length > 0 && (
+                  <Card>
+                    <CardContent className="p-8 text-center text-muted-foreground">
+                      <p>Click on a module above to view its content in the sidebar</p>
+                    </CardContent>
+                  </Card>
+                )}
               </>
             ) : (
               <Card>
@@ -300,6 +315,7 @@ export default function StudentCourseDetailPage({
           </CardContent>
         </Card>
       )}
+      </div>
     </div>
   )
 }

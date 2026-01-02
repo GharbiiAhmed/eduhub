@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress"
 import { useEffect, useState, use } from "react"
 import { useRouter } from '@/i18n/routing'
 import { useTranslations } from 'next-intl'
-import BottomCurriculum from "@/components/student/bottom-curriculum"
+import ModuleCurriculumSidebar from "@/components/student/module-curriculum-sidebar"
 import { 
   PlayCircle, 
   CheckCircle2, 
@@ -253,9 +253,20 @@ export default function StudentLessonPage({
   }
 
   return (
-    <div className="max-w-7xl mx-auto py-6 space-y-6">
+    <div className="flex gap-6 max-w-7xl mx-auto py-6">
+      {/* Sidebar */}
+      {moduleId && (
+        <div className="flex-shrink-0">
+          <ModuleCurriculumSidebar
+            moduleId={moduleId}
+            currentLessonId={lessonId}
+            courseId={courseId || undefined}
+          />
+        </div>
+      )}
+
       {/* Main Content */}
-      <div className="space-y-6">
+      <div className="flex-1 space-y-6 min-w-0">
         {/* Header */}
         <div className="space-y-4">
           <div className="flex items-start justify-between gap-4">
@@ -509,15 +520,6 @@ export default function StudentLessonPage({
             )}
           </CardContent>
         </Card>
-
-        {/* Bottom Curriculum */}
-        {moduleId && (
-          <BottomCurriculum
-            moduleId={moduleId}
-            currentLessonId={lessonId}
-            courseId={courseId || undefined}
-          />
-        )}
       </div>
     </div>
   )
