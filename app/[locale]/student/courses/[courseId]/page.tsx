@@ -1,7 +1,7 @@
 "use client"
 
 import { createClient } from "@/lib/supabase/client"
-import { useRouter } from '@/i18n/routing'
+import { useRouter, Link } from '@/i18n/routing'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { useEffect, useState, use } from "react"
 import { RatingDisplay } from "@/components/course/rating-display"
 import { CourseRatingSection } from "@/components/student/course-rating-section"
-import ModuleCurriculumSidebar from "@/components/student/module-curriculum-sidebar"
+import ModuleCurriculumSidebar, { CurriculumToggleButton } from "@/components/student/module-curriculum-sidebar"
 import { 
   BookOpen, 
   Info, 
@@ -36,6 +36,7 @@ export default function StudentCourseDetailPage({
   const [certificate, setCertificate] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [currentModuleId, setCurrentModuleId] = useState<string | null>(null)
+  const [isCurriculumOpen, setIsCurriculumOpen] = useState(true)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -117,19 +118,30 @@ export default function StudentCourseDetailPage({
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)]">
-      {/* Sidebar - Show on all tabs */}
+    <div className="relative h-[calc(100vh-4rem)]">
+      {/* Toggle Button */}
       {currentModuleId && (
-        <div className="flex-shrink-0 h-full">
-          <ModuleCurriculumSidebar
-            moduleId={currentModuleId}
-            courseId={courseId}
-          />
-        </div>
+        <CurriculumToggleButton 
+          onClick={() => setIsCurriculumOpen(!isCurriculumOpen)}
+          isOpen={isCurriculumOpen}
+        />
+      )}
+
+      {/* Curriculum Drawer */}
+      {currentModuleId && (
+        <ModuleCurriculumSidebar
+          moduleId={currentModuleId}
+          courseId={courseId}
+          isOpen={isCurriculumOpen}
+          onToggle={() => setIsCurriculumOpen(false)}
+        />
       )}
 
       {/* Main Content */}
-      <div className="flex-1 space-y-6 min-w-0 overflow-y-auto p-6">
+      <div className={cn(
+        "h-full overflow-y-auto p-6 transition-all duration-300",
+        isCurriculumOpen ? "pr-[420px]" : "pr-6"
+      )}>
         {/* Header */}
         <div className="space-y-4">
         <div className="flex items-start justify-between gap-4">
