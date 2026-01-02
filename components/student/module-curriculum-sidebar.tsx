@@ -2,12 +2,10 @@
 
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import Link from "next/link"
+import { Link } from '@/i18n/routing'
 import { useEffect, useState } from "react"
-import { usePathname } from "next/navigation"
 import { useParams } from "next/navigation"
 import { 
   PlayCircle, 
@@ -21,9 +19,13 @@ import {
   Lock,
   Dumbbell,
   Video,
-  BookMarked
+  BookMarked,
+  ClipboardCheck,
+  Download,
+  GraduationCap
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useTranslations } from 'next-intl'
 
 interface Lesson {
   id: string
@@ -88,7 +90,8 @@ export default function ModuleCurriculumSidebar({
   currentAssignmentId,
   courseId 
 }: ModuleCurriculumSidebarProps) {
-  const pathname = usePathname()
+  const t = useTranslations('courses')
+  const tCommon = useTranslations('common')
   const params = useParams()
   const locale = params?.locale as string | undefined
   const localePrefix = locale ? `/${locale}` : ''
@@ -101,6 +104,8 @@ export default function ModuleCurriculumSidebar({
   const [lessonProgress, setLessonProgress] = useState<Record<string, LessonProgress>>({})
   const [quizProgress, setQuizProgress] = useState<Record<string, QuizProgress>>({})
   const [assignmentProgress, setAssignmentProgress] = useState<Record<string, AssignmentProgress>>({})
+  const [certificate, setCertificate] = useState<any>(null)
+  const [course, setCourse] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -120,6 +125,29 @@ export default function ModuleCurriculumSidebar({
 
       if (moduleData) {
         setModule(moduleData)
+      }
+
+      // Fetch course info if courseId is provided
+      if (courseId) {
+        const { data: courseData } = await supabase
+          .from("courses")
+          .select("*")
+          .eq("id", courseId)
+          .single()
+        
+        if (courseData) {
+          setCourse(courseData)
+        }
+
+        // Fetch certificate
+        const { data: certificateData } = await supabase
+          .from("certificates")
+          .select("*")
+          .eq("student_id", user.id)
+          .eq("course_id", courseId)
+          .single()
+
+        setCertificate(certificateData || null)
       }
 
       // Fetch lessons
@@ -227,7 +255,7 @@ export default function ModuleCurriculumSidebar({
             assignmentProgressMap[submission.assignment_id] = {
               submitted: true,
               graded: submission.status === 'graded',
-              score: submission.score || undefined
+              score: submission.score
             }
           })
           setAssignmentProgress(assignmentProgressMap)
@@ -242,26 +270,22 @@ export default function ModuleCurriculumSidebar({
     }
   }, [moduleId, courseId])
 
-  // Check if an item is locked (previous item not completed)
+  // Check if an item is locked
   const isItemLocked = (item: { type: 'lesson' | 'quiz' | 'assignment', id: string, order_index: number, parentLessonId?: string }): boolean => {
-    // First lesson is never locked
     if (item.type === 'lesson') {
       const lessonIndex = lessons.findIndex(l => l.id === item.id)
       if (lessonIndex === 0) return false
       
-      // Check if previous lesson is completed
       if (lessonIndex > 0) {
         const previousLesson = lessons[lessonIndex - 1]
         return !lessonProgress[previousLesson.id]?.completed
       }
     }
     
-    // For quizzes under a lesson, check if the parent lesson is completed
     if (item.type === 'quiz' && item.parentLessonId) {
       return !lessonProgress[item.parentLessonId]?.completed
     }
     
-    // For module-level quizzes, check previous items in sequence
     if (item.type === 'quiz' && !item.parentLessonId) {
       const allItems: Array<{ type: 'lesson' | 'quiz', id: string, order_index: number }> = []
       lessons.forEach(l => allItems.push({ type: 'lesson', id: l.id, order_index: l.order_index }))
@@ -281,7 +305,6 @@ export default function ModuleCurriculumSidebar({
       }
     }
     
-    // For assignments, check if all lessons and quizzes are completed
     if (item.type === 'assignment') {
       const allLessonsCompleted = lessons.every(l => lessonProgress[l.id]?.completed)
       const allModuleQuizzesCompleted = quizzes
@@ -304,28 +327,23 @@ export default function ModuleCurriculumSidebar({
   // Organize content by tab
   const getTabContent = () => {
     if (activeTab === 'course') {
-      // Show lessons with their associated quizzes nested
       const items: Array<{ type: 'lesson' | 'quiz' | 'assignment', data: any, parentLessonId?: string, order_index: number }> = []
       
       lessons.forEach(lesson => {
         items.push({ type: 'lesson', data: lesson, order_index: lesson.order_index })
-        // Add quizzes for this lesson
         quizzes.filter(q => q.lesson_id === lesson.id).forEach(quiz => {
           items.push({ type: 'quiz', data: quiz, parentLessonId: lesson.id, order_index: quiz.order_index })
         })
       })
       
-      // Add module-level quizzes
       quizzes.filter(q => q.module_id === moduleId && !q.lesson_id).forEach(quiz => {
         items.push({ type: 'quiz', data: quiz, order_index: quiz.order_index })
       })
       
       return items.sort((a, b) => a.order_index - b.order_index)
     } else if (activeTab === 'exercise') {
-      // Show assignments
       return assignments.map(a => ({ type: 'assignment' as const, data: a, order_index: a.order_index || 0 }))
     } else {
-      // Record tab - could show recorded sessions or other content
       return []
     }
   }
@@ -334,78 +352,92 @@ export default function ModuleCurriculumSidebar({
 
   if (loading) {
     return (
-      <Card className="w-80 h-fit sticky top-4">
-        <CardHeader>
-          <CardTitle className="text-lg">Loading...</CardTitle>
-        </CardHeader>
-      </Card>
+      <div className={cn("w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 h-full")}>
+        <div className="p-6">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+        </div>
+      </div>
     )
   }
 
   return (
-    <Card className="w-80 h-fit sticky top-4">
-      <CardHeader className="pb-3">
-        <div className="flex items-center gap-2 mb-3">
-          <BookOpen className="h-4 w-4 text-muted-foreground" />
-          <CardTitle className="text-lg uppercase text-xs font-bold tracking-wide">
-            Course Lessons
-          </CardTitle>
-        </div>
-        
-        {/* Tabs */}
-        <div className="flex gap-1 bg-muted p-1 rounded-md">
-          <button
-            onClick={() => setActiveTab('course')}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded text-sm font-medium transition-colors",
-              activeTab === 'course' 
-                ? "bg-background text-foreground shadow-sm" 
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <BookMarked className="h-4 w-4" />
-            Course
-          </button>
-          <button
-            onClick={() => setActiveTab('exercise')}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded text-sm font-medium transition-colors",
-              activeTab === 'exercise' 
-                ? "bg-background text-foreground shadow-sm" 
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Dumbbell className="h-4 w-4" />
-            Exercise
-          </button>
-          <button
-            onClick={() => setActiveTab('record')}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded text-sm font-medium transition-colors",
-              activeTab === 'record' 
-                ? "bg-background text-foreground shadow-sm" 
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Video className="h-4 w-4" />
-            Record
-          </button>
+    <div className={cn("w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 h-full overflow-y-auto")}>
+      <div className="p-6">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <BookOpen className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+              {module?.title || t('curriculum')}
+            </h2>
+          </div>
+          {module?.description && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+              {module.description}
+            </p>
+          )}
+          
+          {/* Progress */}
+          {totalItems > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-600 dark:text-gray-400">{tCommon('progress')}</span>
+                <span className="font-semibold text-primary">
+                  {moduleProgress}%
+                </span>
+              </div>
+              <Progress value={moduleProgress} className="h-2" />
+            </div>
+          )}
         </div>
 
-        {totalItems > 0 && activeTab === 'course' && (
-          <div className="flex items-center gap-2 mt-3">
-            <Progress value={moduleProgress} className="flex-1 h-2" />
-            <span className="text-xs text-muted-foreground min-w-[35px]">
-              {moduleProgress}%
-            </span>
+        {/* Tabs */}
+        <div className="mb-4">
+          <div className="flex gap-1 bg-muted p-1 rounded-md">
+            <button
+              onClick={() => setActiveTab('course')}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded text-sm font-medium transition-colors",
+                activeTab === 'course' 
+                  ? "bg-background text-foreground shadow-sm" 
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <BookMarked className="h-4 w-4" />
+              {t('course')}
+            </button>
+            <button
+              onClick={() => setActiveTab('exercise')}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded text-sm font-medium transition-colors",
+                activeTab === 'exercise' 
+                  ? "bg-background text-foreground shadow-sm" 
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Dumbbell className="h-4 w-4" />
+              {t('exercise')}
+            </button>
+            <button
+              onClick={() => setActiveTab('record')}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded text-sm font-medium transition-colors",
+                activeTab === 'record' 
+                  ? "bg-background text-foreground shadow-sm" 
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Video className="h-4 w-4" />
+              {t('record')}
+            </button>
           </div>
-        )}
-      </CardHeader>
-      <CardContent className="pt-0">
-        <div className="space-y-1 max-h-[calc(100vh-250px)] overflow-y-auto">
+        </div>
+
+        {/* Content List */}
+        <nav className="space-y-1 mb-6">
           {activeTab === 'course' && (
             <>
-              {tabContent.map((item, index) => {
+              {tabContent.map((item) => {
                 if (item.type === 'lesson') {
                   const lesson = item.data as Lesson
                   const progress = lessonProgress[lesson.id]
@@ -418,36 +450,31 @@ export default function ModuleCurriculumSidebar({
                       <Link
                         href={isLocked ? '#' : `${localePrefix}/student/lessons/${lesson.id}`}
                         className={cn(
-                          "flex items-center gap-2 p-2 rounded-lg transition-colors",
+                          "group flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors",
                           isLocked 
-                            ? "opacity-50 cursor-not-allowed" 
+                            ? "opacity-50 cursor-not-allowed text-gray-400" 
                             : isActive 
-                              ? "bg-primary/10 border border-primary/20" 
-                              : "hover:bg-muted/50"
+                              ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                              : "text-gray-700 hover:text-blue-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-blue-400 dark:hover:bg-gray-800"
                         )}
                         onClick={(e) => isLocked && e.preventDefault()}
                       >
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div className="flex items-center space-x-3 flex-1 min-w-0">
                           {isLocked ? (
-                            <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <Lock className="w-4 h-4 flex-shrink-0" />
                           ) : isCompleted ? (
-                            <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                            <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
                           ) : (
                             <Circle className={cn(
-                              "h-4 w-4 flex-shrink-0",
-                              isActive ? "text-primary" : "text-muted-foreground"
+                              "w-4 h-4 flex-shrink-0",
+                              isActive ? "text-blue-600" : "text-gray-400"
                             )} />
                           )}
-                          <PlayCircle className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                          <span className={cn(
-                            "text-sm truncate",
-                            isActive ? "font-medium text-primary" : isCompleted ? "text-muted-foreground" : ""
-                          )}>
-                            {lesson.title}
-                          </span>
+                          <PlayCircle className="w-4 h-4 flex-shrink-0" />
+                          <span className="truncate">{lesson.title}</span>
                         </div>
                         {lesson.duration && (
-                          <span className="text-xs text-muted-foreground flex-shrink-0">
+                          <span className="text-xs text-gray-500 dark:text-gray-400 ml-2 flex-shrink-0">
                             {lesson.duration}m
                           </span>
                         )}
@@ -464,41 +491,36 @@ export default function ModuleCurriculumSidebar({
                             key={quiz.id}
                             href={isQuizLocked ? '#' : `${localePrefix}/student/quizzes/${quiz.id}`}
                             className={cn(
-                              "flex items-center gap-2 p-2 pl-8 rounded-lg transition-colors",
+                              "group flex items-center justify-between px-3 py-2 pl-8 text-sm font-medium rounded-lg transition-colors",
                               isQuizLocked 
-                                ? "opacity-50 cursor-not-allowed" 
+                                ? "opacity-50 cursor-not-allowed text-gray-400" 
                                 : isQuizActive 
-                                  ? "bg-primary/10 border border-primary/20" 
-                                  : "hover:bg-muted/50"
+                                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                                  : "text-gray-700 hover:text-blue-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-blue-400 dark:hover:bg-gray-800"
                             )}
                             onClick={(e) => isQuizLocked && e.preventDefault()}
                           >
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <div className="flex items-center space-x-3 flex-1 min-w-0">
                               {isQuizLocked ? (
-                                <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                <Lock className="w-4 h-4 flex-shrink-0" />
                               ) : isQuizCompleted ? (
-                                <Award className="h-4 w-4 text-green-600 flex-shrink-0" />
+                                <Award className="w-4 h-4 text-green-600 flex-shrink-0" />
                               ) : (
                                 <Circle className={cn(
-                                  "h-4 w-4 flex-shrink-0",
-                                  isQuizActive ? "text-primary" : "text-muted-foreground"
+                                  "w-4 h-4 flex-shrink-0",
+                                  isQuizActive ? "text-blue-600" : "text-gray-400"
                                 )} />
                               )}
-                              <FileText className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                              <span className={cn(
-                                "text-sm truncate",
-                                isQuizActive ? "font-medium text-primary" : isQuizCompleted ? "text-muted-foreground" : ""
-                              )}>
-                                {quiz.title}
-                              </span>
+                              <FileText className="w-4 h-4 flex-shrink-0" />
+                              <span className="truncate">{quiz.title}</span>
                             </div>
                             {quizProgressData?.score !== undefined && (
-                              <span className={cn(
-                                "text-xs font-medium flex-shrink-0",
-                                quizProgressData.passed ? "text-green-600" : "text-red-600"
-                              )}>
+                              <Badge 
+                                variant={quizProgressData.passed ? "default" : "destructive"} 
+                                className="text-xs ml-2 flex-shrink-0"
+                              >
                                 {quizProgressData.score}%
-                              </span>
+                              </Badge>
                             )}
                           </Link>
                         )
@@ -506,7 +528,6 @@ export default function ModuleCurriculumSidebar({
                     </div>
                   )
                 } else if (item.type === 'quiz' && !item.parentLessonId) {
-                  // Module-level quiz
                   const quiz = item.data as Quiz
                   const progress = quizProgress[quiz.id]
                   const isCompleted = progress?.completed || false
@@ -518,41 +539,36 @@ export default function ModuleCurriculumSidebar({
                       key={quiz.id}
                       href={isLocked ? '#' : `${localePrefix}/student/quizzes/${quiz.id}`}
                       className={cn(
-                        "flex items-center gap-2 p-2 rounded-lg transition-colors",
+                        "group flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors",
                         isLocked 
-                          ? "opacity-50 cursor-not-allowed" 
+                          ? "opacity-50 cursor-not-allowed text-gray-400" 
                           : isActive 
-                            ? "bg-primary/10 border border-primary/20" 
-                            : "hover:bg-muted/50"
+                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                            : "text-gray-700 hover:text-blue-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-blue-400 dark:hover:bg-gray-800"
                       )}
                       onClick={(e) => isLocked && e.preventDefault()}
                     >
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div className="flex items-center space-x-3 flex-1 min-w-0">
                         {isLocked ? (
-                          <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <Lock className="w-4 h-4 flex-shrink-0" />
                         ) : isCompleted ? (
-                          <Award className="h-4 w-4 text-green-600 flex-shrink-0" />
+                          <Award className="w-4 h-4 text-green-600 flex-shrink-0" />
                         ) : (
                           <Circle className={cn(
-                            "h-4 w-4 flex-shrink-0",
-                            isActive ? "text-primary" : "text-muted-foreground"
+                            "w-4 h-4 flex-shrink-0",
+                            isActive ? "text-blue-600" : "text-gray-400"
                           )} />
                         )}
-                        <FileText className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                        <span className={cn(
-                          "text-sm truncate",
-                          isActive ? "font-medium text-primary" : isCompleted ? "text-muted-foreground" : ""
-                        )}>
-                          {quiz.title}
-                        </span>
+                        <FileText className="w-4 h-4 flex-shrink-0" />
+                        <span className="truncate">{quiz.title}</span>
                       </div>
                       {progress?.score !== undefined && (
-                        <span className={cn(
-                          "text-xs font-medium flex-shrink-0",
-                          progress.passed ? "text-green-600" : "text-red-600"
-                        )}>
+                        <Badge 
+                          variant={progress.passed ? "default" : "destructive"} 
+                          className="text-xs ml-2 flex-shrink-0"
+                        >
                           {progress.score}%
-                        </span>
+                        </Badge>
                       )}
                     </Link>
                   )
@@ -561,8 +577,8 @@ export default function ModuleCurriculumSidebar({
               })}
 
               {tabContent.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No course content yet
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                  {t('noLessonsOrQuizzes')}
                 </p>
               )}
             </>
@@ -570,7 +586,7 @@ export default function ModuleCurriculumSidebar({
 
           {activeTab === 'exercise' && (
             <>
-              {tabContent.map((item, index) => {
+              {tabContent.map((item) => {
                 if (item.type === 'assignment') {
                   const assignment = item.data as Assignment
                   const progress = assignmentProgress[assignment.id]
@@ -582,42 +598,37 @@ export default function ModuleCurriculumSidebar({
                   return (
                     <Link
                       key={assignment.id}
-                      href={isLocked ? '#' : `${localePrefix}/student/assignments`}
+                      href={isLocked ? '#' : `${localePrefix}/student/assignments/${assignment.id}`}
                       className={cn(
-                        "flex items-center gap-2 p-2 rounded-lg transition-colors",
+                        "group flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors",
                         isLocked 
-                          ? "opacity-50 cursor-not-allowed" 
+                          ? "opacity-50 cursor-not-allowed text-gray-400" 
                           : isActive 
-                            ? "bg-primary/10 border border-primary/20" 
-                            : "hover:bg-muted/50"
+                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                            : "text-gray-700 hover:text-blue-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-blue-400 dark:hover:bg-gray-800"
                       )}
                       onClick={(e) => isLocked && e.preventDefault()}
                     >
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div className="flex items-center space-x-3 flex-1 min-w-0">
                         {isLocked ? (
-                          <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <Lock className="w-4 h-4 flex-shrink-0" />
                         ) : isGraded ? (
-                          <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                          <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
                         ) : isSubmitted ? (
-                          <Clock className="h-4 w-4 text-yellow-600 flex-shrink-0" />
+                          <ClipboardCheck className="w-4 h-4 text-yellow-600 flex-shrink-0" />
                         ) : (
                           <Circle className={cn(
-                            "h-4 w-4 flex-shrink-0",
-                            isActive ? "text-primary" : "text-muted-foreground"
+                            "w-4 h-4 flex-shrink-0",
+                            isActive ? "text-blue-600" : "text-gray-400"
                           )} />
                         )}
-                        <FileText className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                        <span className={cn(
-                          "text-sm truncate",
-                          isActive ? "font-medium text-primary" : ""
-                        )}>
-                          {assignment.title}
-                        </span>
+                        <FileText className="w-4 h-4 flex-shrink-0" />
+                        <span className="truncate">{assignment.title}</span>
                       </div>
                       {progress?.score !== undefined && (
-                        <span className="text-xs font-medium flex-shrink-0 text-green-600">
+                        <Badge variant="default" className="text-xs ml-2 flex-shrink-0">
                           {progress.score}/{assignment.max_points}
-                        </span>
+                        </Badge>
                       )}
                     </Link>
                   )
@@ -626,30 +637,69 @@ export default function ModuleCurriculumSidebar({
               })}
 
               {tabContent.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No assignments yet
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                  {t('noAssignmentsYet')}
                 </p>
               )}
             </>
           )}
 
           {activeTab === 'record' && (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              No recorded sessions available
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+              {t('noRecordedSessionsYet')}
             </p>
           )}
-        </div>
+        </nav>
 
+        {/* Certificate Section */}
+        {certificate && course && (
+          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <Award className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  {t('certificateOfCompletion')}
+                </h4>
+              </div>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+                {t('youHaveSuccessfullyCompletedThisCourse')}
+              </p>
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">{t('certificateNumber')}</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">
+                    {certificate.certificate_number}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">{t('issuedOn')}</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">
+                    {new Date(certificate.issued_at).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+              <Link href={`${localePrefix}/certificates/${certificate.certificate_number}`}>
+                <Button variant="outline" size="sm" className="w-full mt-3">
+                  <Download className="h-3 w-3 mr-2" />
+                  {tCommon('downloadCertificate')}
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Back to Course Link */}
         {courseId && (
-          <div className="mt-4 pt-4 border-t">
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
             <Link href={`${localePrefix}/student/courses/${courseId}`}>
               <Button variant="outline" size="sm" className="w-full">
-                Back to Course
+                <GraduationCap className="h-4 w-4 mr-2" />
+                {tCommon('backToCourse')}
               </Button>
             </Link>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

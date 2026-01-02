@@ -41,10 +41,10 @@ export default function StudentCourseDetailPage({
     const fetchData = async () => {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
+  if (!user) {
         router.push("/auth/login")
         return
-      }
+  }
 
       // Fetch course
       const { data: courseData } = await supabase
@@ -55,26 +55,26 @@ export default function StudentCourseDetailPage({
 
       // Fetch enrollment
       const { data: enrollmentData } = await supabase
-        .from("enrollments")
-        .select("*")
-        .eq("student_id", user.id)
-        .eq("course_id", courseId)
-        .single()
+    .from("enrollments")
+    .select("*")
+    .eq("student_id", user.id)
+    .eq("course_id", courseId)
+    .single()
 
       // Fetch modules
       const { data: modulesData } = await supabase
-        .from("modules")
-        .select("*")
-        .eq("course_id", courseId)
-        .order("order_index", { ascending: true })
+    .from("modules")
+    .select("*")
+    .eq("course_id", courseId)
+    .order("order_index", { ascending: true })
 
       // Fetch certificate
       const { data: certificateData } = await supabase
-        .from("certificates")
-        .select("*")
-        .eq("student_id", user.id)
-        .eq("course_id", courseId)
-        .single()
+    .from("certificates")
+    .select("*")
+    .eq("student_id", user.id)
+    .eq("course_id", courseId)
+    .single()
 
       setCourse(courseData)
       setEnrollment(enrollmentData)
@@ -117,10 +117,10 @@ export default function StudentCourseDetailPage({
   }
 
   return (
-    <div className="flex gap-6 max-w-7xl mx-auto py-6">
+    <div className="flex h-[calc(100vh-4rem)]">
       {/* Sidebar - Show on all tabs */}
       {currentModuleId && (
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 h-full">
           <ModuleCurriculumSidebar
             moduleId={currentModuleId}
             courseId={courseId}
@@ -129,7 +129,7 @@ export default function StudentCourseDetailPage({
       )}
 
       {/* Main Content */}
-      <div className="flex-1 space-y-6 min-w-0">
+      <div className="flex-1 space-y-6 min-w-0 overflow-y-auto p-6">
         {/* Header */}
         <div className="space-y-4">
         <div className="flex items-start justify-between gap-4">
@@ -152,13 +152,13 @@ export default function StudentCourseDetailPage({
                 </div>
               </div>
               {course.average_rating && course.average_rating > 0 && (
-                <RatingDisplay
-                  rating={course.average_rating}
-                  totalRatings={course.total_ratings || 0}
-                />
-              )}
-            </div>
+              <RatingDisplay
+                rating={course.average_rating}
+                totalRatings={course.total_ratings || 0}
+              />
+            )}
           </div>
+        </div>
           <Button variant="outline" onClick={() => router.push("/student/courses")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
@@ -281,42 +281,18 @@ export default function StudentCourseDetailPage({
               <CardTitle>Course Reviews</CardTitle>
             </CardHeader>
             <CardContent>
-              <CourseRatingSection
-                courseId={courseId}
+          <CourseRatingSection
+            courseId={courseId}
                 courseTitle={course.title || ""}
-                enrollmentProgress={enrollment.progress_percentage}
+            enrollmentProgress={enrollment.progress_percentage}
                 averageRating={course.average_rating || 0}
                 totalRatings={course.total_ratings || 0}
-              />
+          />
             </CardContent>
           </Card>
         )}
       </div>
 
-      {/* Certificate */}
-      {certificate && (
-        <Card className="border-2 border-primary">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Award className="h-5 w-5 text-primary" />
-              <CardTitle>Certificate of Completion</CardTitle>
-            </div>
-            <CardDescription>You have successfully completed this course</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="border-2 border-primary p-6 rounded-lg text-center space-y-3">
-              <h2 className="text-2xl font-bold">Certificate of Completion</h2>
-              <p className="text-lg">This certifies that you have successfully completed</p>
-              <p className="text-xl font-bold">{course.title}</p>
-              <p className="text-sm text-muted-foreground">Certificate #: {certificate.certificate_number}</p>
-              <p className="text-sm text-muted-foreground">
-                Issued on: {new Date(certificate.issued_at).toLocaleDateString()}
-              </p>
-            </div>
-            <Button className="w-full">Download Certificate</Button>
-          </CardContent>
-        </Card>
-      )}
       </div>
     </div>
   )

@@ -219,10 +219,10 @@ export default function StudentQuizPage({
   }
 
   return (
-    <div className="flex gap-6 max-w-7xl mx-auto py-6">
+    <div className="flex h-[calc(100vh-4rem)]">
       {/* Sidebar */}
       {moduleId && (
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 h-full">
           <ModuleCurriculumSidebar
             moduleId={moduleId}
             currentQuizId={quizId}
@@ -232,7 +232,7 @@ export default function StudentQuizPage({
       )}
 
       {/* Main Content */}
-      <div className="flex-1 space-y-6 min-w-0">
+      <div className="flex-1 space-y-6 min-w-0 overflow-y-auto p-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">{quiz.title}</h1>
           <Button variant="outline" onClick={() => router.back()}>

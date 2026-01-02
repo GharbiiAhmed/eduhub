@@ -106,32 +106,32 @@ export default function StudentLessonPage({
                 console.log('Using existing signed URL from database')
                 setVideoUrl(lessonData.video_url)
               } else {
-                const { data: signedData, error: signedError } = await supabase
-                  .storage
-                  .from('lesson-videos')
+              const { data: signedData, error: signedError } = await supabase
+                .storage
+                .from('lesson-videos')
                   .createSignedUrl(filePath, 7200)
-                
-                if (!signedError && signedData?.signedUrl) {
-                  console.log('Generated signed URL successfully')
-                  setVideoUrl(signedData.signedUrl)
-                } else {
-                  console.error('Error generating signed URL:', signedError)
+              
+              if (!signedError && signedData?.signedUrl) {
+                console.log('Generated signed URL successfully')
+                setVideoUrl(signedData.signedUrl)
+              } else {
+                console.error('Error generating signed URL:', signedError)
                   
                   if (signedError?.message?.includes('Bucket not found') || signedError?.message?.includes('bucket')) {
                     console.error('Bucket access error. Trying to use original URL.')
                     setVideoUrl(lessonData.video_url)
                     setVideoError('Unable to access video storage. Please contact support if this issue persists.')
                   } else {
-                    const { data: publicUrlData } = supabase
-                      .storage
-                      .from('lesson-videos')
-                      .getPublicUrl(filePath)
-                    
-                    if (publicUrlData?.publicUrl) {
+                const { data: publicUrlData } = supabase
+                  .storage
+                  .from('lesson-videos')
+                  .getPublicUrl(filePath)
+                
+                if (publicUrlData?.publicUrl) {
                       console.log('Using public URL as fallback:', publicUrlData.publicUrl)
-                      setVideoUrl(publicUrlData.publicUrl)
-                    } else {
-                      console.error('Failed to get public URL')
+                  setVideoUrl(publicUrlData.publicUrl)
+                } else {
+                  console.error('Failed to get public URL')
                       console.warn('Using original URL as last resort. Signed URL error:', signedError)
                       setVideoUrl(lessonData.video_url)
                       if (signedError) {
@@ -253,10 +253,10 @@ export default function StudentLessonPage({
   }
 
   return (
-    <div className="flex gap-6 max-w-7xl mx-auto py-6">
+    <div className="flex h-[calc(100vh-4rem)]">
       {/* Sidebar */}
       {moduleId && (
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 h-full">
           <ModuleCurriculumSidebar
             moduleId={moduleId}
             currentLessonId={lessonId}
@@ -266,7 +266,7 @@ export default function StudentLessonPage({
       )}
 
       {/* Main Content */}
-      <div className="flex-1 space-y-6 min-w-0">
+      <div className="flex-1 space-y-6 min-w-0 overflow-y-auto p-6">
         {/* Header */}
         <div className="space-y-4">
           <div className="flex items-start justify-between gap-4">
@@ -290,9 +290,9 @@ export default function StudentLessonPage({
             </div>
             <Button variant="outline" onClick={() => router.back()} className="shrink-0">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-          </div>
+          Back
+        </Button>
+      </div>
 
           {/* Progress Bar */}
           {videoDuration > 0 && (
@@ -304,10 +304,10 @@ export default function StudentLessonPage({
               <Progress value={(videoProgress / videoDuration) * 100} className="h-2" />
             </div>
           )}
-        </div>
+            </div>
 
         {/* Video Section */}
-        {(lesson.content_type === "video" || lesson.content_type === "mixed") && (videoUrl || lesson.video_url) && (
+          {(lesson.content_type === "video" || lesson.content_type === "mixed") && (videoUrl || lesson.video_url) && (
           <Card className="overflow-hidden border-2">
             <CardHeader className="bg-gradient-to-r from-primary/10 to-primary/5 pb-3">
               <div className="flex items-center gap-2">
@@ -322,7 +322,7 @@ export default function StudentLessonPage({
                     <div className="text-4xl">⚠️</div>
                     <div>
                       <p className="font-semibold text-lg">Unable to load video</p>
-                      <p className="text-sm mt-1">{videoError}</p>
+                  <p className="text-sm mt-1">{videoError}</p>
                     </div>
                     <Button 
                       variant="outline" 
@@ -380,13 +380,13 @@ export default function StudentLessonPage({
                 </div>
               ) : (
                 <div className="relative bg-black rounded-lg overflow-hidden">
-                  <video 
-                    src={videoUrl || lesson.video_url} 
-                    controls 
-                    preload="metadata"
-                    playsInline
+                <video 
+                  src={videoUrl || lesson.video_url} 
+                  controls 
+                  preload="metadata"
+                  playsInline
                     className="w-full aspect-video"
-                    crossOrigin="anonymous"
+                  crossOrigin="anonymous"
                     onTimeUpdate={(e) => {
                       const video = e.target as HTMLVideoElement
                       setVideoProgress(video.currentTime)
@@ -395,38 +395,38 @@ export default function StudentLessonPage({
                       const video = e.target as HTMLVideoElement
                       setVideoDuration(video.duration)
                     }}
-                    onError={(e) => {
-                      console.error("Video playback error:", e)
-                      const target = e.target as HTMLVideoElement
-                      const error = target.error
-                      let errorMessage = "Unable to load video. Please check your internet connection or contact support."
-                      
-                      if (error) {
-                        switch (error.code) {
-                          case error.MEDIA_ERR_ABORTED:
-                            errorMessage = "Video loading was aborted."
-                            break
-                          case error.MEDIA_ERR_NETWORK:
+                  onError={(e) => {
+                    console.error("Video playback error:", e)
+                    const target = e.target as HTMLVideoElement
+                    const error = target.error
+                    let errorMessage = "Unable to load video. Please check your internet connection or contact support."
+                    
+                    if (error) {
+                      switch (error.code) {
+                        case error.MEDIA_ERR_ABORTED:
+                          errorMessage = "Video loading was aborted."
+                          break
+                        case error.MEDIA_ERR_NETWORK:
                             errorMessage = "Network error occurred while loading the video."
-                            break
-                          case error.MEDIA_ERR_DECODE:
+                          break
+                        case error.MEDIA_ERR_DECODE:
                             errorMessage = "Video decoding error. The file may be corrupted."
-                            break
-                          case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
-                            errorMessage = "Video format not supported by your browser."
-                            break
-                        }
+                          break
+                        case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                          errorMessage = "Video format not supported by your browser."
+                          break
                       }
-                      setVideoError(errorMessage)
-                    }}
-                    onCanPlay={() => {
-                      setVideoError(null)
-                    }}
-                  >
-                    <source src={videoUrl || lesson.video_url} type="video/mp4" />
-                    <source src={videoUrl || lesson.video_url} type="video/webm" />
-                    Your browser does not support the video tag.
-                  </video>
+                    }
+                    setVideoError(errorMessage)
+                  }}
+                  onCanPlay={() => {
+                    setVideoError(null)
+                  }}
+                >
+                  <source src={videoUrl || lesson.video_url} type="video/mp4" />
+                  <source src={videoUrl || lesson.video_url} type="video/webm" />
+                  Your browser does not support the video tag.
+                </video>
                 </div>
               )}
             </CardContent>
@@ -445,13 +445,13 @@ export default function StudentLessonPage({
             <CardContent>
               <div className="prose prose-lg dark:prose-invert max-w-none">
                 <div dangerouslySetInnerHTML={{ __html: lesson.text_content }} />
-              </div>
+            </div>
             </CardContent>
           </Card>
-        )}
+          )}
 
         {/* PDF Content */}
-        {(lesson.content_type === "pdf" || lesson.content_type === "mixed") && lesson.pdf_url && (
+          {(lesson.content_type === "pdf" || lesson.content_type === "mixed") && lesson.pdf_url && (
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -468,7 +468,7 @@ export default function StudentLessonPage({
               </a>
             </CardContent>
           </Card>
-        )}
+          )}
 
         {/* Completion Section */}
         <Card className={cn(
@@ -515,12 +515,12 @@ export default function StudentLessonPage({
                       {t('markAsComplete')}
                     </>
                   )}
-                </Button>
+            </Button>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
+        </div>
     </div>
   )
 }
