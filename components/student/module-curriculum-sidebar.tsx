@@ -92,9 +92,6 @@ export default function ModuleCurriculumSidebar({
 }: ModuleCurriculumSidebarProps) {
   const t = useTranslations('courses')
   const tCommon = useTranslations('common')
-  const params = useParams()
-  const locale = params?.locale as string | undefined
-  const localePrefix = locale ? `/${locale}` : ''
   
   const [activeTab, setActiveTab] = useState<TabType>('course')
   const [module, setModule] = useState<any>(null)
@@ -361,8 +358,8 @@ export default function ModuleCurriculumSidebar({
   }
 
   return (
-    <div className={cn("w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 h-full overflow-y-auto")}>
-      <div className="p-6">
+    <div className={cn("w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 h-full flex flex-col")}>
+      <div className="p-6 flex-1 flex flex-col min-h-0">
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-2">
@@ -434,7 +431,7 @@ export default function ModuleCurriculumSidebar({
         </div>
 
         {/* Content List */}
-        <nav className="space-y-1 mb-6">
+        <nav className="space-y-1 mb-6 flex-1 overflow-y-auto min-h-0">
           {activeTab === 'course' && (
             <>
               {tabContent.map((item) => {
@@ -448,7 +445,7 @@ export default function ModuleCurriculumSidebar({
                   return (
                     <div key={lesson.id}>
                       <Link
-                        href={isLocked ? '#' : `${localePrefix}/student/lessons/${lesson.id}`}
+                        href={isLocked ? '#' : `/student/lessons/${lesson.id}`}
                         className={cn(
                           "group flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors",
                           isLocked 
@@ -489,7 +486,7 @@ export default function ModuleCurriculumSidebar({
                         return (
                           <Link
                             key={quiz.id}
-                            href={isQuizLocked ? '#' : `${localePrefix}/student/quizzes/${quiz.id}`}
+                            href={isQuizLocked ? '#' : `/student/quizzes/${quiz.id}`}
                             className={cn(
                               "group flex items-center justify-between px-3 py-2 pl-8 text-sm font-medium rounded-lg transition-colors",
                               isQuizLocked 
@@ -537,7 +534,7 @@ export default function ModuleCurriculumSidebar({
                   return (
                     <Link
                       key={quiz.id}
-                      href={isLocked ? '#' : `${localePrefix}/student/quizzes/${quiz.id}`}
+                      href={isLocked ? '#' : `/student/quizzes/${quiz.id}`}
                       className={cn(
                         "group flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors",
                         isLocked 
@@ -598,7 +595,7 @@ export default function ModuleCurriculumSidebar({
                   return (
                     <Link
                       key={assignment.id}
-                      href={isLocked ? '#' : `${localePrefix}/student/assignments/${assignment.id}`}
+                      href={isLocked ? '#' : `/student/assignments/${assignment.id}`}
                       className={cn(
                         "group flex items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-colors",
                         isLocked 
@@ -678,7 +675,7 @@ export default function ModuleCurriculumSidebar({
                   </span>
                 </div>
               </div>
-              <Link href={`${localePrefix}/certificates/${certificate.certificate_number}`}>
+              <Link href={`/certificates/${certificate.certificate_number}`}>
                 <Button variant="outline" size="sm" className="w-full mt-3">
                   <Download className="h-3 w-3 mr-2" />
                   {tCommon('downloadCertificate')}
@@ -691,7 +688,7 @@ export default function ModuleCurriculumSidebar({
         {/* Back to Course Link */}
         {courseId && (
           <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <Link href={`${localePrefix}/student/courses/${courseId}`}>
+            <Link href={`/student/courses/${courseId}`}>
               <Button variant="outline" size="sm" className="w-full">
                 <GraduationCap className="h-4 w-4 mr-2" />
                 {tCommon('backToCourse')}
