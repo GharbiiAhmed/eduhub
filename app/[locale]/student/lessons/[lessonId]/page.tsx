@@ -3,10 +3,25 @@
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
 import { useEffect, useState, use } from "react"
 import { useRouter } from '@/i18n/routing'
 import { useTranslations } from 'next-intl'
 import ModuleCurriculumSidebar from "@/components/student/module-curriculum-sidebar"
+import { 
+  PlayCircle, 
+  CheckCircle2, 
+  Clock, 
+  BookOpen, 
+  FileText,
+  Video as VideoIcon,
+  Sparkles,
+  ArrowRight,
+  ArrowLeft,
+  Trophy
+} from "lucide-react"
+import { cn } from "@/lib/utils"
 
 export default function StudentLessonPage({
   params
@@ -20,11 +35,12 @@ export default function StudentLessonPage({
   const [isCompleted, setIsCompleted] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isMarking, setIsMarking] = useState(false)
-  const [quizzes, setQuizzes] = useState<any[]>([])
   const [videoError, setVideoError] = useState<string | null>(null)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [moduleId, setModuleId] = useState<string | null>(null)
   const [courseId, setCourseId] = useState<string | null>(null)
+  const [videoProgress, setVideoProgress] = useState(0)
+  const [videoDuration, setVideoDuration] = useState(0)
   const router = useRouter()
 
   useEffect(() => {
@@ -57,13 +73,9 @@ export default function StudentLessonPage({
         if (lessonData.video_url) {
           console.log('Video URL from database:', lessonData.video_url)
           
-          // Always try to generate a signed URL first (more reliable)
           try {
-            // Extract path from Supabase storage URL
-            // Format: https://[project].supabase.co/storage/v1/object/public/[bucket]/[path]
             let filePath: string | null = null
             
-            // Try different URL patterns
             const patterns = [
               /\/storage\/v1\/object\/public\/lesson-videos\/(.+)$/,
               /\/storage\/v1\/object\/sign\/lesson-videos\/(.+)$/,
@@ -73,36 +85,31 @@ export default function StudentLessonPage({
             for (const pattern of patterns) {
               const match = lessonData.video_url.match(pattern)
               if (match && match[1]) {
-                // Remove query parameters and decode
                 filePath = decodeURIComponent(match[1].split('?')[0])
                 break
               }
             }
             
-            // If no pattern matched, try to extract from the full URL
             if (!filePath) {
               const urlParts = lessonData.video_url.split('/lesson-videos/')
               if (urlParts.length > 1) {
-                filePath = decodeURIComponent(urlParts[1].split('?')[0]) // Remove query params
+                filePath = decodeURIComponent(urlParts[1].split('?')[0])
               }
             }
             
             if (filePath) {
               console.log('Extracted file path:', filePath)
               
-              // Check if the original URL is already a signed URL (has token parameter)
               const isAlreadySigned = lessonData.video_url.includes('/sign/') && lessonData.video_url.includes('token=')
               
               if (isAlreadySigned) {
-                // If it's already a signed URL, use it directly
                 console.log('Using existing signed URL from database')
                 setVideoUrl(lessonData.video_url)
               } else {
-                // Always try signed URL first - it's more reliable and works for both public and private buckets
                 const { data: signedData, error: signedError } = await supabase
                   .storage
                   .from('lesson-videos')
-                  .createSignedUrl(filePath, 7200) // 2 hour expiry
+                  .createSignedUrl(filePath, 7200)
                 
                 if (!signedError && signedData?.signedUrl) {
                   console.log('Generated signed URL successfully')
@@ -110,14 +117,11 @@ export default function StudentLessonPage({
                 } else {
                   console.error('Error generating signed URL:', signedError)
                   
-                  // If bucket not found error, the bucket might not exist or be misconfigured
                   if (signedError?.message?.includes('Bucket not found') || signedError?.message?.includes('bucket')) {
                     console.error('Bucket access error. Trying to use original URL.')
-                    // Try using the original URL - it might be a working signed URL
                     setVideoUrl(lessonData.video_url)
                     setVideoError('Unable to access video storage. Please contact support if this issue persists.')
                   } else {
-                    // Fallback: try public URL (only if bucket exists)
                     const { data: publicUrlData } = supabase
                       .storage
                       .from('lesson-videos')
@@ -128,7 +132,6 @@ export default function StudentLessonPage({
                       setVideoUrl(publicUrlData.publicUrl)
                     } else {
                       console.error('Failed to get public URL')
-                      // Last resort: use original URL
                       console.warn('Using original URL as last resort. Signed URL error:', signedError)
                       setVideoUrl(lessonData.video_url)
                       if (signedError) {
@@ -144,7 +147,6 @@ export default function StudentLessonPage({
             }
           } catch (error) {
             console.error('Error processing video URL:', error)
-            // Keep the original URL as fallback
             setVideoUrl(lessonData.video_url)
             if (error instanceof Error) {
               setVideoError(`Error loading video: ${error.message}`)
@@ -162,17 +164,6 @@ export default function StudentLessonPage({
 
         if (progressData) {
           setIsCompleted(progressData.completed)
-        }
-
-        // Fetch quizzes for this specific lesson
-        const { data: quizzesData } = await supabase
-          .from("quizzes")
-          .select("*")
-          .eq("lesson_id", lessonId)
-          .eq("is_published", true)
-
-        if (quizzesData) {
-          setQuizzes(quizzesData)
         }
       }
 
@@ -193,7 +184,6 @@ export default function StudentLessonPage({
 
       if (!user) throw new Error("Not authenticated")
 
-      // First, get the course ID for this lesson
       const { data: lessonData } = await supabase
         .from("lessons")
         .select("module_id, modules(course_id)")
@@ -205,7 +195,6 @@ export default function StudentLessonPage({
       const courseId = lessonData.modules?.course_id
       if (!courseId) throw new Error("Course not found")
 
-      // Update lesson progress
       await supabase.from("lesson_progress").upsert({
         student_id: user.id,
         lesson_id: lessonId,
@@ -213,7 +202,6 @@ export default function StudentLessonPage({
         completed_at: new Date().toISOString(),
       })
 
-      // Update overall course progress
       const progressResponse = await fetch("/api/update-progress", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -236,16 +224,36 @@ export default function StudentLessonPage({
     }
   }
 
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
   if (isLoading) {
-    return <div>Loading...</div>
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Loading lesson...</p>
+        </div>
+      </div>
+    )
   }
 
   if (!lesson) {
-    return <div>Lesson not found</div>
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center space-y-4">
+          <p className="text-lg font-medium">Lesson not found</p>
+          <Button onClick={() => router.back()}>Go Back</Button>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="flex gap-6 max-w-7xl mx-auto">
+    <div className="flex gap-6 max-w-7xl mx-auto py-6">
       {/* Sidebar */}
       {moduleId && (
         <div className="flex-shrink-0">
@@ -259,50 +267,70 @@ export default function StudentLessonPage({
 
       {/* Main Content */}
       <div className="flex-1 space-y-6 min-w-0">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">{lesson.title}</h1>
-          <Button variant="outline" onClick={() => router.back()}>
-            Back
-          </Button>
+        {/* Header */}
+        <div className="space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 space-y-2">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="gap-1">
+                  <BookOpen className="h-3 w-3" />
+                  Lesson
+                </Badge>
+                {isCompleted && (
+                  <Badge variant="default" className="gap-1 bg-green-600">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Completed
+                  </Badge>
+                )}
+              </div>
+              <h1 className="text-4xl font-bold tracking-tight">{lesson.title}</h1>
+              {lesson.description && (
+                <p className="text-lg text-muted-foreground">{lesson.description}</p>
+              )}
+            </div>
+            <Button variant="outline" onClick={() => router.back()} className="shrink-0">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+          </div>
+
+          {/* Progress Bar */}
+          {videoDuration > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Video Progress</span>
+                <span className="font-medium">{formatTime(videoProgress)} / {formatTime(videoDuration)}</span>
+              </div>
+              <Progress value={(videoProgress / videoDuration) * 100} className="h-2" />
+            </div>
+          )}
         </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Lesson Content</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {lesson.description && (
-            <div>
-              <h3 className="font-semibold mb-2">Description</h3>
-              <p className="text-muted-foreground">{lesson.description}</p>
-            </div>
-          )}
-
-          {(lesson.content_type === "text" || lesson.content_type === "mixed") && lesson.text_content && (
-            <div>
-              <h3 className="font-semibold mb-2">Content</h3>
-              <div className="prose prose-sm max-w-none">{lesson.text_content}</div>
-            </div>
-          )}
-
-          {(lesson.content_type === "video" || lesson.content_type === "mixed") && (videoUrl || lesson.video_url) && (
-            <div>
-              <h3 className="font-semibold mb-2">Video</h3>
+        {/* Video Section */}
+        {(lesson.content_type === "video" || lesson.content_type === "mixed") && (videoUrl || lesson.video_url) && (
+          <Card className="overflow-hidden border-2">
+            <CardHeader className="bg-gradient-to-r from-primary/10 to-primary/5 pb-3">
+              <div className="flex items-center gap-2">
+                <VideoIcon className="h-5 w-5 text-primary" />
+                <CardTitle className="text-xl">Video Lesson</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
               {videoError ? (
-                <div className="p-4 bg-destructive/10 text-destructive rounded-lg">
-                  <p className="font-medium">Unable to load video</p>
-                  <p className="text-sm mt-1">{videoError}</p>
-                  <div className="mt-2 space-y-2">
+                <div className="p-8 bg-destructive/10 text-destructive rounded-lg m-4">
+                  <div className="text-center space-y-4">
+                    <div className="text-4xl">⚠️</div>
+                    <div>
+                      <p className="font-semibold text-lg">Unable to load video</p>
+                      <p className="text-sm mt-1">{videoError}</p>
+                    </div>
                     <Button 
                       variant="outline" 
-                      size="sm" 
                       onClick={async () => {
                         setVideoError(null)
-                        // Try to regenerate signed URL
                         const supabase = createClient()
                         const currentUrl = videoUrl || lesson.video_url
                         
-                        // Try different URL patterns to extract file path
                         let filePath: string | null = null
                         const patterns = [
                           /\/storage\/v1\/object\/public\/lesson-videos\/(.+)$/,
@@ -318,7 +346,6 @@ export default function StudentLessonPage({
                           }
                         }
                         
-                        // Fallback extraction
                         if (!filePath && currentUrl) {
                           const urlParts = currentUrl.split('/lesson-videos/')
                           if (urlParts.length > 1) {
@@ -349,87 +376,150 @@ export default function StudentLessonPage({
                     >
                       Retry
                     </Button>
-                    {videoUrl && (
-                      <div className="text-xs text-muted-foreground mt-2">
-                        <p>Video URL: {videoUrl.substring(0, 80)}...</p>
-                      </div>
-                    )}
                   </div>
                 </div>
               ) : (
-                <video 
-                  src={videoUrl || lesson.video_url} 
-                  controls 
-                  preload="metadata"
-                  playsInline
-                  className="w-full rounded-lg" 
-                  style={{ maxHeight: "500px" }}
-                  crossOrigin="anonymous"
-                  onError={(e) => {
-                    console.error("Video playback error:", e)
-                    const target = e.target as HTMLVideoElement
-                    const error = target.error
-                    let errorMessage = "Unable to load video. Please check your internet connection or contact support."
-                    
-                    if (error) {
-                      switch (error.code) {
-                        case error.MEDIA_ERR_ABORTED:
-                          errorMessage = "Video loading was aborted."
-                          break
-                        case error.MEDIA_ERR_NETWORK:
-                          errorMessage = "Network error occurred while loading the video. The bucket may not be public or CORS may be blocking access."
-                          break
-                        case error.MEDIA_ERR_DECODE:
-                          errorMessage = "Video decoding error. The file may be corrupted or in an unsupported format."
-                          break
-                        case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
-                          errorMessage = "Video format not supported by your browser."
-                          break
+                <div className="relative bg-black rounded-lg overflow-hidden">
+                  <video 
+                    src={videoUrl || lesson.video_url} 
+                    controls 
+                    preload="metadata"
+                    playsInline
+                    className="w-full aspect-video"
+                    crossOrigin="anonymous"
+                    onTimeUpdate={(e) => {
+                      const video = e.target as HTMLVideoElement
+                      setVideoProgress(video.currentTime)
+                    }}
+                    onLoadedMetadata={(e) => {
+                      const video = e.target as HTMLVideoElement
+                      setVideoDuration(video.duration)
+                    }}
+                    onError={(e) => {
+                      console.error("Video playback error:", e)
+                      const target = e.target as HTMLVideoElement
+                      const error = target.error
+                      let errorMessage = "Unable to load video. Please check your internet connection or contact support."
+                      
+                      if (error) {
+                        switch (error.code) {
+                          case error.MEDIA_ERR_ABORTED:
+                            errorMessage = "Video loading was aborted."
+                            break
+                          case error.MEDIA_ERR_NETWORK:
+                            errorMessage = "Network error occurred while loading the video."
+                            break
+                          case error.MEDIA_ERR_DECODE:
+                            errorMessage = "Video decoding error. The file may be corrupted."
+                            break
+                          case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                            errorMessage = "Video format not supported by your browser."
+                            break
+                        }
                       }
-                    }
-                    console.error("Video error details:", {
-                      code: error?.code,
-                      message: error?.message,
-                      url: videoUrl || lesson.video_url
-                    })
-                    setVideoError(errorMessage)
-                  }}
-                  onLoadStart={() => {
-                    console.log("Video loading started:", videoUrl || lesson.video_url)
-                  }}
-                  onCanPlay={() => {
-                    console.log("Video can play")
-                    setVideoError(null)
-                  }}
-                >
-                  <source src={videoUrl || lesson.video_url} type="video/mp4" />
-                  <source src={videoUrl || lesson.video_url} type="video/webm" />
-                  <source src={videoUrl || lesson.video_url} type="video/quicktime" />
-                  Your browser does not support the video tag.
-                </video>
+                      setVideoError(errorMessage)
+                    }}
+                    onCanPlay={() => {
+                      setVideoError(null)
+                    }}
+                  >
+                    <source src={videoUrl || lesson.video_url} type="video/mp4" />
+                    <source src={videoUrl || lesson.video_url} type="video/webm" />
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
               )}
-            </div>
-          )}
+            </CardContent>
+          </Card>
+        )}
 
-          {(lesson.content_type === "pdf" || lesson.content_type === "mixed") && lesson.pdf_url && (
-            <div>
-              <h3 className="font-semibold mb-2">PDF Document</h3>
+        {/* Text Content */}
+        {(lesson.content_type === "text" || lesson.content_type === "mixed") && lesson.text_content && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                <CardTitle>Lesson Content</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="prose prose-lg dark:prose-invert max-w-none">
+                <div dangerouslySetInnerHTML={{ __html: lesson.text_content }} />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* PDF Content */}
+        {(lesson.content_type === "pdf" || lesson.content_type === "mixed") && lesson.pdf_url && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                <CardTitle>PDF Document</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
               <a href={lesson.pdf_url} target="_blank" rel="noopener noreferrer">
-                <Button variant="outline">Download PDF</Button>
+                <Button variant="outline" className="w-full sm:w-auto">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Open PDF Document
+                </Button>
               </a>
-            </div>
-          )}
+            </CardContent>
+          </Card>
+        )}
 
-          {!isCompleted && (
-            <Button onClick={handleMarkComplete} disabled={isMarking} className="w-full">
-              {isMarking ? t('marking') : t('markAsComplete')}
-            </Button>
-          )}
-
-          {isCompleted && <div className="text-green-600 font-medium">✓ {t('lessonCompleted')}</div>}
-        </CardContent>
-      </Card>
-
+        {/* Completion Section */}
+        <Card className={cn(
+          "border-2 transition-all",
+          isCompleted ? "border-green-500 bg-green-50 dark:bg-green-950/20" : "border-primary/20"
+        )}>
+          <CardContent className="p-6">
+            {isCompleted ? (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="h-16 w-16 rounded-full bg-green-500 flex items-center justify-center">
+                    <CheckCircle2 className="h-8 w-8 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-green-700 dark:text-green-400">Lesson Completed!</h3>
+                    <p className="text-sm text-muted-foreground">Great job! You've completed this lesson.</p>
+                  </div>
+                </div>
+                <Trophy className="h-8 w-8 text-yellow-500" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <Sparkles className="h-6 w-6 text-primary" />
+                  <div>
+                    <h3 className="text-lg font-semibold">Ready to mark as complete?</h3>
+                    <p className="text-sm text-muted-foreground">Make sure you've reviewed all the content before completing.</p>
+                  </div>
+                </div>
+                <Button 
+                  onClick={handleMarkComplete} 
+                  disabled={isMarking} 
+                  size="lg"
+                  className="w-full sm:w-auto"
+                >
+                  {isMarking ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      {t('marking')}
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      {t('markAsComplete')}
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
