@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useEffect, useState, use } from "react"
 import { useRouter } from "next/navigation"
-import ModuleCurriculumSidebar from "@/components/student/module-curriculum-sidebar"
+import BottomCurriculum from "@/components/student/bottom-curriculum"
 
 export default function StudentLessonPage({ params }: { params: Promise<{ lessonId: string }> }) {
   const { lessonId } = use(params)
@@ -227,20 +227,9 @@ export default function StudentLessonPage({ params }: { params: Promise<{ lesson
   }
 
   return (
-    <div className="flex gap-6 max-w-7xl mx-auto">
-      {/* Sidebar */}
-      {moduleId && (
-        <div className="flex-shrink-0">
-          <ModuleCurriculumSidebar
-            moduleId={moduleId}
-            currentLessonId={lessonId}
-            courseId={courseId || undefined}
-          />
-        </div>
-      )}
-
+    <div className="max-w-7xl mx-auto py-6 space-y-6">
       {/* Main Content */}
-      <div className="flex-1 space-y-6 min-w-0">
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">{lesson.title}</h1>
           <Button variant="outline" onClick={() => router.back()}>
@@ -412,6 +401,14 @@ export default function StudentLessonPage({ params }: { params: Promise<{ lesson
         </CardContent>
       </Card>
 
+        {/* Bottom Curriculum */}
+        {moduleId && (
+          <BottomCurriculum
+            moduleId={moduleId}
+            currentLessonId={lessonId}
+            courseId={courseId || undefined}
+          />
+        )}
       </div>
     </div>
   )

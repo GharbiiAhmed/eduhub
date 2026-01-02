@@ -7,7 +7,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { useEffect, useState, use } from "react"
 import { useRouter } from "next/navigation"
-import ModuleCurriculumSidebar from "@/components/student/module-curriculum-sidebar"
+import BottomCurriculum from "@/components/student/bottom-curriculum"
 import { CheckCircle2, XCircle, Clock } from "lucide-react"
 
 interface Quiz {
@@ -219,20 +219,9 @@ export default function StudentQuizPage({
   }
 
   return (
-    <div className="flex gap-6 max-w-7xl mx-auto">
-      {/* Sidebar */}
-      {moduleId && (
-        <div className="flex-shrink-0">
-          <ModuleCurriculumSidebar
-            moduleId={moduleId}
-            currentQuizId={quizId}
-            courseId={courseId || undefined}
-          />
-        </div>
-      )}
-
+    <div className="max-w-7xl mx-auto py-6 space-y-6">
       {/* Main Content */}
-      <div className="flex-1 space-y-6 min-w-0">
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">{quiz.title}</h1>
           <Button variant="outline" onClick={() => router.back()}>
@@ -320,6 +309,15 @@ export default function StudentQuizPage({
             )}
           </CardContent>
         </Card>
+
+        {/* Bottom Curriculum */}
+        {moduleId && (
+          <BottomCurriculum
+            moduleId={moduleId}
+            currentQuizId={quizId}
+            courseId={courseId || undefined}
+          />
+        )}
       </div>
     </div>
   )
