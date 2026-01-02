@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { useEffect, useState, use } from "react"
 import { useRouter } from '@/i18n/routing'
 import { useTranslations } from 'next-intl'
-import ModuleCurriculumSidebar from "@/components/student/module-curriculum-sidebar"
+import ModuleCurriculumSidebar, { CurriculumToggleButton } from "@/components/student/module-curriculum-sidebar"
 import { 
   CheckCircle2, 
   XCircle, 
@@ -55,6 +55,7 @@ export default function StudentQuizPage({
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null)
   const [isQuizActive, setIsQuizActive] = useState(false)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
+  const [isCurriculumOpen, setIsCurriculumOpen] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
@@ -249,20 +250,31 @@ export default function StudentQuizPage({
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)]">
-      {/* Sidebar */}
+    <div className="relative h-[calc(100vh-4rem)]">
+      {/* Toggle Button */}
       {moduleId && (
-        <div className="flex-shrink-0 h-full">
-          <ModuleCurriculumSidebar
-            moduleId={moduleId}
-            currentQuizId={quizId}
-            courseId={courseId || undefined}
-          />
-        </div>
+        <CurriculumToggleButton 
+          onClick={() => setIsCurriculumOpen(!isCurriculumOpen)}
+          isOpen={isCurriculumOpen}
+        />
+      )}
+
+      {/* Curriculum Drawer */}
+      {moduleId && (
+        <ModuleCurriculumSidebar
+          moduleId={moduleId}
+          currentQuizId={quizId}
+          courseId={courseId || undefined}
+          isOpen={isCurriculumOpen}
+          onToggle={() => setIsCurriculumOpen(false)}
+        />
       )}
 
       {/* Main Content */}
-      <div className="flex-1 space-y-6 min-w-0 overflow-y-auto p-6">
+      <div className={cn(
+        "h-full overflow-y-auto p-6 transition-all duration-300",
+        isCurriculumOpen ? "pr-[420px]" : "pr-6"
+      )}>
         {/* Header */}
         <div className="space-y-4">
           <div className="flex items-start justify-between gap-4">

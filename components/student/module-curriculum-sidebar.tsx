@@ -22,7 +22,9 @@ import {
   BookMarked,
   ClipboardCheck,
   Download,
-  GraduationCap
+  GraduationCap,
+  X,
+  Menu
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useTranslations } from 'next-intl'
@@ -88,8 +90,10 @@ export default function ModuleCurriculumSidebar({
   currentLessonId,
   currentQuizId,
   currentAssignmentId,
-  courseId 
-}: ModuleCurriculumSidebarProps) {
+  courseId,
+  isOpen = true,
+  onToggle
+}: ModuleCurriculumSidebarProps & { isOpen?: boolean; onToggle?: () => void }) {
   const t = useTranslations('courses')
   const tCommon = useTranslations('common')
   
@@ -349,7 +353,10 @@ export default function ModuleCurriculumSidebar({
 
   if (loading) {
     return (
-      <div className={cn("w-[420px] bg-background border-r border-border h-full")}>
+      <div className={cn(
+        "fixed right-0 top-0 h-full bg-background border-l border-border z-40 transition-transform duration-300 ease-in-out",
+        isOpen ? "translate-x-0 w-[420px]" : "translate-x-full w-[420px]"
+      )}>
         <div className="p-6">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
         </div>
@@ -358,10 +365,35 @@ export default function ModuleCurriculumSidebar({
   }
 
   return (
-    <div className={cn("w-[420px] bg-white border-r border-gray-200 h-full flex flex-col shadow-lg")}>
-      <div className="p-6 flex-1 flex flex-col min-h-0">
-        {/* Header */}
-        <div className="mb-6 pb-6 border-b border-border">
+    <>
+      {/* Overlay */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          onClick={onToggle}
+        />
+      )}
+      
+      {/* Drawer */}
+      <div className={cn(
+        "fixed right-0 top-0 h-full bg-background border-l border-border z-40 transition-transform duration-300 ease-in-out shadow-2xl",
+        isOpen ? "translate-x-0" : "translate-x-full",
+        "w-[420px]"
+      )}>
+        <div className="p-6 flex-1 flex flex-col min-h-0 h-full overflow-y-auto relative">
+          {/* Close Button */}
+          {onToggle && (
+            <button
+              onClick={onToggle}
+              className="absolute top-4 right-4 p-2 rounded-lg hover:bg-muted transition-colors z-10"
+              aria-label="Close curriculum"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
+          
+          {/* Header */}
+          <div className="mb-6 pb-6 border-b border-border">
           <div className="mb-4">
             <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
               {t('curriculum').toUpperCase()}
@@ -920,7 +952,24 @@ export default function ModuleCurriculumSidebar({
             </Link>
           </div>
         )}
+        </div>
       </div>
-    </div>
+    </>
+  )
+}
+
+// Toggle Button Component
+export function CurriculumToggleButton({ onClick, isOpen }: { onClick: () => void; isOpen: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "fixed right-4 top-20 z-50 p-3 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all",
+        "flex items-center justify-center"
+      )}
+      aria-label={isOpen ? "Close curriculum" : "Open curriculum"}
+    >
+      {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+    </button>
   )
 }
