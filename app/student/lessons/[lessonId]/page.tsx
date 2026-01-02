@@ -415,15 +415,3 @@ export default function StudentLessonPage({ params }: { params: Promise<{ lesson
     </div>
   )
 }
-
-      {quizzes.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-2xl font-bold">Quizzes</h2>
-          {quizzes.map((quiz) => (
-            <QuizSection key={quiz.id} quiz={quiz} />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
