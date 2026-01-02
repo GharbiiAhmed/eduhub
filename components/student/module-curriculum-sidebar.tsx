@@ -17,7 +17,11 @@ import {
   HelpCircle,
   Clock,
   Award,
-  BookOpen
+  BookOpen,
+  Lock,
+  Dumbbell,
+  Video,
+  BookMarked
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -39,6 +43,16 @@ interface Quiz {
   module_id?: string
 }
 
+interface Assignment {
+  id: string
+  title: string
+  description: string
+  due_date?: string
+  max_points: number
+  module_id?: string
+  order_index?: number
+}
+
 interface LessonProgress {
   completed: boolean
   completed_at?: string
@@ -51,30 +65,42 @@ interface QuizProgress {
   attempts?: number
 }
 
+interface AssignmentProgress {
+  submitted: boolean
+  graded: boolean
+  score?: number
+}
+
 interface ModuleCurriculumSidebarProps {
   moduleId: string
   currentLessonId?: string
   currentQuizId?: string
+  currentAssignmentId?: string
   courseId?: string
 }
+
+type TabType = 'course' | 'exercise' | 'record'
 
 export default function ModuleCurriculumSidebar({ 
   moduleId, 
   currentLessonId,
   currentQuizId,
+  currentAssignmentId,
   courseId 
 }: ModuleCurriculumSidebarProps) {
   const pathname = usePathname()
   const params = useParams()
-  // Check if we're in a locale route by checking if params has locale
   const locale = params?.locale as string | undefined
   const localePrefix = locale ? `/${locale}` : ''
   
+  const [activeTab, setActiveTab] = useState<TabType>('course')
   const [module, setModule] = useState<any>(null)
   const [lessons, setLessons] = useState<Lesson[]>([])
   const [quizzes, setQuizzes] = useState<Quiz[]>([])
+  const [assignments, setAssignments] = useState<Assignment[]>([])
   const [lessonProgress, setLessonProgress] = useState<Record<string, LessonProgress>>({})
   const [quizProgress, setQuizProgress] = useState<Record<string, QuizProgress>>({})
+  const [assignmentProgress, setAssignmentProgress] = useState<Record<string, AssignmentProgress>>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -123,35 +149,36 @@ export default function ModuleCurriculumSidebar({
         setLessonProgress(progressMap)
       }
 
-      // Fetch quizzes - try both schema versions
-      let { data: quizzesData } = await supabase
+      // Fetch quizzes - module level quizzes
+      let { data: moduleQuizzes } = await supabase
         .from("quizzes")
         .select("*")
         .eq("module_id", moduleId)
         .order("order_index", { ascending: true })
 
-      // If no quizzes found, try: quizzes linked to lessons (older schema)
-      if (!quizzesData || quizzesData.length === 0) {
-        const lessonIds = lessonsData?.map(l => l.id) || []
-        if (lessonIds.length > 0) {
-          const { data: quizzesByLesson } = await supabase
-            .from("quizzes")
-            .select("*")
-            .in("lesson_id", lessonIds)
-            .order("order_index", { ascending: true })
-          quizzesData = quizzesByLesson || []
-        }
+      // Fetch quizzes linked to lessons
+      const lessonIds = lessonsData?.map(l => l.id) || []
+      let lessonQuizzes: Quiz[] = []
+      if (lessonIds.length > 0) {
+        const { data: quizzesByLesson } = await supabase
+          .from("quizzes")
+          .select("*")
+          .in("lesson_id", lessonIds)
+          .order("order_index", { ascending: true })
+        lessonQuizzes = quizzesByLesson || []
       }
 
-      if (quizzesData) {
-        setQuizzes(quizzesData)
+      // Combine all quizzes
+      const allQuizzes = [...(moduleQuizzes || []), ...lessonQuizzes]
+      setQuizzes(allQuizzes)
 
-        // Fetch quiz progress
+      // Fetch quiz progress
+      if (allQuizzes.length > 0) {
         const { data: attemptsData } = await supabase
           .from("quiz_attempts")
           .select("quiz_id, score, passed, created_at")
           .eq("student_id", user.id)
-          .in("quiz_id", quizzesData.map(q => q.id))
+          .in("quiz_id", allQuizzes.map(q => q.id))
           .order("created_at", { ascending: false })
 
         const quizProgressMap: Record<string, QuizProgress> = {}
@@ -165,7 +192,6 @@ export default function ModuleCurriculumSidebar({
             }
           } else {
             quizProgressMap[attempt.quiz_id].attempts = (quizProgressMap[attempt.quiz_id].attempts || 0) + 1
-            // Keep the best score
             if (attempt.score && (!quizProgressMap[attempt.quiz_id].score || attempt.score > quizProgressMap[attempt.quiz_id].score!)) {
               quizProgressMap[attempt.quiz_id].score = attempt.score
               quizProgressMap[attempt.quiz_id].passed = attempt.passed
@@ -176,35 +202,135 @@ export default function ModuleCurriculumSidebar({
         setQuizProgress(quizProgressMap)
       }
 
+      // Fetch assignments
+      if (courseId) {
+        const { data: assignmentsData } = await supabase
+          .from("assignments")
+          .select("*")
+          .eq("course_id", courseId)
+          .eq("is_published", true)
+          .or(`module_id.eq.${moduleId},module_id.is.null`)
+          .order("created_at", { ascending: true })
+
+        if (assignmentsData) {
+          setAssignments(assignmentsData)
+
+          // Fetch assignment submissions
+          const { data: submissionsData } = await supabase
+            .from("assignment_submissions")
+            .select("assignment_id, status, score")
+            .eq("student_id", user.id)
+            .in("assignment_id", assignmentsData.map(a => a.id))
+
+          const assignmentProgressMap: Record<string, AssignmentProgress> = {}
+          submissionsData?.forEach((submission) => {
+            assignmentProgressMap[submission.assignment_id] = {
+              submitted: true,
+              graded: submission.status === 'graded',
+              score: submission.score || undefined
+            }
+          })
+          setAssignmentProgress(assignmentProgressMap)
+        }
+      }
+
       setLoading(false)
     }
 
     if (moduleId) {
       fetchModuleContent()
     }
-  }, [moduleId])
+  }, [moduleId, courseId])
+
+  // Check if an item is locked (previous item not completed)
+  const isItemLocked = (item: { type: 'lesson' | 'quiz' | 'assignment', id: string, order_index: number, parentLessonId?: string }): boolean => {
+    // First lesson is never locked
+    if (item.type === 'lesson') {
+      const lessonIndex = lessons.findIndex(l => l.id === item.id)
+      if (lessonIndex === 0) return false
+      
+      // Check if previous lesson is completed
+      if (lessonIndex > 0) {
+        const previousLesson = lessons[lessonIndex - 1]
+        return !lessonProgress[previousLesson.id]?.completed
+      }
+    }
+    
+    // For quizzes under a lesson, check if the parent lesson is completed
+    if (item.type === 'quiz' && item.parentLessonId) {
+      return !lessonProgress[item.parentLessonId]?.completed
+    }
+    
+    // For module-level quizzes, check previous items in sequence
+    if (item.type === 'quiz' && !item.parentLessonId) {
+      const allItems: Array<{ type: 'lesson' | 'quiz', id: string, order_index: number }> = []
+      lessons.forEach(l => allItems.push({ type: 'lesson', id: l.id, order_index: l.order_index }))
+      quizzes.filter(q => q.module_id === moduleId && !q.lesson_id).forEach(q => 
+        allItems.push({ type: 'quiz', id: q.id, order_index: q.order_index })
+      )
+      allItems.sort((a, b) => a.order_index - b.order_index)
+      
+      const itemIndex = allItems.findIndex(i => i.id === item.id)
+      if (itemIndex === 0) return false
+      
+      const previousItem = allItems[itemIndex - 1]
+      if (previousItem.type === 'lesson') {
+        return !lessonProgress[previousItem.id]?.completed
+      } else if (previousItem.type === 'quiz') {
+        return !quizProgress[previousItem.id]?.completed
+      }
+    }
+    
+    // For assignments, check if all lessons and quizzes are completed
+    if (item.type === 'assignment') {
+      const allLessonsCompleted = lessons.every(l => lessonProgress[l.id]?.completed)
+      const allModuleQuizzesCompleted = quizzes
+        .filter(q => q.module_id === moduleId && !q.lesson_id)
+        .every(q => quizProgress[q.id]?.completed)
+      return !(allLessonsCompleted && allModuleQuizzesCompleted)
+    }
+    
+    return false
+  }
 
   // Calculate module progress
-  const totalItems = lessons.length + quizzes.length
+  const totalItems = lessons.length + quizzes.filter(q => q.module_id === moduleId).length + assignments.length
   const completedLessons = lessons.filter(l => lessonProgress[l.id]?.completed).length
-  const completedQuizzes = quizzes.filter(q => quizProgress[q.id]?.completed).length
-  const completedItems = completedLessons + completedQuizzes
+  const completedQuizzes = quizzes.filter(q => q.module_id === moduleId && quizProgress[q.id]?.completed).length
+  const completedAssignments = assignments.filter(a => assignmentProgress[a.id]?.submitted).length
+  const completedItems = completedLessons + completedQuizzes + completedAssignments
   const moduleProgress = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0
 
-  // Combine and sort lessons and quizzes by order_index
-  const allItems = [
-    ...lessons.map(l => ({ ...l, type: 'lesson' as const })),
-    ...quizzes.map(q => ({ ...q, type: 'quiz' as const }))
-  ].sort((a, b) => {
-    // If both have order_index, sort by that
-    if (a.order_index !== undefined && b.order_index !== undefined) {
-      return a.order_index - b.order_index
+  // Organize content by tab
+  const getTabContent = () => {
+    if (activeTab === 'course') {
+      // Show lessons with their associated quizzes nested
+      const items: Array<{ type: 'lesson' | 'quiz' | 'assignment', data: any, parentLessonId?: string, order_index: number }> = []
+      
+      lessons.forEach(lesson => {
+        items.push({ type: 'lesson', data: lesson, order_index: lesson.order_index })
+        // Add quizzes for this lesson
+        quizzes.filter(q => q.lesson_id === lesson.id).forEach(quiz => {
+          items.push({ type: 'quiz', data: quiz, parentLessonId: lesson.id, order_index: quiz.order_index })
+        })
+      })
+      
+      // Add module-level quizzes
+      quizzes.filter(q => q.module_id === moduleId && !q.lesson_id).forEach(quiz => {
+        items.push({ type: 'quiz', data: quiz, order_index: quiz.order_index })
+      })
+      
+      return items.sort((a, b) => a.order_index - b.order_index)
+    } else if (activeTab === 'exercise') {
+      // Show assignments
+      return assignments.map(a => ({ type: 'assignment' as const, data: a, order_index: a.order_index || 0 }))
+    } else {
+      // Record tab - could show recorded sessions or other content
+      return []
     }
-    // Lessons come before quizzes if order_index is the same
-    if (a.type === 'lesson' && b.type === 'quiz') return -1
-    if (a.type === 'quiz' && b.type === 'lesson') return 1
-    return 0
-  })
+  }
+
+  const tabContent = getTabContent()
 
   if (loading) {
     return (
@@ -219,12 +345,55 @@ export default function ModuleCurriculumSidebar({
   return (
     <Card className="w-80 h-fit sticky top-4">
       <CardHeader className="pb-3">
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-2 mb-3">
           <BookOpen className="h-4 w-4 text-muted-foreground" />
-          <CardTitle className="text-lg">{module?.title || "Module Content"}</CardTitle>
+          <CardTitle className="text-lg uppercase text-xs font-bold tracking-wide">
+            Course Lessons
+          </CardTitle>
         </div>
-        {totalItems > 0 && (
-          <div className="flex items-center gap-2">
+        
+        {/* Tabs */}
+        <div className="flex gap-1 bg-muted p-1 rounded-md">
+          <button
+            onClick={() => setActiveTab('course')}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded text-sm font-medium transition-colors",
+              activeTab === 'course' 
+                ? "bg-background text-foreground shadow-sm" 
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <BookMarked className="h-4 w-4" />
+            Course
+          </button>
+          <button
+            onClick={() => setActiveTab('exercise')}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded text-sm font-medium transition-colors",
+              activeTab === 'exercise' 
+                ? "bg-background text-foreground shadow-sm" 
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Dumbbell className="h-4 w-4" />
+            Exercise
+          </button>
+          <button
+            onClick={() => setActiveTab('record')}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded text-sm font-medium transition-colors",
+              activeTab === 'record' 
+                ? "bg-background text-foreground shadow-sm" 
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Video className="h-4 w-4" />
+            Record
+          </button>
+        </div>
+
+        {totalItems > 0 && activeTab === 'course' && (
+          <div className="flex items-center gap-2 mt-3">
             <Progress value={moduleProgress} className="flex-1 h-2" />
             <span className="text-xs text-muted-foreground min-w-[35px]">
               {moduleProgress}%
@@ -234,101 +403,239 @@ export default function ModuleCurriculumSidebar({
       </CardHeader>
       <CardContent className="pt-0">
         <div className="space-y-1 max-h-[calc(100vh-250px)] overflow-y-auto">
-          {allItems.map((item) => {
-            if (item.type === 'lesson') {
-              const lesson = item as Lesson & { type: 'lesson' }
-              const progress = lessonProgress[lesson.id]
-              const isCompleted = progress?.completed || false
-              const isActive = currentLessonId === lesson.id
+          {activeTab === 'course' && (
+            <>
+              {tabContent.map((item, index) => {
+                if (item.type === 'lesson') {
+                  const lesson = item.data as Lesson
+                  const progress = lessonProgress[lesson.id]
+                  const isCompleted = progress?.completed || false
+                  const isActive = currentLessonId === lesson.id
+                  const isLocked = isItemLocked({ type: 'lesson', id: lesson.id, order_index: lesson.order_index })
 
-              return (
-                <Link
-                  key={lesson.id}
-                  href={`${localePrefix}/student/lessons/${lesson.id}`}
-                  className={cn(
-                    "flex items-center gap-2 p-2 rounded-lg transition-colors",
-                    isActive 
-                      ? "bg-primary/10 border border-primary/20" 
-                      : "hover:bg-muted/50"
-                  )}
-                >
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    {isCompleted ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
-                    ) : (
-                      <Circle className={cn(
-                        "h-4 w-4 flex-shrink-0",
-                        isActive ? "text-primary" : "text-muted-foreground"
-                      )} />
-                    )}
-                    <PlayCircle className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                    <span className={cn(
-                      "text-sm truncate",
-                      isActive ? "font-medium text-primary" : isCompleted ? "text-muted-foreground" : ""
-                    )}>
-                      {lesson.title}
-                    </span>
-                  </div>
-                  {lesson.duration && (
-                    <span className="text-xs text-muted-foreground flex-shrink-0">
-                      {lesson.duration}m
-                    </span>
-                  )}
-                </Link>
-              )
-            } else {
-              const quiz = item as Quiz & { type: 'quiz' }
-              const progress = quizProgress[quiz.id]
-              const isCompleted = progress?.completed || false
-              const hasAttempts = progress?.attempts && progress.attempts > 0
-              const isActive = currentQuizId === quiz.id
+                  return (
+                    <div key={lesson.id}>
+                      <Link
+                        href={isLocked ? '#' : `${localePrefix}/student/lessons/${lesson.id}`}
+                        className={cn(
+                          "flex items-center gap-2 p-2 rounded-lg transition-colors",
+                          isLocked 
+                            ? "opacity-50 cursor-not-allowed" 
+                            : isActive 
+                              ? "bg-primary/10 border border-primary/20" 
+                              : "hover:bg-muted/50"
+                        )}
+                        onClick={(e) => isLocked && e.preventDefault()}
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {isLocked ? (
+                            <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          ) : isCompleted ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                          ) : (
+                            <Circle className={cn(
+                              "h-4 w-4 flex-shrink-0",
+                              isActive ? "text-primary" : "text-muted-foreground"
+                            )} />
+                          )}
+                          <PlayCircle className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                          <span className={cn(
+                            "text-sm truncate",
+                            isActive ? "font-medium text-primary" : isCompleted ? "text-muted-foreground" : ""
+                          )}>
+                            {lesson.title}
+                          </span>
+                        </div>
+                        {lesson.duration && (
+                          <span className="text-xs text-muted-foreground flex-shrink-0">
+                            {lesson.duration}m
+                          </span>
+                        )}
+                      </Link>
+                      {/* Show quizzes under this lesson */}
+                      {quizzes.filter(q => q.lesson_id === lesson.id).map(quiz => {
+                        const quizProgressData = quizProgress[quiz.id]
+                        const isQuizCompleted = quizProgressData?.completed || false
+                        const isQuizActive = currentQuizId === quiz.id
+                        const isQuizLocked = isItemLocked({ type: 'quiz', id: quiz.id, order_index: quiz.order_index, parentLessonId: lesson.id })
 
-              return (
-                <Link
-                  key={quiz.id}
-                  href={`${localePrefix}/student/quizzes`}
-                  className={cn(
-                    "flex items-center gap-2 p-2 rounded-lg transition-colors",
-                    isActive 
-                      ? "bg-primary/10 border border-primary/20" 
-                      : "hover:bg-muted/50"
-                  )}
-                >
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    {isCompleted ? (
-                      <Award className="h-4 w-4 text-green-600 flex-shrink-0" />
-                    ) : hasAttempts ? (
-                      <HelpCircle className="h-4 w-4 text-yellow-600 flex-shrink-0" />
-                    ) : (
-                      <Circle className={cn(
-                        "h-4 w-4 flex-shrink-0",
-                        isActive ? "text-primary" : "text-muted-foreground"
-                      )} />
-                    )}
-                    <FileText className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                    <span className={cn(
-                      "text-sm truncate",
-                      isActive ? "font-medium text-primary" : isCompleted ? "text-muted-foreground" : ""
-                    )}>
-                      {quiz.title}
-                    </span>
-                  </div>
-                  {progress?.score !== undefined && (
-                    <span className={cn(
-                      "text-xs font-medium flex-shrink-0",
-                      progress.passed ? "text-green-600" : "text-red-600"
-                    )}>
-                      {progress.score}%
-                    </span>
-                  )}
-                </Link>
-              )
-            }
-          })}
+                        return (
+                          <Link
+                            key={quiz.id}
+                            href={isQuizLocked ? '#' : `${localePrefix}/student/quizzes/${quiz.id}`}
+                            className={cn(
+                              "flex items-center gap-2 p-2 pl-8 rounded-lg transition-colors",
+                              isQuizLocked 
+                                ? "opacity-50 cursor-not-allowed" 
+                                : isQuizActive 
+                                  ? "bg-primary/10 border border-primary/20" 
+                                  : "hover:bg-muted/50"
+                            )}
+                            onClick={(e) => isQuizLocked && e.preventDefault()}
+                          >
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              {isQuizLocked ? (
+                                <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                              ) : isQuizCompleted ? (
+                                <Award className="h-4 w-4 text-green-600 flex-shrink-0" />
+                              ) : (
+                                <Circle className={cn(
+                                  "h-4 w-4 flex-shrink-0",
+                                  isQuizActive ? "text-primary" : "text-muted-foreground"
+                                )} />
+                              )}
+                              <FileText className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                              <span className={cn(
+                                "text-sm truncate",
+                                isQuizActive ? "font-medium text-primary" : isQuizCompleted ? "text-muted-foreground" : ""
+                              )}>
+                                {quiz.title}
+                              </span>
+                            </div>
+                            {quizProgressData?.score !== undefined && (
+                              <span className={cn(
+                                "text-xs font-medium flex-shrink-0",
+                                quizProgressData.passed ? "text-green-600" : "text-red-600"
+                              )}>
+                                {quizProgressData.score}%
+                              </span>
+                            )}
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  )
+                } else if (item.type === 'quiz' && !item.parentLessonId) {
+                  // Module-level quiz
+                  const quiz = item.data as Quiz
+                  const progress = quizProgress[quiz.id]
+                  const isCompleted = progress?.completed || false
+                  const isActive = currentQuizId === quiz.id
+                  const isLocked = isItemLocked({ type: 'quiz', id: quiz.id, order_index: quiz.order_index })
 
-          {allItems.length === 0 && (
+                  return (
+                    <Link
+                      key={quiz.id}
+                      href={isLocked ? '#' : `${localePrefix}/student/quizzes/${quiz.id}`}
+                      className={cn(
+                        "flex items-center gap-2 p-2 rounded-lg transition-colors",
+                        isLocked 
+                          ? "opacity-50 cursor-not-allowed" 
+                          : isActive 
+                            ? "bg-primary/10 border border-primary/20" 
+                            : "hover:bg-muted/50"
+                      )}
+                      onClick={(e) => isLocked && e.preventDefault()}
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {isLocked ? (
+                          <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        ) : isCompleted ? (
+                          <Award className="h-4 w-4 text-green-600 flex-shrink-0" />
+                        ) : (
+                          <Circle className={cn(
+                            "h-4 w-4 flex-shrink-0",
+                            isActive ? "text-primary" : "text-muted-foreground"
+                          )} />
+                        )}
+                        <FileText className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                        <span className={cn(
+                          "text-sm truncate",
+                          isActive ? "font-medium text-primary" : isCompleted ? "text-muted-foreground" : ""
+                        )}>
+                          {quiz.title}
+                        </span>
+                      </div>
+                      {progress?.score !== undefined && (
+                        <span className={cn(
+                          "text-xs font-medium flex-shrink-0",
+                          progress.passed ? "text-green-600" : "text-red-600"
+                        )}>
+                          {progress.score}%
+                        </span>
+                      )}
+                    </Link>
+                  )
+                }
+                return null
+              })}
+
+              {tabContent.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No course content yet
+                </p>
+              )}
+            </>
+          )}
+
+          {activeTab === 'exercise' && (
+            <>
+              {tabContent.map((item, index) => {
+                if (item.type === 'assignment') {
+                  const assignment = item.data as Assignment
+                  const progress = assignmentProgress[assignment.id]
+                  const isSubmitted = progress?.submitted || false
+                  const isGraded = progress?.graded || false
+                  const isActive = currentAssignmentId === assignment.id
+                  const isLocked = isItemLocked({ type: 'assignment', id: assignment.id, order_index: assignment.order_index || 0 })
+
+                  return (
+                    <Link
+                      key={assignment.id}
+                      href={isLocked ? '#' : `${localePrefix}/student/assignments`}
+                      className={cn(
+                        "flex items-center gap-2 p-2 rounded-lg transition-colors",
+                        isLocked 
+                          ? "opacity-50 cursor-not-allowed" 
+                          : isActive 
+                            ? "bg-primary/10 border border-primary/20" 
+                            : "hover:bg-muted/50"
+                      )}
+                      onClick={(e) => isLocked && e.preventDefault()}
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {isLocked ? (
+                          <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        ) : isGraded ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                        ) : isSubmitted ? (
+                          <Clock className="h-4 w-4 text-yellow-600 flex-shrink-0" />
+                        ) : (
+                          <Circle className={cn(
+                            "h-4 w-4 flex-shrink-0",
+                            isActive ? "text-primary" : "text-muted-foreground"
+                          )} />
+                        )}
+                        <FileText className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                        <span className={cn(
+                          "text-sm truncate",
+                          isActive ? "font-medium text-primary" : ""
+                        )}>
+                          {assignment.title}
+                        </span>
+                      </div>
+                      {progress?.score !== undefined && (
+                        <span className="text-xs font-medium flex-shrink-0 text-green-600">
+                          {progress.score}/{assignment.max_points}
+                        </span>
+                      )}
+                    </Link>
+                  )
+                }
+                return null
+              })}
+
+              {tabContent.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No assignments yet
+                </p>
+              )}
+            </>
+          )}
+
+          {activeTab === 'record' && (
             <p className="text-sm text-muted-foreground text-center py-4">
-              No content in this module yet
+              No recorded sessions available
             </p>
           )}
         </div>
@@ -346,4 +653,3 @@ export default function ModuleCurriculumSidebar({
     </Card>
   )
 }
-

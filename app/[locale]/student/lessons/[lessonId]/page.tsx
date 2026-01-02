@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useEffect, useState, use } from "react"
 import { useRouter } from '@/i18n/routing'
-import QuizSection from "@/components/student/quiz-section"
 import { useTranslations } from 'next-intl'
 import ModuleCurriculumSidebar from "@/components/student/module-curriculum-sidebar"
 
@@ -431,14 +430,6 @@ export default function StudentLessonPage({
         </CardContent>
       </Card>
 
-      {quizzes.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-2xl font-bold">Quizzes</h2>
-          {quizzes.map((quiz) => (
-            <QuizSection key={quiz.id} quiz={quiz} />
-          ))}
-        </div>
-      )}
       </div>
     </div>
   )

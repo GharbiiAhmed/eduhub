@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useEffect, useState, use } from "react"
 import { useRouter } from "next/navigation"
-import QuizSection from "@/components/student/quiz-section"
 import ModuleCurriculumSidebar from "@/components/student/module-curriculum-sidebar"
 
 export default function StudentLessonPage({ params }: { params: Promise<{ lessonId: string }> }) {
@@ -14,7 +13,6 @@ export default function StudentLessonPage({ params }: { params: Promise<{ lesson
   const [isCompleted, setIsCompleted] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isMarking, setIsMarking] = useState(false)
-  const [quizzes, setQuizzes] = useState<any[]>([])
   const [videoError, setVideoError] = useState<string | null>(null)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [moduleId, setModuleId] = useState<string | null>(null)
@@ -158,16 +156,6 @@ export default function StudentLessonPage({ params }: { params: Promise<{ lesson
           setIsCompleted(progressData.completed)
         }
 
-        // Fetch quizzes for this specific lesson
-        const { data: quizzesData } = await supabase
-          .from("quizzes")
-          .select("*")
-          .eq("lesson_id", lessonId)
-          .eq("is_published", true)
-
-        if (quizzesData) {
-          setQuizzes(quizzesData)
-        }
       }
 
       setIsLoading(false)
@@ -424,14 +412,6 @@ export default function StudentLessonPage({ params }: { params: Promise<{ lesson
         </CardContent>
       </Card>
 
-      {quizzes.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-2xl font-bold">Quizzes</h2>
-          {quizzes.map((quiz) => (
-            <QuizSection key={quiz.id} quiz={quiz} />
-          ))}
-        </div>
-      )}
       </div>
     </div>
   )
