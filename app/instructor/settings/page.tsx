@@ -176,7 +176,10 @@ export default function InstructorSettingsPage() {
 
       // Apply theme immediately if it changed
       if (userSettings.theme) {
-        applyTheme(userSettings.theme)
+        const theme = userSettings.theme as 'light' | 'dark' | 'system'
+        if (theme === 'light' || theme === 'dark' || theme === 'system') {
+          applyTheme(theme)
+        }
       }
 
       // Trigger settings update event for context
