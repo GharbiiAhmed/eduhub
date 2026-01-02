@@ -27,7 +27,7 @@ import {
   Menu
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 
 interface Lesson {
   id: string
@@ -96,6 +96,8 @@ export default function ModuleCurriculumSidebar({
 }: ModuleCurriculumSidebarProps & { isOpen?: boolean; onToggle?: () => void }) {
   const t = useTranslations('courses')
   const tCommon = useTranslations('common')
+  const locale = useLocale()
+  const isRTL = locale === 'ar'
   
   const [activeTab, setActiveTab] = useState<TabType>('course')
   const [module, setModule] = useState<any>(null)
@@ -354,8 +356,15 @@ export default function ModuleCurriculumSidebar({
   if (loading) {
     return (
       <div className={cn(
-        "fixed right-0 top-0 h-full bg-background border-l border-border z-40 transition-transform duration-300 ease-in-out",
-        isOpen ? "translate-x-0 w-[420px]" : "translate-x-full w-[420px]"
+        "fixed top-0 h-full bg-background z-40 transition-transform duration-300 ease-in-out w-[420px]",
+        isRTL 
+          ? "left-0 border-r border-border" 
+          : "right-0 border-l border-border",
+        isOpen 
+          ? "translate-x-0" 
+          : isRTL 
+            ? "-translate-x-full" 
+            : "translate-x-full"
       )}>
         <div className="p-6">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
@@ -376,16 +385,25 @@ export default function ModuleCurriculumSidebar({
       
       {/* Drawer */}
       <div className={cn(
-        "fixed right-0 top-0 h-full bg-background border-l border-border z-40 transition-transform duration-300 ease-in-out shadow-2xl",
-        isOpen ? "translate-x-0" : "translate-x-full",
-        "w-[420px]"
+        "fixed top-0 h-full bg-background z-40 transition-transform duration-300 ease-in-out shadow-2xl w-[420px]",
+        isRTL 
+          ? "left-0 border-r border-border" 
+          : "right-0 border-l border-border",
+        isOpen 
+          ? "translate-x-0" 
+          : isRTL 
+            ? "-translate-x-full" 
+            : "translate-x-full"
       )}>
         <div className="p-6 flex-1 flex flex-col min-h-0 h-full overflow-y-auto relative">
           {/* Close Button */}
           {onToggle && (
             <button
               onClick={onToggle}
-              className="absolute top-4 right-4 p-2 rounded-lg hover:bg-muted transition-colors z-10"
+              className={cn(
+                "absolute top-4 p-2 rounded-lg hover:bg-muted transition-colors z-10",
+                isRTL ? "left-4" : "right-4"
+              )}
               aria-label="Close curriculum"
             >
               <X className="h-5 w-5" />
@@ -960,12 +978,16 @@ export default function ModuleCurriculumSidebar({
 
 // Toggle Button Component
 export function CurriculumToggleButton({ onClick, isOpen }: { onClick: () => void; isOpen: boolean }) {
+  const locale = useLocale()
+  const isRTL = locale === 'ar'
+  
   return (
     <button
       onClick={onClick}
       className={cn(
-        "fixed right-4 top-20 z-50 p-3 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all",
-        "flex items-center justify-center"
+        "fixed top-20 z-50 p-3 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all",
+        "flex items-center justify-center",
+        isRTL ? "left-4" : "right-4"
       )}
       aria-label={isOpen ? "Close curriculum" : "Open curriculum"}
     >

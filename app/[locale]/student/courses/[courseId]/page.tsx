@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/client"
 import { useRouter, Link } from '@/i18n/routing'
+import { useLocale } from 'next-intl'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -37,6 +38,8 @@ export default function StudentCourseDetailPage({
   const [loading, setLoading] = useState(true)
   const [currentModuleId, setCurrentModuleId] = useState<string | null>(null)
   const [isCurriculumOpen, setIsCurriculumOpen] = useState(true)
+  const locale = useLocale()
+  const isRTL = locale === 'ar'
 
   useEffect(() => {
     const fetchData = async () => {
@@ -140,7 +143,9 @@ export default function StudentCourseDetailPage({
       {/* Main Content */}
       <div className={cn(
         "h-full overflow-y-auto p-6 transition-all duration-300",
-        isCurriculumOpen ? "pr-[420px]" : "pr-6"
+        isCurriculumOpen 
+          ? (isRTL ? "pl-[420px]" : "pr-[420px]")
+          : (isRTL ? "pl-6" : "pr-6")
       )}>
         {/* Header */}
         <div className="space-y-4">

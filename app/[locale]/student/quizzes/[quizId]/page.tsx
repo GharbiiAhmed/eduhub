@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { useEffect, useState, use } from "react"
 import { useRouter } from '@/i18n/routing'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import ModuleCurriculumSidebar, { CurriculumToggleButton } from "@/components/student/module-curriculum-sidebar"
 import { 
   CheckCircle2, 
@@ -57,6 +57,8 @@ export default function StudentQuizPage({
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [isCurriculumOpen, setIsCurriculumOpen] = useState(true)
   const router = useRouter()
+  const locale = useLocale()
+  const isRTL = locale === 'ar'
 
   useEffect(() => {
     const fetchQuiz = async () => {
@@ -273,7 +275,9 @@ export default function StudentQuizPage({
       {/* Main Content */}
       <div className={cn(
         "h-full overflow-y-auto p-6 transition-all duration-300",
-        isCurriculumOpen ? "pr-[420px]" : "pr-6"
+        isCurriculumOpen 
+          ? (isRTL ? "pl-[420px]" : "pr-[420px]")
+          : (isRTL ? "pl-6" : "pr-6")
       )}>
         {/* Header */}
         <div className="space-y-4">
