@@ -1,7 +1,6 @@
 "use client"
 
 import React, { useState, useEffect } from 'react'
-import Image from 'next/image'
 import { Link, usePathname } from '@/i18n/routing'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
@@ -423,13 +422,10 @@ export function Sidebar({ userType, className, onLinkClick }: SidebarProps) {
       <div className="p-6">
         {/* Logo */}
         <Link href="/" className="flex items-center space-x-2 mb-8">
-          <Image
-            src="/gomycours-logo.png"
+          <img
+            src="/gomycours.jpeg"
             alt="GOMYCOURS"
-            width={32}
-            height={32}
             className="h-8 w-auto"
-            priority
           />
           <span className="text-xl font-bold text-gray-900 dark:text-white">
             GOMYCOURS

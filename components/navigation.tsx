@@ -14,7 +14,6 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu'
-import Image from 'next/image'
 import { 
   BookOpen, 
   GraduationCap, 
@@ -222,13 +221,10 @@ export function Navigation({ userType: propUserType, user: propUser }: Navigatio
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
-              <Image
-                src="/gomycours-logo.png"
+              <img
+                src="/gomycours.jpeg"
                 alt="GOMYCOURS"
-                width={28}
-                height={28}
                 className="h-7 w-auto"
-                priority
               />
               <span className="text-lg font-bold text-gray-900 dark:text-white">
                 GOMYCOURS
