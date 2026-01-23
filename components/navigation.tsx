@@ -223,7 +223,7 @@ export function Navigation({ userType: propUserType, user: propUser }: Navigatio
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
               <Image
-                src="/gomycours.jpeg"
+                src="/gomycours-logo.png"
                 alt="GOMYCOURS"
                 width={28}
                 height={28}

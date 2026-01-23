@@ -424,7 +424,7 @@ export function Sidebar({ userType, className, onLinkClick }: SidebarProps) {
         {/* Logo */}
         <Link href="/" className="flex items-center space-x-2 mb-8">
           <Image
-            src="/gomycours.jpeg"
+            src="/gomycours-logo.png"
             alt="GOMYCOURS"
             width={32}
             height={32}
