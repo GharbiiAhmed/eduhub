@@ -224,7 +224,7 @@ export function Navigation({ userType: propUserType, user: propUser }: Navigatio
               <img
                 src="/gomycours.jpeg"
                 alt="GOMYCOURS"
-                className="h-7 w-auto"
+                className="h-10 w-auto min-w-[120px] object-contain"
               />
               <span className="text-lg font-bold text-gray-900 dark:text-white">
                 GOMYCOURS
