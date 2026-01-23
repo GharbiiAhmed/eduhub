@@ -14,7 +14,7 @@ import { Analytics } from "@vercel/analytics/next"
 const _geist = Geist({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "EduHub - Learn & Grow",
+  title: "GOMYCOURS - Learn & Grow",
   description: "The modern e-learning platform for courses and books",
   generator: "v0.app",
 }

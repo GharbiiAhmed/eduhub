@@ -104,16 +104,16 @@ CREATE TRIGGER update_website_settings_updated_at
 -- Insert default website settings
 INSERT INTO public.website_settings (setting_key, setting_value, setting_type, category, description, is_public) VALUES
   -- General Settings
-  ('site_name', 'EduHub', 'text', 'general', 'Website name', TRUE),
+  ('site_name', 'GOMYCOURS', 'text', 'general', 'Website name', TRUE),
   ('site_description', 'Your gateway to world-class education', 'text', 'general', 'Website description', TRUE),
   ('site_logo', '', 'text', 'general', 'Website logo URL', TRUE),
-  ('contact_email', 'support@eduhub.com', 'text', 'general', 'Contact email address', TRUE),
+  ('contact_email', 'support@gomycours.com', 'text', 'general', 'Contact email address', TRUE),
   ('contact_phone', '+1 (555) 123-4567', 'text', 'general', 'Contact phone number', TRUE),
   ('support_hours', 'Mon-Fri, 9AM-6PM EST', 'text', 'general', 'Support hours', TRUE),
   
   -- Email Settings
-  ('email_from_name', 'EduHub', 'text', 'email', 'Email sender name', FALSE),
-  ('email_from_address', 'noreply@eduhub.com', 'text', 'email', 'Email sender address', FALSE),
+  ('email_from_name', 'GOMYCOURS', 'text', 'email', 'Email sender name', FALSE),
+  ('email_from_address', 'noreply@gomycours.com', 'text', 'email', 'Email sender address', FALSE),
   ('email_smtp_host', '', 'text', 'email', 'SMTP host', FALSE),
   ('email_smtp_port', '587', 'number', 'email', 'SMTP port', FALSE),
   ('email_smtp_user', '', 'text', 'email', 'SMTP username', FALSE),
@@ -135,7 +135,7 @@ INSERT INTO public.website_settings (setting_key, setting_value, setting_type, c
   ('enable_ratings', 'true', 'boolean', 'features', 'Enable course ratings', TRUE),
   
   -- SEO Settings
-  ('meta_title', 'EduHub - Learn & Grow', 'text', 'seo', 'Default meta title', TRUE),
+  ('meta_title', 'GOMYCOURS - Learn & Grow', 'text', 'seo', 'Default meta title', TRUE),
   ('meta_description', 'Your gateway to world-class education', 'text', 'seo', 'Default meta description', TRUE),
   ('meta_keywords', 'education, courses, learning, online learning', 'text', 'seo', 'Default meta keywords', TRUE),
   

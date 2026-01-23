@@ -1,1 +1,1 @@
-# eduhub
+# GOMYCOURS

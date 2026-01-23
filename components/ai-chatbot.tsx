@@ -64,7 +64,7 @@ export function AIChatbot({ userType = "student", onClose }: AIChatbotProps) {
         <div className="flex items-center gap-2">
           <MessageCircle className="w-5 h-5" />
           <div>
-            <h3 className="font-semibold">EduHub AI Assistant</h3>
+            <h3 className="font-semibold">GOMYCOURS AI Assistant</h3>
             <p className="text-xs opacity-90">Always here to help</p>
           </div>
         </div>
@@ -85,7 +85,7 @@ export function AIChatbot({ userType = "student", onClose }: AIChatbotProps) {
           <div className="flex flex-col items-center justify-center h-full text-center space-y-3">
             <MessageCircle className="w-12 h-12 text-muted-foreground opacity-50" />
             <div>
-              <p className="font-semibold text-foreground">Welcome to EduHub AI</p>
+              <p className="font-semibold text-foreground">Welcome to GOMYCOURS AI</p>
               <p className="text-sm text-muted-foreground">Ask me anything about courses, learning, or the platform</p>
             </div>
           </div>

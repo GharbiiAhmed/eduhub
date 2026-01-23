@@ -38,7 +38,7 @@ export function MaintenanceMode() {
             <div>
               <CardTitle>Maintenance Mode</CardTitle>
               <CardDescription>
-                {settings.site_name || 'EduHub'} is currently under maintenance
+                {settings.site_name || 'GOMYCOURS'} is currently under maintenance
               </CardDescription>
             </div>
           </div>

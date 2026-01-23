@@ -20,7 +20,7 @@ export async function sendEmail(options: EmailOptions): Promise<{ success: boole
     const smtpUser = process.env.SMTP_USER || process.env.SMTP_USERNAME
     const smtpPassword = process.env.SMTP_PASSWORD
     const smtpFromEmail = process.env.SMTP_FROM_EMAIL || process.env.EMAIL_FROM || 'aghx01@gmail.com'
-    const smtpFromName = process.env.SMTP_FROM_NAME || 'eduhub'
+    const smtpFromName = process.env.SMTP_FROM_NAME || 'gomycours'
 
     if (!smtpUser || !smtpPassword) {
       console.error('SMTP credentials not configured. Please set SMTP_USER and SMTP_PASSWORD environment variables.')
@@ -71,7 +71,7 @@ export async function sendEmail(options: EmailOptions): Promise<{ success: boole
  * Send account approval email
  */
 export async function sendApprovalEmail(email: string, fullName: string): Promise<{ success: boolean; error?: string }> {
-  const subject = 'Your Account Has Been Approved - EduHub'
+  const subject = 'Your Account Has Been Approved - GOMYCOURS'
   const html = `
     <!DOCTYPE html>
     <html>
@@ -93,7 +93,7 @@ export async function sendApprovalEmail(email: string, fullName: string): Promis
         </div>
         <div class="content">
           <p>Hello ${fullName || 'there'},</p>
-          <p>Great news! Your instructor account on EduHub has been approved by our admin team.</p>
+          <p>Great news! Your instructor account on GOMYCOURS has been approved by our admin team.</p>
           <p>You can now log in and start creating courses, managing students, and building your teaching presence on our platform.</p>
           <p>
             <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'https://eduhub-tn.netlify.app'}/auth/login" class="button">
@@ -101,8 +101,8 @@ export async function sendApprovalEmail(email: string, fullName: string): Promis
             </a>
           </p>
           <p>If you have any questions or need assistance, please don't hesitate to contact our support team.</p>
-          <p>Welcome to EduHub!</p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Welcome to GOMYCOURS!</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -119,7 +119,7 @@ export async function sendApprovalEmail(email: string, fullName: string): Promis
  * Send account rejection email
  */
 export async function sendRejectionEmail(email: string, fullName: string, reason?: string): Promise<{ success: boolean; error?: string }> {
-  const subject = 'Account Registration Update - EduHub'
+  const subject = 'Account Registration Update - GOMYCOURS'
   const html = `
     <!DOCTYPE html>
     <html>
@@ -140,11 +140,11 @@ export async function sendRejectionEmail(email: string, fullName: string, reason
         </div>
         <div class="content">
           <p>Hello ${fullName || 'there'},</p>
-          <p>We regret to inform you that your instructor account registration on EduHub has not been approved at this time.</p>
+          <p>We regret to inform you that your instructor account registration on GOMYCOURS has not been approved at this time.</p>
           ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
           <p>If you believe this is an error or would like to appeal this decision, please contact our support team for further assistance.</p>
-          <p>We appreciate your interest in EduHub and encourage you to reach out if you have any questions.</p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>We appreciate your interest in GOMYCOURS and encourage you to reach out if you have any questions.</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -161,7 +161,7 @@ export async function sendRejectionEmail(email: string, fullName: string, reason
  * Send account ban email
  */
 export async function sendBanEmail(email: string, fullName: string, reason?: string): Promise<{ success: boolean; error?: string }> {
-  const subject = 'Account Suspension Notice - EduHub'
+  const subject = 'Account Suspension Notice - GOMYCOURS'
   const html = `
     <!DOCTYPE html>
     <html>
@@ -182,11 +182,11 @@ export async function sendBanEmail(email: string, fullName: string, reason?: str
         </div>
         <div class="content">
           <p>Hello ${fullName || 'there'},</p>
-          <p>We are writing to inform you that your account on EduHub has been suspended (banned) by our admin team.</p>
+          <p>We are writing to inform you that your account on GOMYCOURS has been suspended (banned) by our admin team.</p>
           ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
           <p>As a result of this action, you will no longer be able to access your account or use our platform.</p>
           <p>If you believe this action was taken in error or would like to appeal this decision, please contact our support team immediately.</p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -203,7 +203,7 @@ export async function sendBanEmail(email: string, fullName: string, reason?: str
  * Send welcome email to new users
  */
 export async function sendWelcomeEmail(email: string, fullName: string, role: string = 'student'): Promise<{ success: boolean; error?: string }> {
-  const subject = 'Welcome to EduHub! 🎓'
+  const subject = 'Welcome to GOMYCOURS! 🎓'
   const roleMessage = role === 'instructor' 
     ? 'Your instructor account is pending approval. You will receive an email once your account is approved.'
     : 'Start exploring our courses and begin your learning journey today!'
@@ -225,11 +225,11 @@ export async function sendWelcomeEmail(email: string, fullName: string, role: st
     <body>
       <div class="container">
         <div class="header">
-          <h1>Welcome to EduHub! 🎓</h1>
+          <h1>Welcome to GOMYCOURS! 🎓</h1>
         </div>
         <div class="content">
           <p>Hello ${fullName || 'there'},</p>
-          <p>Thank you for joining EduHub! We're excited to have you as part of our learning community.</p>
+          <p>Thank you for joining GOMYCOURS! We're excited to have you as part of our learning community.</p>
           <p>${roleMessage}</p>
           <p>
             <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'https://eduhub-tn.netlify.app'}/auth/login" class="button">
@@ -237,7 +237,7 @@ export async function sendWelcomeEmail(email: string, fullName: string, role: st
             </a>
           </p>
           <p>If you have any questions, our support team is here to help!</p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -254,7 +254,7 @@ export async function sendWelcomeEmail(email: string, fullName: string, role: st
  * Send course enrollment email
  */
 export async function sendEnrollmentEmail(email: string, fullName: string, courseTitle: string, courseId: string): Promise<{ success: boolean; error?: string }> {
-  const subject = `You've Enrolled in "${courseTitle}" - EduHub`
+  const subject = `You've Enrolled in "${courseTitle}" - GOMYCOURS`
   const html = `
     <!DOCTYPE html>
     <html>
@@ -284,7 +284,7 @@ export async function sendEnrollmentEmail(email: string, fullName: string, cours
             </a>
           </p>
           <p>Good luck with your learning journey!</p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -332,7 +332,7 @@ export async function sendCourseCompletionEmail(email: string, fullName: string,
             </a>
           </p>
           <p>Keep up the great work and continue learning!</p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -382,7 +382,7 @@ export async function sendCertificateEmail(email: string, fullName: string, cour
             </a>
           </p>
           <p>Well done on completing the course!</p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -399,7 +399,7 @@ export async function sendCertificateEmail(email: string, fullName: string, cour
  * Send unban email (when admin unbans a user)
  */
 export async function sendUnbanEmail(email: string, fullName: string): Promise<{ success: boolean; error?: string }> {
-  const subject = 'Account Access Restored - EduHub'
+  const subject = 'Account Access Restored - GOMYCOURS'
   const html = `
     <!DOCTYPE html>
     <html>
@@ -421,7 +421,7 @@ export async function sendUnbanEmail(email: string, fullName: string): Promise<{
         </div>
         <div class="content">
           <p>Hello ${fullName || 'there'},</p>
-          <p>Good news! Your account access on EduHub has been restored by our admin team.</p>
+          <p>Good news! Your account access on GOMYCOURS has been restored by our admin team.</p>
           <p>You can now log in and resume using our platform. We're glad to have you back!</p>
           <p>
             <a href="${process.env.NEXT_PUBLIC_SITE_URL || 'https://eduhub-tn.netlify.app'}/auth/login" class="button">
@@ -429,7 +429,7 @@ export async function sendUnbanEmail(email: string, fullName: string): Promise<{
             </a>
           </p>
           <p>If you have any questions or concerns, please don't hesitate to contact our support team.</p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -456,7 +456,7 @@ export async function sendPaymentReceiptEmail(
   productId: string,
   paymentId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const subject = `Payment Receipt - ${productName} - EduHub`
+  const subject = `Payment Receipt - ${productName} - GOMYCOURS`
   const html = `
     <!DOCTYPE html>
     <html>
@@ -506,7 +506,7 @@ export async function sendPaymentReceiptEmail(
             </a>
           </p>
           <p>This receipt has been sent to your email for your records.</p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -530,7 +530,7 @@ export async function sendSubscriptionRenewalEmail(
   currency: string,
   nextBillingDate: string
 ): Promise<{ success: boolean; error?: string }> {
-  const subject = `Subscription Renewed - ${productName} - EduHub`
+  const subject = `Subscription Renewed - ${productName} - GOMYCOURS`
   const html = `
     <!DOCTYPE html>
     <html>
@@ -565,7 +565,7 @@ export async function sendSubscriptionRenewalEmail(
             </a>
           </p>
           <p>If you have any questions, please contact our support team.</p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -587,7 +587,7 @@ export async function sendSubscriptionExpiringEmail(
   productName: string,
   expiryDate: string
 ): Promise<{ success: boolean; error?: string }> {
-  const subject = `Your Subscription Expires Soon - ${productName} - EduHub`
+  const subject = `Your Subscription Expires Soon - ${productName} - GOMYCOURS`
   const html = `
     <!DOCTYPE html>
     <html>
@@ -621,7 +621,7 @@ export async function sendSubscriptionExpiringEmail(
             </a>
           </p>
           <p>If you have any questions, please contact our support team.</p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -645,7 +645,7 @@ export async function sendPaymentFailedEmail(
   currency: string,
   reason?: string
 ): Promise<{ success: boolean; error?: string }> {
-  const subject = `Payment Failed - ${productName} - EduHub`
+  const subject = `Payment Failed - ${productName} - GOMYCOURS`
   const html = `
     <!DOCTYPE html>
     <html>
@@ -685,7 +685,7 @@ export async function sendPaymentFailedEmail(
             </a>
           </p>
           <p>Please update your payment method to continue your subscription. If you continue to experience issues, please contact our support team.</p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -707,7 +707,7 @@ export async function sendSubscriptionCancelledEmail(
   productName: string,
   accessUntil: string
 ): Promise<{ success: boolean; error?: string }> {
-  const subject = `Subscription Cancelled - ${productName} - EduHub`
+  const subject = `Subscription Cancelled - ${productName} - GOMYCOURS`
   const html = `
     <!DOCTYPE html>
     <html>
@@ -742,7 +742,7 @@ export async function sendSubscriptionCancelledEmail(
             </a>
           </p>
           <p>If you have any feedback about how we can improve, we'd love to hear from you.</p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -765,7 +765,7 @@ export async function sendNewStudentEnrolledEmail(
   courseTitle: string,
   courseId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const subject = `New Student Enrolled in "${courseTitle}" - EduHub`
+  const subject = `New Student Enrolled in "${courseTitle}" - GOMYCOURS`
   const html = `
     <!DOCTYPE html>
     <html>
@@ -794,7 +794,7 @@ export async function sendNewStudentEnrolledEmail(
               View Course Details
             </a>
           </p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -817,7 +817,7 @@ export async function sendStudentCompletedCourseEmail(
   courseTitle: string,
   courseId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const subject = `Student Completed "${courseTitle}" - EduHub`
+  const subject = `Student Completed "${courseTitle}" - GOMYCOURS`
   const html = `
     <!DOCTYPE html>
     <html>
@@ -847,7 +847,7 @@ export async function sendStudentCompletedCourseEmail(
             </a>
           </p>
           <p>Keep inspiring and educating!</p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -872,7 +872,7 @@ export async function sendPaymentReceivedEmail(
   productType: 'course' | 'book',
   earnings: number
 ): Promise<{ success: boolean; error?: string }> {
-  const subject = `Payment Received - ${productName} - EduHub`
+  const subject = `Payment Received - ${productName} - GOMYCOURS`
   const html = `
     <!DOCTYPE html>
     <html>
@@ -918,8 +918,8 @@ export async function sendPaymentReceivedEmail(
               View Earnings Dashboard
             </a>
           </p>
-          <p>Thank you for creating amazing content on EduHub!</p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Thank you for creating amazing content on GOMYCOURS!</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -944,7 +944,7 @@ export async function sendMeetingReminderEmail(
   meetingUrl: string,
   meetingId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const subject = `Meeting Reminder: ${meetingTitle} - EduHub`
+  const subject = `Meeting Reminder: ${meetingTitle} - GOMYCOURS`
   const html = `
     <!DOCTYPE html>
     <html>
@@ -979,7 +979,7 @@ export async function sendMeetingReminderEmail(
               Join Meeting
             </a>
           </p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -1002,7 +1002,7 @@ export async function sendMeetingCancelledEmail(
   meetingDate: string,
   reason?: string
 ): Promise<{ success: boolean; error?: string }> {
-  const subject = `Meeting Cancelled: ${meetingTitle} - EduHub`
+  const subject = `Meeting Cancelled: ${meetingTitle} - GOMYCOURS`
   const html = `
     <!DOCTYPE html>
     <html>
@@ -1031,7 +1031,7 @@ export async function sendMeetingCancelledEmail(
             ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
           </div>
           <p>We apologize for any inconvenience this may cause. If you have any questions, please contact the instructor or our support team.</p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -1054,7 +1054,7 @@ export async function sendMeetingRecordingEmail(
   recordingUrl: string,
   meetingId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const subject = `Recording Available: ${meetingTitle} - EduHub`
+  const subject = `Recording Available: ${meetingTitle} - GOMYCOURS`
   const html = `
     <!DOCTYPE html>
     <html>
@@ -1083,7 +1083,7 @@ export async function sendMeetingRecordingEmail(
               Watch Recording
             </a>
           </p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -1108,7 +1108,7 @@ export async function sendForumReplyEmail(
   forumId: string,
   postId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const subject = `New Reply to Your Post: "${postTitle}" - EduHub`
+  const subject = `New Reply to Your Post: "${postTitle}" - GOMYCOURS`
   const html = `
     <!DOCTYPE html>
     <html>
@@ -1141,7 +1141,7 @@ export async function sendForumReplyEmail(
               View Reply
             </a>
           </p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -1164,7 +1164,7 @@ export async function sendNewLessonAddedEmail(
   lessonTitle: string,
   courseId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const subject = `New Lesson Added to "${courseTitle}" - EduHub`
+  const subject = `New Lesson Added to "${courseTitle}" - GOMYCOURS`
   const html = `
     <!DOCTYPE html>
     <html>
@@ -1195,7 +1195,7 @@ export async function sendNewLessonAddedEmail(
             </a>
           </p>
           <p>Happy learning!</p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -1218,7 +1218,7 @@ export async function sendCoursePublishedEmail(
   courseId: string,
   instructorName: string
 ): Promise<{ success: boolean; error?: string }> {
-  const subject = `New Course Published: "${courseTitle}" - EduHub`
+  const subject = `New Course Published: "${courseTitle}" - GOMYCOURS`
   const html = `
     <!DOCTYPE html>
     <html>
@@ -1249,7 +1249,7 @@ export async function sendCoursePublishedEmail(
               View Course
             </a>
           </p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -1276,7 +1276,7 @@ export async function sendWeeklyProgressReportEmail(
     coursesInProgress: number
   }
 ): Promise<{ success: boolean; error?: string }> {
-  const subject = `Your Weekly Learning Progress - EduHub`
+  const subject = `Your Weekly Learning Progress - GOMYCOURS`
   const html = `
     <!DOCTYPE html>
     <html>
@@ -1327,7 +1327,7 @@ export async function sendWeeklyProgressReportEmail(
               View Dashboard
             </a>
           </p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -1350,7 +1350,7 @@ export async function sendCourseReminderEmail(
   courseId: string,
   daysInactive: number
 ): Promise<{ success: boolean; error?: string }> {
-  const subject = `Continue Learning: "${courseTitle}" - EduHub`
+  const subject = `Continue Learning: "${courseTitle}" - GOMYCOURS`
   const html = `
     <!DOCTYPE html>
     <html>
@@ -1380,7 +1380,7 @@ export async function sendCourseReminderEmail(
             </a>
           </p>
           <p>Every step forward counts. You've got this!</p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -1401,7 +1401,7 @@ export async function sendCourseRecommendationsEmail(
   fullName: string,
   courses: Array<{ id: string; title: string; instructor: string; price: number }>
 ): Promise<{ success: boolean; error?: string }> {
-  const subject = `Recommended Courses for You - EduHub`
+  const subject = `Recommended Courses for You - GOMYCOURS`
   const html = `
     <!DOCTYPE html>
     <html>
@@ -1438,7 +1438,7 @@ export async function sendCourseRecommendationsEmail(
             </a>
           </p>
           <p>Happy learning!</p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -1461,7 +1461,7 @@ export async function sendNewDeviceLoginEmail(
   location: string,
   loginTime: string
 ): Promise<{ success: boolean; error?: string }> {
-  const subject = `New Device Login Detected - EduHub`
+  const subject = `New Device Login Detected - GOMYCOURS`
   const html = `
     <!DOCTYPE html>
     <html>
@@ -1496,7 +1496,7 @@ export async function sendNewDeviceLoginEmail(
               Secure My Account
             </a>
           </p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>
@@ -1517,7 +1517,7 @@ export async function sendPasswordChangedEmail(
   fullName: string,
   changeTime: string
 ): Promise<{ success: boolean; error?: string }> {
-  const subject = `Password Changed Successfully - EduHub`
+  const subject = `Password Changed Successfully - GOMYCOURS`
   const html = `
     <!DOCTYPE html>
     <html>
@@ -1551,7 +1551,7 @@ export async function sendPasswordChangedEmail(
             </a>
           </p>
           <p>For security reasons, if you didn't make this change, please contact our support team right away.</p>
-          <p>Best regards,<br>The EduHub Team</p>
+          <p>Best regards,<br>The GOMYCOURS Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this message.</p>

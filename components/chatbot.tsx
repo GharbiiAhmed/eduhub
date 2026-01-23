@@ -179,7 +179,7 @@ export function Chatbot({ courseId, courseTitle, userRole = 'student', className
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <Bot className="h-5 w-5 text-primary" />
-              <CardTitle className="text-lg">EduHub AI Assistant</CardTitle>
+              <CardTitle className="text-lg">GOMYCOURS AI Assistant</CardTitle>
               {courseId && (
                 <Badge variant="secondary" className="text-xs">
                   <BookOpen className="h-3 w-3 mr-1" />
@@ -223,7 +223,7 @@ export function Chatbot({ courseId, courseTitle, userRole = 'student', className
               {messages.length === 0 ? (
                 <div className="text-center text-muted-foreground py-8">
                   <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Start a conversation with EduHub AI Assistant!</p>
+                  <p>Start a conversation with GOMYCOURS AI Assistant!</p>
                   <p className="text-sm mt-2">
                     Ask about courses, learning strategies, or platform features.
                   </p>

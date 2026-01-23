@@ -216,7 +216,7 @@ export function getQrokAPI(): QrokAPI {
 // Simple mock AI responses for when no API is available
 export function getMockAIResponse(context: string, userType: string): string {
   const responses = {
-    student: `Hello! I'm EduHub AI Assistant. Based on your message: "${context}", I'm here to help you with your learning journey! 
+    student: `Hello! I'm GOMYCOURS AI Assistant. Based on your message: "${context}", I'm here to help you with your learning journey! 
 
 Here are some ways I can assist you:
 • Course recommendations and learning paths
@@ -226,7 +226,7 @@ Here are some ways I can assist you:
 
 What would you like to learn about today?`,
     
-    instructor: `Hello! I'm EduHub AI Assistant for instructors. Regarding: "${context}", I can help you with:
+    instructor: `Hello! I'm GOMYCOURS AI Assistant for instructors. Regarding: "${context}", I can help you with:
 
 • Course creation and content development
 • Teaching strategies and student engagement
@@ -235,7 +235,7 @@ What would you like to learn about today?`,
 
 How can I help you improve your teaching today?`,
     
-    admin: `Hello! I'm EduHub AI Assistant for administrators. About: "${context}", I can help you with:
+    admin: `Hello! I'm GOMYCOURS AI Assistant for administrators. About: "${context}", I can help you with:
 
 • Platform management and analytics
 • User engagement strategies
@@ -245,7 +245,7 @@ How can I help you improve your teaching today?`,
 What administrative tasks can I help you with?`
   }
   
-  return responses[userType as keyof typeof responses] || `Hello! I'm EduHub AI Assistant. I understand you're asking about: "${context}". 
+  return responses[userType as keyof typeof responses] || `Hello! I'm GOMYCOURS AI Assistant. I understand you're asking about: "${context}". 
 
 I'm here to help with your e-learning platform needs! Whether you're a student, instructor, or admin, I can provide guidance on courses, learning strategies, and platform features.
 
