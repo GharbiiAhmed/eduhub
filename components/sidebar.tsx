@@ -425,7 +425,7 @@ export function Sidebar({ userType, className, onLinkClick }: SidebarProps) {
           <img
             src="/gomycours.jpeg"
             alt="GOMYCOURS"
-            className="h-12 w-auto min-w-[150px] object-contain"
+            className="h-16 w-auto min-w-[200px] object-contain"
           />
           <span className="text-xl font-bold text-gray-900 dark:text-white">
             GOMYCOURS
