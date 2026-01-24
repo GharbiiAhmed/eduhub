@@ -222,9 +222,9 @@ export function Navigation({ userType: propUserType, user: propUser }: Navigatio
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
               <span className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">
-                <span className="text-black dark:text-white">gomy</span>
-                <span className="text-blue-400">co</span>
-                <span className="text-black dark:text-white">urs</span>
+                <span className="text-black dark:text-white">GOMY</span>
+                <span className="text-blue-400">CO</span>
+                <span className="text-black dark:text-white">URS</span>
               </span>
             </Link>
           </div>
