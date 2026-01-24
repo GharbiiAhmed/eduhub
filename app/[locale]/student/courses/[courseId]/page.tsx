@@ -135,6 +135,7 @@ export default function StudentCourseDetailPage({
         <ModuleCurriculumSidebar
           moduleId={currentModuleId}
           courseId={courseId}
+          enrollmentProgress={enrollment?.progress_percentage}
           isOpen={isCurriculumOpen}
           onToggle={() => setIsCurriculumOpen(false)}
         />
@@ -144,7 +145,7 @@ export default function StudentCourseDetailPage({
       <div className={cn(
         "h-full overflow-y-auto p-6 transition-all duration-300",
         isCurriculumOpen 
-          ? (isRTL ? "pl-[420px]" : "pr-[420px]")
+          ? (isRTL ? "pl-[500px]" : "pr-[500px]")
           : (isRTL ? "pl-6" : "pr-6")
       )}>
         {/* Header */}

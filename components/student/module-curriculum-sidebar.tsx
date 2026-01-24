@@ -81,6 +81,7 @@ interface ModuleCurriculumSidebarProps {
   currentQuizId?: string
   currentAssignmentId?: string
   courseId?: string
+  enrollmentProgress?: number
 }
 
 type TabType = 'course' | 'exercise' | 'record'
@@ -91,6 +92,7 @@ export default function ModuleCurriculumSidebar({
   currentQuizId,
   currentAssignmentId,
   courseId,
+  enrollmentProgress,
   isOpen = true,
   onToggle
 }: ModuleCurriculumSidebarProps & { isOpen?: boolean; onToggle?: () => void }) {
@@ -107,7 +109,6 @@ export default function ModuleCurriculumSidebar({
   const [lessonProgress, setLessonProgress] = useState<Record<string, LessonProgress>>({})
   const [quizProgress, setQuizProgress] = useState<Record<string, QuizProgress>>({})
   const [assignmentProgress, setAssignmentProgress] = useState<Record<string, AssignmentProgress>>({})
-  const [certificate, setCertificate] = useState<any>(null)
   const [course, setCourse] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
@@ -142,15 +143,6 @@ export default function ModuleCurriculumSidebar({
           setCourse(courseData)
         }
 
-        // Fetch certificate
-        const { data: certificateData } = await supabase
-          .from("certificates")
-          .select("*")
-          .eq("student_id", user.id)
-          .eq("course_id", courseId)
-          .single()
-
-        setCertificate(certificateData || null)
       }
 
       // Fetch lessons
@@ -319,13 +311,13 @@ export default function ModuleCurriculumSidebar({
     return false
   }
 
-  // Calculate module progress
+  // Calculate module progress - use enrollment progress if provided, otherwise calculate module-specific progress
   const totalItems = lessons.length + quizzes.filter(q => q.module_id === moduleId).length + assignments.length
   const completedLessons = lessons.filter(l => lessonProgress[l.id]?.completed).length
   const completedQuizzes = quizzes.filter(q => q.module_id === moduleId && quizProgress[q.id]?.completed).length
   const completedAssignments = assignments.filter(a => assignmentProgress[a.id]?.submitted).length
   const completedItems = completedLessons + completedQuizzes + completedAssignments
-  const moduleProgress = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0
+  const moduleProgress = enrollmentProgress !== undefined ? enrollmentProgress : (totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0)
 
   // Organize content by tab
   const getTabContent = () => {
@@ -356,7 +348,7 @@ export default function ModuleCurriculumSidebar({
   if (loading) {
     return (
       <div className={cn(
-        "fixed top-0 h-full bg-background z-40 transition-transform duration-300 ease-in-out w-[420px]",
+        "fixed top-0 h-full bg-background z-40 transition-transform duration-300 ease-in-out w-[500px]",
         isRTL 
           ? "left-0 border-r border-border" 
           : "right-0 border-l border-border",
@@ -413,35 +405,37 @@ export default function ModuleCurriculumSidebar({
           {/* Header */}
           <div className="mb-6 pb-6 border-b border-border">
           <div className="mb-4">
-            <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
+            <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">
               {t('curriculum').toUpperCase()}
             </h2>
             {module?.title && (
-              <h3 className="text-xl font-bold text-foreground mb-2">
+              <h3 className="text-2xl font-bold text-foreground mb-3">
                 {module.title}
               </h3>
             )}
             {module?.description && (
-              <p className="text-sm text-muted-foreground leading-relaxed">
+              <p className="text-base text-muted-foreground leading-relaxed">
                 {module.description}
               </p>
             )}
           </div>
           
           {/* Progress */}
-          {totalItems > 0 && (
-            <div className="space-y-3 p-4 bg-muted/50 rounded-xl border border-border">
+          {(totalItems > 0 || enrollmentProgress !== undefined) && (
+            <div className="space-y-4 p-5 bg-muted/50 rounded-xl border border-border">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-foreground">{tCommon('progress')}</span>
-                <span className="text-2xl font-bold text-primary">
+                <span className="text-base font-semibold text-foreground">{tCommon('progress')}</span>
+                <span className="text-3xl font-bold text-primary">
                   {moduleProgress}%
                 </span>
               </div>
-              <Progress value={moduleProgress} className="h-3" />
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span className="font-medium">{completedItems} {tCommon('complete')}</span>
-                <span className="font-medium">{totalItems} {t('total')} {t('items')}</span>
-              </div>
+              <Progress value={moduleProgress} className="h-4" />
+              {totalItems > 0 && (
+                <div className="flex items-center justify-between text-base text-muted-foreground">
+                  <span className="font-medium">{completedItems} {tCommon('complete')}</span>
+                  <span className="font-medium">{totalItems} {t('total')} {t('items')}</span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -452,7 +446,7 @@ export default function ModuleCurriculumSidebar({
             <button
               onClick={() => setActiveTab('course')}
               className={cn(
-                "flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold transition-all",
+                "flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-md text-base font-semibold transition-all",
                 activeTab === 'course' 
                   ? "bg-background text-foreground shadow-sm" 
                   : "text-muted-foreground hover:text-foreground"
@@ -464,7 +458,7 @@ export default function ModuleCurriculumSidebar({
             <button
               onClick={() => setActiveTab('exercise')}
               className={cn(
-                "flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold transition-all",
+                "flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-md text-base font-semibold transition-all",
                 activeTab === 'exercise' 
                   ? "bg-background text-foreground shadow-sm" 
                   : "text-muted-foreground hover:text-foreground"
@@ -476,7 +470,7 @@ export default function ModuleCurriculumSidebar({
             <button
               onClick={() => setActiveTab('record')}
               className={cn(
-                "flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold transition-all",
+                "flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-md text-base font-semibold transition-all",
                 activeTab === 'record' 
                   ? "bg-background text-foreground shadow-sm" 
                   : "text-muted-foreground hover:text-foreground"
@@ -494,8 +488,8 @@ export default function ModuleCurriculumSidebar({
             <>
               {tabContent.length > 0 && (
                 <div className="mb-4">
-                  <h4 className="text-sm font-bold text-foreground uppercase tracking-wide mb-3 flex items-center gap-2">
-                    <BookMarked className="w-4 h-4" />
+                  <h4 className="text-base font-bold text-foreground uppercase tracking-wide mb-4 flex items-center gap-2">
+                    <BookMarked className="w-6 h-6" />
                     {t('courseContent')}
                   </h4>
                 </div>
@@ -515,7 +509,7 @@ export default function ModuleCurriculumSidebar({
                         <Link
                           href={isLocked ? '#' : `/student/lessons/${lesson.id}`}
                           className={cn(
-                            "group relative flex items-start px-5 py-4 rounded-xl transition-all border-2",
+                            "group relative flex items-start px-6 py-5 rounded-xl transition-all border-2",
                             isLocked 
                               ? "opacity-60 cursor-not-allowed border-border bg-muted/30" 
                               : isActive 
@@ -527,46 +521,46 @@ export default function ModuleCurriculumSidebar({
                           <div className="flex items-start space-x-4 flex-1 min-w-0">
                             <div className="flex-shrink-0 mt-1">
                               <div className={cn(
-                                "w-8 h-8 rounded-full flex items-center justify-center",
+                                "w-10 h-10 rounded-full flex items-center justify-center",
                                 isActive ? "bg-primary-foreground/20" : isCompleted ? "bg-green-500/20 dark:bg-green-500/30" : "bg-muted"
                               )}>
                                 {isLocked ? (
-                                  <Lock className="w-5 h-5 text-muted-foreground" />
+                                  <Lock className="w-6 h-6 text-muted-foreground" />
                                 ) : isCompleted ? (
                                   <CheckCircle2 className={cn(
-                                    "w-5 h-5",
+                                    "w-6 h-6",
                                     isActive ? "text-primary-foreground" : "text-green-600 dark:text-green-400"
                                   )} />
                                 ) : (
                                   <Circle className={cn(
-                                    "w-5 h-5",
+                                    "w-6 h-6",
                                     isActive ? "text-primary-foreground" : "text-muted-foreground"
                                   )} />
                                 )}
                               </div>
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-start gap-2 mb-2">
+                              <div className="flex items-start gap-3 mb-2">
                                 <PlayCircle className={cn(
-                                  "w-5 h-5 flex-shrink-0 mt-0.5",
+                                  "w-6 h-6 flex-shrink-0 mt-0.5",
                                   isActive ? "text-primary-foreground" : "text-primary"
                                 )} />
                                 <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1">
+                                  <div className="flex items-center gap-2 mb-2">
                                     <span className={cn(
-                                      "text-xs font-bold px-2 py-0.5 rounded",
+                                      "text-sm font-bold px-2.5 py-1 rounded",
                                       isActive ? "bg-primary-foreground/20 text-primary-foreground" : "bg-primary/10 text-primary"
                                     )}>
                                       {index + 1}
                                     </span>
                                     <span className={cn(
-                                      "font-bold text-lg",
+                                      "font-bold text-xl",
                                       isActive ? "text-primary-foreground" : "text-foreground"
                                     )}>{lesson.title}</span>
                                   </div>
                                   {lesson.description && (
                                     <p className={cn(
-                                      "text-sm mt-1 leading-relaxed",
+                                      "text-base mt-2 leading-relaxed",
                                       isActive ? "text-primary-foreground/90" : "text-muted-foreground"
                                     )}>
                                       {lesson.description}
@@ -574,26 +568,26 @@ export default function ModuleCurriculumSidebar({
                                   )}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-4 mt-3 flex-wrap">
+                              <div className="flex items-center gap-4 mt-4 flex-wrap">
                                 {lesson.duration && (
                                   <span className={cn(
-                                    "text-sm font-medium flex items-center gap-1.5",
+                                    "text-base font-medium flex items-center gap-1.5",
                                     isActive ? "text-primary-foreground/90" : "text-muted-foreground"
                                   )}>
-                                    <Clock className="w-4 h-4" />
+                                    <Clock className="w-6 h-6" />
                                     {lesson.duration} {t('minutes')}
                                   </span>
                                 )}
                                 {lesson.content_type && (
                                   <span className={cn(
-                                    "text-xs font-semibold px-3 py-1 rounded-full border",
+                                    "text-sm font-semibold px-3 py-1.5 rounded-full border",
                                     isActive ? "bg-primary-foreground/25 text-primary-foreground border-primary-foreground/30" : "bg-muted text-foreground border-border"
                                   )}>
                                     {lesson.content_type.toUpperCase()}
                                   </span>
                                 )}
                                 {isCompleted && !isActive && (
-                                  <span className="text-xs font-semibold text-green-600 dark:text-green-400 bg-green-500/10 px-2 py-1 rounded">
+                                  <span className="text-sm font-semibold text-green-600 dark:text-green-400 bg-green-500/10 px-3 py-1 rounded">
                                     {tCommon('completed')}
                                   </span>
                                 )}
@@ -616,7 +610,7 @@ export default function ModuleCurriculumSidebar({
                               key={quiz.id}
                               href={isQuizLocked ? '#' : `/student/quizzes/${quiz.id}`}
                               className={cn(
-                                "group relative flex items-start px-5 py-4 rounded-xl transition-all border-2 ml-4",
+                                "group relative flex items-start px-6 py-5 rounded-xl transition-all border-2 ml-4",
                                 isQuizLocked 
                                   ? "opacity-60 cursor-not-allowed border-border bg-muted/30" 
                                   : isQuizActive 
@@ -628,49 +622,49 @@ export default function ModuleCurriculumSidebar({
                               <div className="flex items-start space-x-4 flex-1 min-w-0">
                                 <div className="flex-shrink-0 mt-1">
                                   <div className={cn(
-                                    "w-8 h-8 rounded-full flex items-center justify-center",
+                                    "w-10 h-10 rounded-full flex items-center justify-center",
                                     isQuizActive ? "bg-primary-foreground/20" : isQuizCompleted ? "bg-green-500/20 dark:bg-green-500/30" : "bg-muted"
                                   )}>
                                     {isQuizLocked ? (
-                                      <Lock className="w-5 h-5 text-muted-foreground" />
+                                      <Lock className="w-6 h-6 text-muted-foreground" />
                                     ) : isQuizCompleted ? (
                                       <Award className={cn(
-                                        "w-5 h-5",
+                                        "w-6 h-6",
                                         isQuizActive ? "text-primary-foreground" : "text-green-600 dark:text-green-400"
                                       )} />
                                     ) : (
                                       <Circle className={cn(
-                                        "w-5 h-5",
+                                        "w-6 h-6",
                                         isQuizActive ? "text-primary-foreground" : "text-muted-foreground"
                                       )} />
                                     )}
                                   </div>
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <div className="flex items-start gap-2 mb-2">
+                                  <div className="flex items-start gap-3 mb-2">
                                     <FileText className={cn(
-                                      "w-5 h-5 flex-shrink-0 mt-0.5",
+                                      "w-6 h-6 flex-shrink-0 mt-0.5",
                                       isQuizActive ? "text-primary-foreground" : "text-primary"
                                     )} />
                                     <div className="flex-1">
                                       <span className={cn(
-                                        "font-bold text-lg",
+                                        "font-bold text-xl",
                                         isQuizActive ? "text-primary-foreground" : "text-foreground"
                                       )}>{quiz.title}</span>
                                     </div>
                                   </div>
                                   {quiz.description && (
                                     <p className={cn(
-                                      "text-sm mt-1 leading-relaxed",
+                                      "text-base mt-2 leading-relaxed",
                                       isQuizActive ? "text-primary-foreground/90" : "text-muted-foreground"
                                     )}>
                                       {quiz.description}
                                     </p>
                                   )}
-                                  <div className="flex items-center gap-4 mt-3 flex-wrap">
+                                  <div className="flex items-center gap-4 mt-4 flex-wrap">
                                     {quizProgressData?.score !== undefined && (
                                       <span className={cn(
-                                        "text-sm font-bold px-3 py-1 rounded-lg border",
+                                        "text-base font-bold px-3 py-1.5 rounded-lg border",
                                         isQuizActive 
                                           ? quizProgressData.passed 
                                             ? "bg-green-500/30 text-primary-foreground border-green-400/50" 
@@ -684,7 +678,7 @@ export default function ModuleCurriculumSidebar({
                                     )}
                                     {quiz.passing_score && (
                                       <span className={cn(
-                                        "text-sm font-medium",
+                                        "text-base font-medium",
                                         isQuizActive ? "text-primary-foreground/90" : "text-muted-foreground"
                                       )}>
                                         {t('passingScore')}: {quiz.passing_score}%
@@ -713,7 +707,7 @@ export default function ModuleCurriculumSidebar({
                         key={quiz.id}
                         href={isLocked ? '#' : `/student/quizzes/${quiz.id}`}
                         className={cn(
-                          "group relative flex items-start px-5 py-4 rounded-xl transition-all border-2",
+                          "group relative flex items-start px-6 py-5 rounded-xl transition-all border-2",
                           isLocked 
                             ? "opacity-60 cursor-not-allowed border-border bg-muted/30" 
                             : isActive 
@@ -729,10 +723,10 @@ export default function ModuleCurriculumSidebar({
                               isActive ? "bg-primary-foreground/20" : isCompleted ? "bg-green-500/20 dark:bg-green-500/30" : "bg-muted"
                             )}>
                               {isLocked ? (
-                                <Lock className="w-5 h-5 text-muted-foreground" />
+                                <Lock className="w-6 h-6 text-muted-foreground" />
                               ) : isCompleted ? (
                                 <Award className={cn(
-                                  "w-5 h-5",
+                                  "w-6 h-6",
                                   isActive ? "text-primary-foreground" : "text-green-600 dark:text-green-400"
                                 )} />
                               ) : (
@@ -744,30 +738,30 @@ export default function ModuleCurriculumSidebar({
                             </div>
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-start gap-2 mb-2">
+                            <div className="flex items-start gap-3 mb-2">
                               <FileText className={cn(
-                                "w-5 h-5 flex-shrink-0 mt-0.5",
+                                "w-6 h-6 flex-shrink-0 mt-0.5",
                                 isActive ? "text-primary-foreground" : "text-primary"
                               )} />
                               <div className="flex-1">
                                 <span className={cn(
-                                  "font-bold text-lg",
+                                  "font-bold text-xl",
                                   isActive ? "text-primary-foreground" : "text-foreground"
                                 )}>{quiz.title}</span>
                               </div>
                             </div>
                             {quiz.description && (
                               <p className={cn(
-                                "text-sm mt-1 leading-relaxed",
+                                "text-base mt-2 leading-relaxed",
                                 isActive ? "text-primary-foreground/90" : "text-muted-foreground"
                               )}>
                                 {quiz.description}
                               </p>
                             )}
-                            <div className="flex items-center gap-4 mt-3 flex-wrap">
+                            <div className="flex items-center gap-4 mt-4 flex-wrap">
                               {progress?.score !== undefined && (
                                 <span className={cn(
-                                  "text-sm font-bold px-3 py-1 rounded-lg border",
+                                  "text-base font-bold px-3 py-1.5 rounded-lg border",
                                   isActive 
                                     ? progress.passed 
                                       ? "bg-green-500/30 text-primary-foreground border-green-400/50" 
@@ -781,7 +775,7 @@ export default function ModuleCurriculumSidebar({
                               )}
                               {quiz.passing_score && (
                                 <span className={cn(
-                                  "text-sm font-medium",
+                                  "text-base font-medium",
                                   isActive ? "text-primary-foreground/90" : "text-muted-foreground"
                                 )}>
                                   {t('passingScore')}: {quiz.passing_score}%
@@ -798,7 +792,7 @@ export default function ModuleCurriculumSidebar({
               })}
 
               {tabContent.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">
+                <p className="text-base text-muted-foreground text-center py-6">
                   {t('noLessonsOrQuizzes')}
                 </p>
               )}
@@ -823,7 +817,7 @@ export default function ModuleCurriculumSidebar({
                         key={assignment.id}
                         href={isLocked ? '#' : `/student/assignments/${assignment.id}`}
                         className={cn(
-                          "group relative flex items-start px-5 py-4 rounded-xl transition-all border-2",
+                          "group relative flex items-start px-6 py-5 rounded-xl transition-all border-2",
                           isLocked 
                             ? "opacity-60 cursor-not-allowed border-border bg-muted/30" 
                             : isActive 
@@ -839,15 +833,15 @@ export default function ModuleCurriculumSidebar({
                               isActive ? "bg-primary-foreground/20" : isGraded ? "bg-green-500/20 dark:bg-green-500/30" : isSubmitted ? "bg-yellow-500/20 dark:bg-yellow-500/30" : "bg-muted"
                             )}>
                               {isLocked ? (
-                                <Lock className="w-5 h-5 text-muted-foreground" />
+                                <Lock className="w-6 h-6 text-muted-foreground" />
                               ) : isGraded ? (
                                 <CheckCircle2 className={cn(
-                                  "w-5 h-5",
+                                  "w-6 h-6",
                                   isActive ? "text-primary-foreground" : "text-green-600 dark:text-green-400"
                                 )} />
                               ) : isSubmitted ? (
                                 <ClipboardCheck className={cn(
-                                  "w-5 h-5",
+                                  "w-6 h-6",
                                   isActive ? "text-primary-foreground" : "text-yellow-600 dark:text-yellow-400"
                                 )} />
                               ) : (
@@ -859,30 +853,30 @@ export default function ModuleCurriculumSidebar({
                             </div>
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-start gap-2 mb-2">
+                            <div className="flex items-start gap-3 mb-2">
                               <FileText className={cn(
-                                "w-5 h-5 flex-shrink-0 mt-0.5",
+                                "w-6 h-6 flex-shrink-0 mt-0.5",
                                 isActive ? "text-primary-foreground" : "text-primary"
                               )} />
                               <div className="flex-1">
                                 <span className={cn(
-                                  "font-bold text-lg",
+                                  "font-bold text-xl",
                                   isActive ? "text-primary-foreground" : "text-foreground"
                                 )}>{assignment.title}</span>
                               </div>
                             </div>
                             {assignment.description && (
                               <p className={cn(
-                                "text-sm mt-1 leading-relaxed",
+                                "text-base mt-2 leading-relaxed",
                                 isActive ? "text-primary-foreground/90" : "text-muted-foreground"
                               )}>
                                 {assignment.description}
                               </p>
                             )}
-                            <div className="flex items-center gap-4 mt-3 flex-wrap">
+                            <div className="flex items-center gap-4 mt-4 flex-wrap">
                               {progress?.score !== undefined && (
                                 <span className={cn(
-                                  "text-sm font-semibold px-3 py-1 rounded-lg border",
+                                  "text-base font-semibold px-3 py-1.5 rounded-lg border",
                                   isActive ? "bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30" : "bg-primary/10 text-primary border-primary/20"
                                 )}>
                                   {progress.score}/{assignment.max_points} {t('points')}
@@ -890,10 +884,10 @@ export default function ModuleCurriculumSidebar({
                               )}
                               {assignment.due_date && (
                                 <span className={cn(
-                                  "text-sm font-medium flex items-center gap-1.5",
+                                  "text-base font-medium flex items-center gap-1.5",
                                   isActive ? "text-primary-foreground/90" : "text-muted-foreground"
                                 )}>
-                                  <Clock className="w-4 h-4" />
+                                  <Clock className="w-6 h-6" />
                                   {new Date(assignment.due_date).toLocaleDateString()}
                                 </span>
                               )}
@@ -908,7 +902,7 @@ export default function ModuleCurriculumSidebar({
               })}
 
               {tabContent.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">
+                <p className="text-base text-muted-foreground text-center py-6">
                   {t('noAssignmentsYet')}
                 </p>
               )}
@@ -916,48 +910,11 @@ export default function ModuleCurriculumSidebar({
           )}
 
           {activeTab === 'record' && (
-            <p className="text-sm text-muted-foreground text-center py-4">
+            <p className="text-base text-muted-foreground text-center py-6">
               {t('noRecordedSessionsYet')}
             </p>
           )}
         </nav>
-
-        {/* Certificate Section */}
-        {certificate && course && (
-          <div className="mt-6 pt-6 border-t border-border">
-            <div className="p-4 bg-muted/50 rounded-lg border border-border">
-              <div className="flex items-center gap-2 mb-3">
-                <Award className="h-5 w-5 text-primary" />
-                <h4 className="text-sm font-semibold text-foreground">
-                  {t('certificateOfCompletion')}
-                </h4>
-              </div>
-              <p className="text-xs text-muted-foreground mb-3">
-                {t('youHaveSuccessfullyCompletedThisCourse')}
-              </p>
-              <div className="space-y-2 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">{t('certificateNumber')}</span>
-                  <span className="font-semibold text-foreground">
-                    {certificate.certificate_number}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">{t('issuedOn')}</span>
-                  <span className="font-semibold text-foreground">
-                    {new Date(certificate.issued_at).toLocaleDateString()}
-                  </span>
-                </div>
-              </div>
-              <Link href={`/certificates/${certificate.certificate_number}`}>
-                <Button variant="outline" size="sm" className="w-full mt-3">
-                  <Download className="h-3 w-3 mr-2" />
-                  {tCommon('downloadCertificate')}
-                </Button>
-              </Link>
-            </div>
-          </div>
-        )}
 
         {/* Back to Course Link */}
         {courseId && (
