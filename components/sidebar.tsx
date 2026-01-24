@@ -423,9 +423,9 @@ export function Sidebar({ userType, className, onLinkClick }: SidebarProps) {
         {/* Logo */}
         <Link href="/" className="flex items-center space-x-2 mb-8">
           <span className="text-2xl font-bold tracking-tight">
-            <span className="text-black dark:text-white">gomy</span>
-            <span className="text-blue-400">co</span>
-            <span className="text-black dark:text-white">urs</span>
+            <span className="text-black dark:text-white">GOMY</span>
+            <span className="text-blue-400">CO</span>
+            <span className="text-black dark:text-white">URS</span>
           </span>
         </Link>
 
