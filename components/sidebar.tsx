@@ -422,13 +422,10 @@ export function Sidebar({ userType, className, onLinkClick }: SidebarProps) {
       <div className="p-6">
         {/* Logo */}
         <Link href="/" className="flex items-center space-x-2 mb-8">
-          <img
-            src="/gomycours.jpeg"
-            alt="GOMYCOURS"
-            className="h-16 w-auto min-w-[200px] object-contain"
-          />
-          <span className="text-xl font-bold text-gray-900 dark:text-white">
-            GOMYCOURS
+          <span className="text-2xl font-bold tracking-tight">
+            <span className="text-black dark:text-white">gomy</span>
+            <span className="text-blue-400">co</span>
+            <span className="text-black dark:text-white">urs</span>
           </span>
         </Link>
 
