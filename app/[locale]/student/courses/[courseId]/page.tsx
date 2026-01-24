@@ -145,7 +145,7 @@ export default function StudentCourseDetailPage({
       <div className={cn(
         "h-full overflow-y-auto p-6 transition-all duration-300",
         isCurriculumOpen 
-          ? (isRTL ? "pl-[500px]" : "pr-[500px]")
+          ? (isRTL ? "pl-[380px]" : "pr-[380px]")
           : (isRTL ? "pl-6" : "pr-6")
       )}>
         {/* Header */}
