@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress"
 import { useEffect, useState, use } from "react"
 import { useRouter } from '@/i18n/routing'
 import { useTranslations, useLocale } from 'next-intl'
-import ModuleCurriculumSidebar, { CurriculumToggleButton } from "@/components/student/module-curriculum-sidebar"
+import CourseNavigationSidebar from "@/components/student/course-navigation-sidebar"
 import { 
   PlayCircle, 
   CheckCircle2, 
@@ -41,7 +41,6 @@ export default function StudentLessonPage({
   const [courseId, setCourseId] = useState<string | null>(null)
   const [videoProgress, setVideoProgress] = useState(0)
   const [videoDuration, setVideoDuration] = useState(0)
-  const [isCurriculumOpen, setIsCurriculumOpen] = useState(true)
   const router = useRouter()
   const locale = useLocale()
   const isRTL = locale === 'ar'
@@ -256,33 +255,9 @@ export default function StudentLessonPage({
   }
 
   return (
-    <div className="relative h-[calc(100vh-4rem)]">
-      {/* Toggle Button */}
-      {moduleId && (
-        <CurriculumToggleButton 
-          onClick={() => setIsCurriculumOpen(!isCurriculumOpen)}
-          isOpen={isCurriculumOpen}
-        />
-      )}
-
-      {/* Curriculum Drawer */}
-      {moduleId && (
-        <ModuleCurriculumSidebar
-          moduleId={moduleId}
-          currentLessonId={lessonId}
-          courseId={courseId || undefined}
-          isOpen={isCurriculumOpen}
-          onToggle={() => setIsCurriculumOpen(false)}
-        />
-      )}
-
+    <div className="flex h-[calc(100vh-4rem)]">
       {/* Main Content */}
-      <div className={cn(
-        "h-full overflow-y-auto p-6 transition-all duration-300",
-        isCurriculumOpen 
-          ? (isRTL ? "pl-[420px]" : "pr-[420px]")
-          : (isRTL ? "pl-6" : "pr-6")
-      )}>
+      <div className="flex-1 overflow-y-auto p-6">
         {/* Header */}
         <div className="space-y-4">
           <div className="flex items-start justify-between gap-4">
@@ -535,8 +510,17 @@ export default function StudentLessonPage({
               </div>
           )}
         </CardContent>
-      </Card>
+        </Card>
         </div>
+      </div>
+
+      {/* Course Navigation Sidebar */}
+      {courseId && (
+        <CourseNavigationSidebar
+          courseId={courseId}
+          currentLessonId={lessonId}
+        />
+      )}
     </div>
   )
 }
