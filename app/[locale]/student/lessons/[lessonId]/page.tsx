@@ -511,7 +511,6 @@ export default function StudentLessonPage({
           )}
         </CardContent>
         </Card>
-        </div>
       </div>
 
       {/* Course Navigation Sidebar */}
