@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { Progress } from '@/components/ui/progress'
 import { toast } from '@/hooks/use-toast'
 import {
   ArrowLeft, 
@@ -41,8 +42,8 @@ interface Submission {
   assignment_id: string
   student_id: string
   submission_text: string | null
-  submission_url: string | null
-  grade: number | null
+  file_url: string | null
+  score: number | null
   feedback: string | null
   status: string
   submitted_at: string | null
@@ -60,8 +61,11 @@ export default function StudentAssignmentDetailPage() {
   const [submission, setSubmission] = useState<Submission | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [submissionText, setSubmissionText] = useState("")
   const [submissionFile, setSubmissionFile] = useState<File | null>(null)
+  const [uploadedFileUrl, setUploadedFileUrl] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -115,6 +119,7 @@ export default function StudentAssignmentDetailPage() {
       if (data) {
         setSubmission(data)
         setSubmissionText(data.submission_text || "")
+        setUploadedFileUrl(data.file_url || null)
       }
     } catch (error) {
       console.error("Error fetching submission:", error)
@@ -122,28 +127,118 @@ export default function StudentAssignmentDetailPage() {
   }
 
   const handleFileUpload = async (file: File): Promise<string> => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error("Not authenticated")
+    setUploading(true)
+    setUploadProgress(0)
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
 
-    const fileExt = file.name.split('.').pop()
-    const fileName = `${user.id}-${Date.now()}.${fileExt}`
-    const filePath = `assignments/${assignmentId}/${fileName}`
+      // Validate file size (max 50MB default)
+      const maxSize = assignment?.max_file_size_mb ? assignment.max_file_size_mb * 1024 * 1024 : 50 * 1024 * 1024
+      if (file.size > maxSize) {
+        throw new Error(`File size exceeds maximum allowed size of ${assignment?.max_file_size_mb || 50}MB`)
+      }
 
-    const { error: uploadError } = await supabase.storage
-      .from("assignments")
-      .upload(filePath, file)
+      // Validate file type if specified
+      if (assignment?.allowed_file_types && assignment.allowed_file_types.length > 0) {
+        const fileExt = file.name.split('.').pop()?.toLowerCase()
+        if (!fileExt || !assignment.allowed_file_types.includes(fileExt)) {
+          throw new Error(`File type not allowed. Allowed types: ${assignment.allowed_file_types.join(', ')}`)
+        }
+      }
 
-    if (uploadError) throw uploadError
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`
+      const filePath = `assignments/${assignmentId}/${fileName}`
 
-    const { data } = supabase.storage
-      .from("assignments")
-      .getPublicUrl(filePath)
+      // Simulate upload progress
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 10, 90))
+      }, 200)
 
-    return data.publicUrl
+      // Upload file to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from("assignments")
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        })
+
+      clearInterval(progressInterval)
+      setUploadProgress(100)
+
+      if (uploadError) {
+        // If file already exists, try to overwrite
+        if (uploadError.message.includes('already exists')) {
+          const { error: updateError } = await supabase.storage
+            .from("assignments")
+            .update(filePath, file, {
+              cacheControl: '3600',
+              upsert: true
+            })
+          
+          if (updateError) throw updateError
+        } else {
+          throw uploadError
+        }
+      }
+
+      // Get signed URL for the file (works for both public and private buckets)
+      const { data: signedData, error: signedError } = await supabase
+        .storage
+        .from("assignments")
+        .createSignedUrl(filePath, 31536000) // 1 year expiry
+
+      if (!signedError && signedData?.signedUrl) {
+        return signedData.signedUrl
+      } else {
+        // Fallback to public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from("assignments")
+          .getPublicUrl(filePath)
+        return publicUrl
+      }
+    } finally {
+      setUploading(false)
+      setUploadProgress(0)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validate submission
+    if (assignment.assignment_type === "text" || assignment.assignment_type === "essay") {
+      if (!submissionText.trim()) {
+        toast({
+          title: tCommon('error'),
+          description: "Please enter your submission text",
+          variant: "destructive",
+        })
+        return
+      }
+    } else if (assignment.assignment_type === "file" || assignment.assignment_type === "project" || assignment.assignment_type === "file_upload") {
+      if (!submissionFile && !uploadedFileUrl) {
+        toast({
+          title: tCommon('error'),
+          description: "Please upload a file",
+          variant: "destructive",
+        })
+        return
+      }
+    } else if (assignment.assignment_type === "mixed") {
+      // Mixed type requires either text or file
+      if (!submissionText.trim() && !submissionFile && !uploadedFileUrl) {
+        toast({
+          title: tCommon('error'),
+          description: "Please provide either text submission or upload a file",
+          variant: "destructive",
+        })
+        return
+      }
+    }
+
     setSubmitting(true)
 
     try {
@@ -157,18 +252,25 @@ export default function StudentAssignmentDetailPage() {
         return
       }
 
-      let submissionUrl = submission?.submission_url || null
+      let fileUrl = uploadedFileUrl || submission?.file_url || null
 
+      // Upload new file if one was selected
       if (submissionFile) {
-        submissionUrl = await handleFileUpload(submissionFile)
+        fileUrl = await handleFileUpload(submissionFile)
+        setUploadedFileUrl(fileUrl)
       }
 
-      const submissionData = {
+      const submissionData: any = {
         assignment_id: assignmentId,
         student_id: user.id,
-        submission_text: submissionText || null,
-        submission_url: submissionUrl,
+        submission_text: (assignment.assignment_type === "text" || assignment.assignment_type === "essay" || assignment.assignment_type === "mixed") 
+          ? (submissionText.trim() || null)
+          : null,
+        file_url: (assignment.assignment_type === "file" || assignment.assignment_type === "project" || assignment.assignment_type === "file_upload" || assignment.assignment_type === "mixed") 
+          ? fileUrl 
+          : null,
         status: "submitted",
+        submitted_at: new Date().toISOString(),
       }
 
       if (submission) {
@@ -181,7 +283,7 @@ export default function StudentAssignmentDetailPage() {
         if (error) throw error
         toast({
           title: tCommon('success'),
-          description: t('updateSubmission'),
+          description: "Submission updated successfully",
         })
       } else {
         // Create new submission
@@ -192,7 +294,7 @@ export default function StudentAssignmentDetailPage() {
         if (error) throw error
         toast({
           title: tCommon('success'),
-          description: t('submitAssignment'),
+          description: "Assignment submitted successfully",
         })
       }
 
@@ -241,8 +343,8 @@ export default function StudentAssignmentDetailPage() {
   }
 
   const isOverdue = assignment.due_date && new Date(assignment.due_date) < new Date() && !submission
-  const isSubmitted = submission?.status === "submitted"
-  const isGraded = submission?.grade !== null
+  const isSubmitted = submission?.status === "submitted" || submission?.status === "graded"
+  const isGraded = submission?.status === "graded" && submission?.score !== null
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -274,9 +376,9 @@ export default function StudentAssignmentDetailPage() {
                 {isOverdue && (
                   <Badge variant="destructive">{t('overdue')}</Badge>
                 )}
-                {isGraded && (
+                {isGraded && submission?.score !== null && (
                   <Badge variant="default" className="bg-green-600">
-                    {t('graded')}
+                    {t('graded')} - {submission.score}/{assignment.max_points}
                   </Badge>
                 )}
                 {isSubmitted && !isGraded && (
@@ -308,28 +410,38 @@ export default function StudentAssignmentDetailPage() {
                 </div>
               </div>
 
-              {isGraded && submission && (
+                  {isGraded && submission && (
                 <div className="border-t pt-6 space-y-4">
-                  <div>
-                    <h3 className="font-semibold mb-2">{t('yourGrade')}</h3>
-                    <div className="text-2xl font-bold text-primary">
-                      {submission.grade} / {assignment.max_points}
+                  <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                      <h3 className="font-semibold text-green-900 dark:text-green-100">{t('yourGrade')}</h3>
+                    </div>
+                    <div className="text-3xl font-bold text-green-700 dark:text-green-300">
+                      {submission.score} / {assignment.max_points}
+                    </div>
+                    <div className="text-sm text-green-700 dark:text-green-300 mt-1">
+                      {submission.score !== null && assignment.max_points > 0 && (
+                        <span>
+                          ({Math.round((submission.score / assignment.max_points) * 100)}%)
+                        </span>
+                      )}
                     </div>
                   </div>
                   {submission.feedback && (
-                    <div>
-                      <h3 className="font-semibold mb-2">{t('instructorFeedback')}</h3>
-                      <p className="text-muted-foreground whitespace-pre-wrap">{submission.feedback}</p>
+                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <h3 className="font-semibold mb-2 text-blue-900 dark:text-blue-100">{t('instructorFeedback')}</h3>
+                      <p className="text-blue-800 dark:text-blue-200 whitespace-pre-wrap">{submission.feedback}</p>
                     </div>
                   )}
                 </div>
               )}
 
-              {submission?.submission_url && (
+              {submission?.file_url && (
                 <div>
                   <h3 className="font-semibold mb-2">{t('submission')}</h3>
                   <a
-                    href={submission.submission_url}
+                    href={submission.file_url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 text-primary hover:underline"
@@ -352,34 +464,140 @@ export default function StudentAssignmentDetailPage() {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  {assignment.assignment_type === "text" || assignment.assignment_type === "essay" ? (
-                    <div>
-                      <Label htmlFor="submissionText">{t('instructions')}</Label>
+                  {(assignment.assignment_type === "text" || assignment.assignment_type === "essay" || assignment.assignment_type === "mixed") && (
+                    <div className="space-y-2">
+                      <Label htmlFor="submissionText">
+                        Your Submission {assignment.assignment_type === "mixed" ? "(Optional)" : "*"}
+                      </Label>
                       <Textarea
                         id="submissionText"
                         value={submissionText}
                         onChange={(e) => setSubmissionText(e.target.value)}
-                        placeholder={t('enterYourSubmission')}
+                        placeholder="Enter your submission text here..."
                         rows={10}
                         required={assignment.assignment_type === "text" || assignment.assignment_type === "essay"}
+                        disabled={submitting || uploading}
                       />
+                      <p className="text-xs text-muted-foreground">
+                        {assignment.assignment_type === "mixed" 
+                          ? "You can provide text, upload a file, or both."
+                          : "Please provide your complete answer or essay response."}
+                      </p>
                     </div>
-                  ) : null}
+                  )}
 
-                  {(assignment.assignment_type === "file" || assignment.assignment_type === "project") && (
-                    <div>
+                  {(assignment.assignment_type === "file" || assignment.assignment_type === "project" || assignment.assignment_type === "file_upload" || assignment.assignment_type === "mixed") && (
+                    <div className="space-y-2">
                       <Label htmlFor="submissionFile">{t('fileUpload')}</Label>
                       <Input
                         id="submissionFile"
                         type="file"
-                        onChange={(e) => setSubmissionFile(e.target.files?.[0] || null)}
-                        required={assignment.assignment_type === "file" || assignment.assignment_type === "project"}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null
+                          setSubmissionFile(file)
+                          if (file) {
+                            // Validate file size
+                            const maxSize = assignment?.max_file_size_mb ? assignment.max_file_size_mb * 1024 * 1024 : 50 * 1024 * 1024
+                            if (file.size > maxSize) {
+                              toast({
+                                title: tCommon('error'),
+                                description: `File size exceeds maximum allowed size of ${assignment?.max_file_size_mb || 50}MB`,
+                                variant: "destructive",
+                              })
+                              e.target.value = ''
+                              setSubmissionFile(null)
+                              return
+                            }
+                            // Validate file type
+                            if (assignment?.allowed_file_types && assignment.allowed_file_types.length > 0) {
+                              const fileExt = file.name.split('.').pop()?.toLowerCase()
+                              if (!fileExt || !assignment.allowed_file_types.includes(fileExt)) {
+                                toast({
+                                  title: tCommon('error'),
+                                  description: `File type not allowed. Allowed types: ${assignment.allowed_file_types.join(', ')}`,
+                                  variant: "destructive",
+                                })
+                                e.target.value = ''
+                                setSubmissionFile(null)
+                                return
+                              }
+                            }
+                          }
+                        }}
+                        accept={assignment?.allowed_file_types 
+                          ? assignment.allowed_file_types.map(ext => `.${ext}`).join(',')
+                          : ".pdf,.doc,.docx,.txt,.zip,.rar"}
+                        required={!uploadedFileUrl && assignment.assignment_type !== "mixed" && (assignment.assignment_type === "file" || assignment.assignment_type === "project" || assignment.assignment_type === "file_upload")}
+                        disabled={uploading}
                       />
+                      {uploading && (
+                        <div className="space-y-2">
+                          <Progress value={uploadProgress} className="h-2" />
+                          <p className="text-xs text-muted-foreground">Uploading... {uploadProgress}%</p>
+                        </div>
+                      )}
+                      {uploadedFileUrl && !submissionFile && (
+                        <div className="p-3 bg-muted rounded-lg flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-4 h-4" />
+                            <span className="text-sm">File uploaded</span>
+                          </div>
+                          <a
+                            href={uploadedFileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-primary hover:underline"
+                          >
+                            View
+                          </a>
+                        </div>
+                      )}
+                      {submissionFile && (
+                        <div className="p-3 bg-muted rounded-lg flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-4 h-4" />
+                            <span className="text-sm">{submissionFile.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              ({(submissionFile.size / 1024 / 1024).toFixed(2)} MB)
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {assignment?.max_file_size_mb && (
+                        <p className="text-xs text-muted-foreground">
+                          Maximum file size: {assignment.max_file_size_mb}MB
+                        </p>
+                      )}
+                      {assignment?.allowed_file_types && assignment.allowed_file_types.length > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Allowed file types: {assignment.allowed_file_types.join(', ')}
+                        </p>
+                      )}
                     </div>
                   )}
 
-                  <Button type="submit" disabled={submitting} className="w-full">
-                    {submitting ? tCommon('loading') : submission ? t('updateSubmission') : t('submitAssignment')}
+                  <Button 
+                    type="submit" 
+                    disabled={submitting || uploading} 
+                    className="w-full"
+                    size="lg"
+                  >
+                    {uploading ? (
+                      <>
+                        <Upload className="w-4 h-4 mr-2 animate-spin" />
+                        Uploading... {uploadProgress}%
+                      </>
+                    ) : submitting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        {submission ? "Updating..." : "Submitting..."}
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 mr-2" />
+                        {submission ? "Update Submission" : "Submit Assignment"}
+                      </>
+                    )}
                   </Button>
                 </form>
               </CardContent>
@@ -418,11 +636,11 @@ export default function StudentAssignmentDetailPage() {
                       </p>
                     </div>
                   )}
-                  {isGraded && submission.grade !== null && (
+                  {isGraded && submission.score !== null && (
                     <div>
                       <p className="text-sm font-medium mb-1">{t('yourGrade')}</p>
                       <p className="text-2xl font-bold text-primary">
-                        {submission.grade} / {assignment.max_points}
+                        {submission.score} / {assignment.max_points}
                       </p>
                     </div>
                   )}
