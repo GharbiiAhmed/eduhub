@@ -51,11 +51,11 @@ interface Submission {
   score: number | null
   feedback: string | null
   graded_at: string | null
-  profiles: {
+  profiles?: {
     id: string
     full_name: string
     email: string
-  }
+  } | null
 }
 
 export default function AssignmentDetailPage() {
@@ -260,7 +260,7 @@ export default function AssignmentDetailPage() {
                           <div className="flex items-start justify-between">
                             <div>
                               <CardTitle className="text-lg">
-                                {submission.profiles.full_name || submission.profiles.email}
+                                {submission.profiles?.full_name || submission.profiles?.email || `Student`}
                               </CardTitle>
                               <CardDescription>
                                 Submitted {new Date(submission.submitted_at).toLocaleDateString()}

@@ -160,12 +160,28 @@ export default function StudentAssignmentDetailPage() {
         setUploadProgress(prev => Math.min(prev + 10, 90))
       }, 200)
 
+      // Map extension to MIME so bucket validation accepts the file (avoids 400 InvalidMimeType)
+      const mimeMap: Record<string, string> = {
+        pdf: 'application/pdf',
+        doc: 'application/msword',
+        docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        txt: 'text/plain',
+        zip: 'application/zip',
+        rar: 'application/x-rar-compressed',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        png: 'image/png',
+        webp: 'image/webp',
+      }
+      const contentType = file.type || (fileExt ? mimeMap[fileExt.toLowerCase()] : null) || 'application/octet-stream'
+
       // Upload file to Supabase Storage (upsert: true so resubmit overwrites)
       const { error: uploadError } = await supabase.storage
         .from("assignments")
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: true
+          upsert: true,
+          contentType,
         })
 
       if (progressInterval) {

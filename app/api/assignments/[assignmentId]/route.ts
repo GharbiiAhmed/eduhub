@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { createClient as createServiceClient } from "@supabase/supabase-js"
 import { NextRequest, NextResponse } from "next/server"
 
 // GET - Fetch single assignment
@@ -79,17 +80,37 @@ export async function GET(
       return NextResponse.json({ assignment, submission: submission || null })
     }
 
-    // Get all submissions if instructor
+    // Get all submissions if instructor (no profiles join to avoid RLS 500 on profiles)
     const { data: submissions } = await supabase
       .from("assignment_submissions")
-      .select(`
-        *,
-        profiles(id, full_name, email)
-      `)
+      .select("*")
       .eq("assignment_id", assignmentId)
       .order("submitted_at", { ascending: false })
 
-    return NextResponse.json({ assignment, submissions: submissions || [] })
+    // Attach student names using service role (instructor already verified above)
+    let submissionsWithProfiles = submissions || []
+    if (submissionsWithProfiles.length > 0) {
+      const studentIds = [...new Set(submissionsWithProfiles.map((s: { student_id: string }) => s.student_id))]
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+      if (serviceKey) {
+        const supabaseAdmin = createServiceClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          serviceKey,
+          { auth: { autoRefreshToken: false, persistSession: false } }
+        )
+        const { data: profiles } = await supabaseAdmin
+          .from("profiles")
+          .select("id, full_name, email")
+          .in("id", studentIds)
+        const profileMap = new Map((profiles || []).map((p: { id: string }) => [p.id, p]))
+        submissionsWithProfiles = submissionsWithProfiles.map((s: { student_id: string }) => ({
+          ...s,
+          profiles: profileMap.get(s.student_id) ?? null,
+        }))
+      }
+    }
+
+    return NextResponse.json({ assignment, submissions: submissionsWithProfiles })
   } catch (error: any) {
     console.error("Error fetching assignment:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
