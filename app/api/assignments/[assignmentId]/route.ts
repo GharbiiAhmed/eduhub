@@ -157,19 +157,23 @@ export async function PATCH(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    // Build update payload; only include defined fields so we don't send undefined to DB
-    const updatePayload: Record<string, unknown> = {
-      title: body.title,
-      description: body.description,
-      instructions: body.instructions ?? null,
-      due_date: body.dueDate ?? null,
-      max_points: body.maxPoints ?? 100,
-      assignment_type: body.assignmentType ?? "essay",
-      is_published: body.isPublished ?? false,
-    }
+    // Build update payload; only include fields that are in the request body (partial update)
+    const updatePayload: Record<string, unknown> = {}
+    if (body.title !== undefined) updatePayload.title = body.title
+    if (body.description !== undefined) updatePayload.description = body.description
+    if (body.instructions !== undefined) updatePayload.instructions = body.instructions ?? null
+    if (body.dueDate !== undefined) updatePayload.due_date = body.dueDate ?? null
+    if (body.maxPoints !== undefined) updatePayload.max_points = body.maxPoints ?? 100
+    if (body.assignmentType !== undefined) updatePayload.assignment_type = body.assignmentType ?? "essay"
+    if (body.isPublished !== undefined) updatePayload.is_published = body.isPublished ?? false
     if (body.allowedFileTypes !== undefined) updatePayload.allowed_file_types = body.allowedFileTypes
     if (body.maxFileSizeMb !== undefined) updatePayload.max_file_size_mb = body.maxFileSizeMb
     if (body.attachment_url !== undefined) updatePayload.attachment_url = body.attachment_url
+
+    if (Object.keys(updatePayload).length === 0) {
+      const { data: current } = await supabase.from("assignments").select("*").eq("id", assignmentId).single()
+      return NextResponse.json({ assignment: current })
+    }
 
     let result = await supabase
       .from("assignments")

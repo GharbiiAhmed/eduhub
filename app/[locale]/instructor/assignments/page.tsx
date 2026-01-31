@@ -55,6 +55,7 @@ export default function InstructorAssignmentsPage() {
   const [loading, setLoading] = useState(true)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [createAttachmentFile, setCreateAttachmentFile] = useState<File | null>(null)
   const [selectedCourse, setSelectedCourse] = useState<string>('')
   const router = useRouter()
   const supabase = createClient()
@@ -141,12 +142,31 @@ export default function InstructorAssignmentsPage() {
         throw new Error(data.error || 'Failed to create assignment')
       }
 
+      const newId = data.assignment?.id
+      if (newId && createAttachmentFile) {
+        try {
+          const path = `assignment-attachments/${newId}/${Date.now()}.${createAttachmentFile.name.split('.').pop() || 'pdf'}`
+          const { error: upErr } = await supabase.storage.from('assignments').upload(path, createAttachmentFile, { upsert: true, contentType: createAttachmentFile.type || 'application/pdf' })
+          if (!upErr) {
+            const { data: { publicUrl } } = supabase.storage.from('assignments').getPublicUrl(path)
+            await fetch(`${window.location.origin}/api/assignments/${newId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ attachment_url: publicUrl }),
+            })
+          }
+        } catch (err) {
+          console.error('Failed to attach PDF:', err)
+        }
+      }
+
       toast({
         title: tCommon('success'),
         description: t('assignmentCreated'),
       })
 
       setIsCreateDialogOpen(false)
+      setCreateAttachmentFile(null)
       setFormData({
         courseId: '',
         moduleId: '',
@@ -337,6 +357,21 @@ export default function InstructorAssignmentsPage() {
                       <SelectItem value="text">{t('text')}</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="space-y-2 border-t pt-4">
+                  <Label>{t('optionalAssignmentPdf') || 'Optional assignment PDF'}</Label>
+                  <p className="text-xs text-muted-foreground">
+                    {t('optionalAssignmentPdfHint') || 'Attach a PDF (e.g. worksheet) for students to download. Leave empty to use description/instructions only.'}
+                  </p>
+                  <Input
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={(e) => setCreateAttachmentFile(e.target.files?.[0] || null)}
+                  />
+                  {createAttachmentFile && (
+                    <p className="text-sm text-muted-foreground">{createAttachmentFile.name}</p>
+                  )}
                 </div>
 
                 <div className="flex items-center space-x-2">

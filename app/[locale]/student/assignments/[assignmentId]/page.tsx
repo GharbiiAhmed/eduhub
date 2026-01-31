@@ -479,7 +479,7 @@ export default function StudentAssignmentDetailPage() {
                     className="flex items-center gap-2 text-primary hover:underline"
                   >
                     <Download className="w-4 h-4" />
-                    {t('download')} {tCommon('submission')}
+                    {tCommon('download')} {t('submission')}
                   </a>
                 </div>
               )}
