@@ -1163,7 +1163,9 @@
     "creating": "Creating...",
     "createFirstAssignmentToGetStarted": "Create your first assignment to get started",
     "published": "Published",
-    "submissions": "submissions"
+    "submissions": "submissions",
+    "editAssignment": "Edit Assignment",
+    "assignmentUpdated": "Assignment updated successfully"
   },
   "announcements": {
     "title": "Announcements",
