@@ -129,7 +129,10 @@ export default function InstructorAssignmentEditPage() {
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Failed to update')
-      toast({ title: tCommon('success'), description: t('assignmentUpdated') || 'Assignment updated.' })
+      toast({
+        title: tCommon('success'),
+        description: data.warning || t('assignmentUpdated') || 'Assignment updated.',
+      })
       routerI18n.push(`/instructor/assignments/${assignmentId}`)
     } catch (e: any) {
       toast({ title: tCommon('error'), description: e.message, variant: 'destructive' })

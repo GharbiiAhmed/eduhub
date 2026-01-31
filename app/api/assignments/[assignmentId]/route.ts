@@ -171,23 +171,39 @@ export async function PATCH(
     if (body.maxFileSizeMb !== undefined) updatePayload.max_file_size_mb = body.maxFileSizeMb
     if (body.attachment_url !== undefined) updatePayload.attachment_url = body.attachment_url
 
-    const { data: updatedAssignment, error: updateError } = await supabase
+    let result = await supabase
       .from("assignments")
       .update(updatePayload)
       .eq("id", assignmentId)
       .select()
       .single()
 
-    if (updateError) {
-      const msg = updateError.message || ""
+    // If update failed because attachment_url column doesn't exist, retry without it so rest of assignment saves
+    if (result.error && updatePayload.attachment_url !== undefined) {
+      const msg = result.error.message || ""
       if (msg.includes("attachment_url") || (msg.includes("column") && msg.includes("does not exist"))) {
-        return NextResponse.json(
-          { error: "Assignment attachment not supported yet. Run script 060_add_assignment_attachment_url.sql in Supabase SQL Editor, then try again." },
-          { status: 400 }
-        )
+        const { attachment_url: _skip, ...payloadWithoutAttachment } = updatePayload
+        const retry = await supabase
+          .from("assignments")
+          .update(payloadWithoutAttachment)
+          .eq("id", assignmentId)
+          .select()
+          .single()
+        if (retry.error) {
+          return NextResponse.json({ error: retry.error.message }, { status: 500 })
+        }
+        return NextResponse.json({
+          assignment: retry.data,
+          warning: "Optional PDF was not saved. Run script 060_add_assignment_attachment_url.sql in Supabase SQL Editor to enable it.",
+        })
       }
-      return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
+
+    if (result.error) {
+      return NextResponse.json({ error: result.error.message }, { status: 500 })
+    }
+
+    const updatedAssignment = result.data
 
     // If just published, notify enrolled students
     if (body.isPublished && !assignment.is_published) {
