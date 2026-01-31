@@ -73,6 +73,7 @@ export async function POST(
       submission_text: submissionText || null,
       file_url: fileUrl || null,
       status: "submitted",
+      submitted_at: new Date().toISOString(),
     }
 
     if (existingSubmission) {

@@ -32,6 +32,8 @@ interface Assignment {
   assignment_type: string
   max_points: number
   due_date: string | null
+  max_file_size_mb?: number
+  allowed_file_types?: string[]
   courses: {
     title: string
   } | null
@@ -129,7 +131,8 @@ export default function StudentAssignmentDetailPage() {
   const handleFileUpload = async (file: File): Promise<string> => {
     setUploading(true)
     setUploadProgress(0)
-    
+    let progressInterval: ReturnType<typeof setInterval> | null = null
+
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("Not authenticated")
@@ -150,55 +153,42 @@ export default function StudentAssignmentDetailPage() {
 
       const fileExt = file.name.split('.').pop()
       const fileName = `${user.id}-${Date.now()}.${fileExt}`
-      const filePath = `assignments/${assignmentId}/${fileName}`
+      const filePath = `${assignmentId}/${fileName}`
 
-      // Simulate upload progress
-      const progressInterval = setInterval(() => {
+      // Simulate upload progress (stops at 90% until upload completes)
+      progressInterval = setInterval(() => {
         setUploadProgress(prev => Math.min(prev + 10, 90))
       }, 200)
 
-      // Upload file to Supabase Storage
+      // Upload file to Supabase Storage (upsert: true so resubmit overwrites)
       const { error: uploadError } = await supabase.storage
         .from("assignments")
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: false
+          upsert: true
         })
 
-      clearInterval(progressInterval)
+      if (progressInterval) {
+        clearInterval(progressInterval)
+        progressInterval = null
+      }
       setUploadProgress(100)
 
       if (uploadError) {
-        // If file already exists, try to overwrite
-        if (uploadError.message.includes('already exists')) {
-          const { error: updateError } = await supabase.storage
-            .from("assignments")
-            .update(filePath, file, {
-              cacheControl: '3600',
-              upsert: true
-            })
-          
-          if (updateError) throw updateError
-        } else {
-          throw uploadError
+        if (uploadError.message?.includes('Bucket not found') || uploadError.message?.includes('does not exist')) {
+          throw new Error("File storage is not set up. Please ask your instructor or admin to run the assignments storage setup.")
         }
+        throw new Error(uploadError.message || "Upload failed")
       }
 
-      // Get signed URL for the file (works for both public and private buckets)
-      const { data: signedData, error: signedError } = await supabase
-        .storage
+      // Use public URL (bucket is public)
+      const { data: { publicUrl } } = supabase.storage
         .from("assignments")
-        .createSignedUrl(filePath, 31536000) // 1 year expiry
-
-      if (!signedError && signedData?.signedUrl) {
-        return signedData.signedUrl
-      } else {
-        // Fallback to public URL
-        const { data: { publicUrl } } = supabase.storage
-          .from("assignments")
-          .getPublicUrl(filePath)
-        return publicUrl
-      }
+        .getPublicUrl(filePath)
+      return publicUrl
+    } catch (err: any) {
+      if (progressInterval) clearInterval(progressInterval)
+      throw err
     } finally {
       setUploading(false)
       setUploadProgress(0)
@@ -254,10 +244,20 @@ export default function StudentAssignmentDetailPage() {
 
       let fileUrl = uploadedFileUrl || submission?.file_url || null
 
-      // Upload new file if one was selected
+      // Upload new file if one was selected (errors from handleFileUpload surface via toast in catch)
       if (submissionFile) {
-        fileUrl = await handleFileUpload(submissionFile)
-        setUploadedFileUrl(fileUrl)
+        try {
+          fileUrl = await handleFileUpload(submissionFile)
+          setUploadedFileUrl(fileUrl)
+        } catch (uploadErr: any) {
+          toast({
+            title: tCommon('error'),
+            description: uploadErr?.message || "File upload failed",
+            variant: "destructive",
+          })
+          setSubmitting(false)
+          return
+        }
       }
 
       const submissionData: any = {
