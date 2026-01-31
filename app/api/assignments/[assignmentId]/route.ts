@@ -157,26 +157,35 @@ export async function PATCH(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    // Update assignment
+    // Build update payload; only include defined fields so we don't send undefined to DB
+    const updatePayload: Record<string, unknown> = {
+      title: body.title,
+      description: body.description,
+      instructions: body.instructions ?? null,
+      due_date: body.dueDate ?? null,
+      max_points: body.maxPoints ?? 100,
+      assignment_type: body.assignmentType ?? "essay",
+      is_published: body.isPublished ?? false,
+    }
+    if (body.allowedFileTypes !== undefined) updatePayload.allowed_file_types = body.allowedFileTypes
+    if (body.maxFileSizeMb !== undefined) updatePayload.max_file_size_mb = body.maxFileSizeMb
+    if (body.attachment_url !== undefined) updatePayload.attachment_url = body.attachment_url
+
     const { data: updatedAssignment, error: updateError } = await supabase
       .from("assignments")
-      .update({
-        title: body.title,
-        description: body.description,
-        instructions: body.instructions,
-        due_date: body.dueDate,
-        max_points: body.maxPoints,
-        assignment_type: body.assignmentType,
-        allowed_file_types: body.allowedFileTypes,
-        max_file_size_mb: body.maxFileSizeMb,
-        is_published: body.isPublished,
-        ...(body.attachment_url !== undefined && { attachment_url: body.attachment_url }),
-      })
+      .update(updatePayload)
       .eq("id", assignmentId)
       .select()
       .single()
 
     if (updateError) {
+      const msg = updateError.message || ""
+      if (msg.includes("attachment_url") || (msg.includes("column") && msg.includes("does not exist"))) {
+        return NextResponse.json(
+          { error: "Assignment attachment not supported yet. Run script 060_add_assignment_attachment_url.sql in Supabase SQL Editor, then try again." },
+          { status: 400 }
+        )
+      }
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
