@@ -81,7 +81,9 @@
     "email": "Email",
     "by": "by",
     "banned": "Banned",
-    "inactive": "Inactive"
+    "inactive": "Inactive",
+    "saveChanges": "Save Changes",
+    "saving": "Saving..."
   },
   "navigation": {
     "home": "Home",
@@ -1165,7 +1167,11 @@
     "published": "Published",
     "submissions": "submissions",
     "editAssignment": "Edit Assignment",
-    "assignmentUpdated": "Assignment updated successfully"
+    "assignmentUpdated": "Assignment updated successfully",
+    "assignmentTypeHint": "File Upload: students submit a PDF/file. Text/Essay: students answer in the box. You can add an optional PDF below for students to download.",
+    "optionalAssignmentPdf": "Optional assignment PDF",
+    "optionalAssignmentPdfHint": "Attach a PDF (e.g. worksheet) for students to download and complete. Leave empty to use description/instructions only.",
+    "downloadAssignmentPdf": "Download assignment PDF"
   },
   "announcements": {
     "title": "Announcements",

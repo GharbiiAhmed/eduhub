@@ -34,6 +34,7 @@ interface Assignment {
   due_date: string | null
   max_file_size_mb?: number
   allowed_file_types?: string[]
+  attachment_url?: string | null
   courses: {
     title: string
   } | null
@@ -414,6 +415,21 @@ export default function StudentAssignmentDetailPage() {
                 <h3 className="font-semibold mb-2">{t('description')}</h3>
                 <p className="text-muted-foreground whitespace-pre-wrap">{assignment.description}</p>
               </div>
+
+              {assignment.attachment_url && (
+                <div>
+                  <h3 className="font-semibold mb-2">{t('downloadAssignmentPdf') || 'Assignment PDF'}</h3>
+                  <a
+                    href={assignment.attachment_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-primary hover:underline"
+                  >
+                    <Download className="w-4 h-4" />
+                    {t('downloadAssignmentPdf') || 'Download assignment PDF'}
+                  </a>
+                </div>
+              )}
 
               <div className="flex items-center gap-4 text-sm">
                 <div className="flex items-center gap-2">

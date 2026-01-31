@@ -81,7 +81,9 @@
     "email": "E-mail",
     "by": "par",
     "banned": "Banni",
-    "inactive": "Inactif"
+    "inactive": "Inactif",
+    "saveChanges": "Enregistrer les modifications",
+    "saving": "Enregistrement..."
   },
   "navigation": {
     "home": "Accueil",

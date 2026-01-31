@@ -170,6 +170,7 @@ export async function PATCH(
         allowed_file_types: body.allowedFileTypes,
         max_file_size_mb: body.maxFileSizeMb,
         is_published: body.isPublished,
+        ...(body.attachment_url !== undefined && { attachment_url: body.attachment_url }),
       })
       .eq("id", assignmentId)
       .select()
