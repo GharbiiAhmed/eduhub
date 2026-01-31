@@ -35,6 +35,7 @@ interface Assignment {
   assignment_type: string
   is_published: boolean
   created_at: string
+  attachment_url?: string | null
   courses: {
     id: string
     title: string
@@ -215,6 +216,21 @@ export default function AssignmentDetailPage() {
                     <p className="text-gray-600 dark:text-gray-400 mt-1 whitespace-pre-wrap">
                       {assignment.instructions}
                     </p>
+                  </div>
+                )}
+
+                {assignment.attachment_url && (
+                  <div>
+                    <Label className="text-sm font-semibold">{t('downloadAssignmentPdf') || 'Assignment PDF'}</Label>
+                    <a
+                      href={assignment.attachment_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-primary hover:underline mt-1"
+                    >
+                      <Download className="w-4 h-4" />
+                      {t('downloadAssignmentPdf') || 'Download assignment PDF'}
+                    </a>
                   </div>
                 )}
 
