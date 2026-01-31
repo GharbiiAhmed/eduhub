@@ -1171,7 +1171,8 @@
     "assignmentTypeHint": "File Upload: students submit a PDF/file. Text/Essay: students answer in the box. You can add an optional PDF below for students to download.",
     "optionalAssignmentPdf": "Optional assignment PDF",
     "optionalAssignmentPdfHint": "Attach a PDF (e.g. worksheet) for students to download and complete. Leave empty to use description/instructions only.",
-    "downloadAssignmentPdf": "Download assignment PDF"
+    "downloadAssignmentPdf": "Download assignment PDF",
+    "noAssignmentPdf": "No PDF attached."
   },
   "announcements": {
     "title": "Announcements",

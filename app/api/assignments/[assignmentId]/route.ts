@@ -29,7 +29,7 @@ export async function GET(
       return NextResponse.json({ error: "User profile not found" }, { status: 404 })
     }
 
-    // Get assignment with course details
+    // Get assignment with course details (* includes attachment_url when column exists)
     const { data: assignment, error } = await supabase
       .from("assignments")
       .select(`

@@ -219,9 +219,9 @@ export default function AssignmentDetailPage() {
                   </div>
                 )}
 
-                {assignment.attachment_url && (
-                  <div>
-                    <Label className="text-sm font-semibold">{t('downloadAssignmentPdf') || 'Assignment PDF'}</Label>
+                <div>
+                  <Label className="text-sm font-semibold">{t('downloadAssignmentPdf') || 'Assignment PDF'}</Label>
+                  {assignment.attachment_url ? (
                     <a
                       href={assignment.attachment_url}
                       target="_blank"
@@ -231,8 +231,15 @@ export default function AssignmentDetailPage() {
                       <Download className="w-4 h-4" />
                       {t('downloadAssignmentPdf') || 'Download assignment PDF'}
                     </a>
-                  </div>
-                )}
+                  ) : (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {t('noAssignmentPdf') || 'No PDF attached.'}{' '}
+                      <Link href={`/instructor/assignments/${assignmentId}/edit`} className="text-primary hover:underline">
+                        {tCommon('edit')}
+                      </Link>
+                    </p>
+                  )}
+                </div>
 
                 <div className="grid grid-cols-2 gap-4 pt-4 border-t">
                   <div className="flex items-center gap-2">
